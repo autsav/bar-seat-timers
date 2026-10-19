@@ -342,6 +342,24 @@
     *, *::before, *::after { transition: none !important; animation: none !important; }
     .seat::after { opacity: .5; }
   }
+
+  /* Stronger frosted menu. The header's own blur moves to a pseudo-element so the
+     menu's backdrop-filter can blur the page behind it (nested backdrop-filters don't). */
+  .topbar { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .topbar::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    background: color-mix(in srgb, var(--glass-strong) 85%, transparent);
+    -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur); }
+  .menu-panel { --menu-blur: blur(32px) saturate(180%);
+    background: rgba(14, 18, 28, .86);
+    -webkit-backdrop-filter: var(--menu-blur); backdrop-filter: var(--menu-blur);
+    border-color: rgba(255,255,255,.16); }
+  body.light .menu-panel { background: rgba(255,255,255,.9); border-color: rgba(15,23,42,.12); }
+  body.high-contrast .menu-panel { background: #000; --menu-blur: none; }
+  .menu-panel .menu-title { color: color-mix(in srgb, var(--text) 70%, transparent); }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .menu-panel { background: rgba(14, 18, 28, .97); }
+    body.light .menu-panel { background: rgba(255,255,255,.98); }
+  }
 </style>
 </head>
 <body>
