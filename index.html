@@ -115,6 +115,47 @@
   .history-wrap { overflow-x: auto; }
   #analytics { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; font-size: .85rem; }
   kbd { background: var(--card-2); color: var(--text); border: 1px solid var(--border); padding: 1px 6px; border-radius: 6px; font-size: .75rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+  .topbar { position: sticky; top: 0; z-index: 50; max-width: none; margin: -28px -24px 24px; padding: 10px 24px;
+    background: color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter: saturate(160%) blur(12px); -webkit-backdrop-filter: saturate(160%) blur(12px);
+    border-bottom: 1px solid var(--border); }
+  .topbar-row { display: flex; align-items: center; gap: 14px; max-width: 1200px; margin: 0 auto; }
+  .topbar h1 { margin: 0; font-size: 1.1rem; white-space: nowrap; text-align: left; }
+  .summary { flex: 1; min-width: 0; display: flex; flex-wrap: nowrap; gap: 6px; margin: 0; justify-content: flex-start;
+    overflow-x: auto; scrollbar-width: none; font-size: .78rem; }
+  .summary::-webkit-scrollbar { display: none; }
+  .summary .chip { white-space: nowrap; padding: 4px 10px; background: transparent; }
+  .menu-btn { white-space: nowrap; padding: 8px 12px; }
+  .menu-panel { position: absolute; right: max(24px, calc((100vw - 1200px) / 2)); top: calc(100% + 8px); width: min(560px, calc(100vw - 24px));
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 16px; background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; box-shadow: 0 20px 50px rgba(0,0,0,.35); animation: menuIn .18s ease; }
+  .menu-panel[hidden] { display: none; }
+  @keyframes menuIn { from { opacity: 0; transform: translateY(-6px) scale(.98); } }
+  .menu-title { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 650; margin: 0 0 6px 4px; }
+  .menu-group { display: flex; flex-direction: column; gap: 2px; }
+  .mi { background: transparent; color: var(--text); text-align: left; border: 0; padding: 9px 10px; font-weight: 500; }
+  .mi:hover { background: var(--card-2); box-shadow: none; }
+  .mi.danger { color: var(--red); }
+  .mi.danger:hover { background: var(--red-soft); }
+  .action-bar { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 40; display: flex; align-items: center; gap: 6px;
+    padding: 8px; background: var(--card); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 16px 40px rgba(0,0,0,.35);
+    animation: barIn .2s ease; max-width: calc(100vw - 20px); }
+  .action-bar[hidden] { display: none; }
+  @keyframes barIn { from { opacity: 0; transform: translate(-50%, 10px); } }
+  .ab-count { font-size: .8rem; color: var(--muted); padding: 0 8px; white-space: nowrap; }
+  .ab-end:hover { background: var(--red-soft); color: var(--red); }
+  body.has-selection { padding-bottom: 96px; }
+  @media (max-width: 640px) {
+    .topbar { margin: -14px -12px 16px; padding: 8px 12px; }
+    .topbar-row { flex-wrap: wrap; gap: 8px; }
+    .topbar h1 { flex: 1; font-size: 1rem; }
+    .menu-btn { order: 2; min-height: 38px; }
+    .summary { order: 3; flex-basis: 100%; }
+    .menu-panel { left: 12px; right: 12px; width: auto; grid-template-columns: 1fr; max-height: 75vh; overflow-y: auto; }
+    .mi { min-height: 42px; }
+    .action-bar { bottom: 12px; gap: 4px; padding: 6px; }
+    .action-bar button { padding: 9px 10px; min-height: 42px; }
+  }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
   @media (max-width: 640px) {
     body { padding: 14px 12px; }
@@ -133,26 +174,44 @@
 </style>
 </head>
 <body>
-<header>
-  <h1>🍸 Advanced Seat Timers</h1>
-  <div class="toolbar">
-    <button onclick="startSelected()">▶ Start Selected</button>
-    <button onclick="pauseSelected()">⏸ Pause/Resume Selected</button>
-    <button onclick="extendSelected()">+15 Selected</button>
-    <button onclick="resetSelected()" class="secondary">⏹ End Selected</button>
-    <button onclick="selectAll()" class="secondary">Select All</button>
-    <button onclick="clearSelection()" class="secondary">Clear Selection</button>
+<header class="topbar">
+  <div class="topbar-row">
+    <h1>🍸 Seat Timers</h1>
+    <div class="summary" id="summary"></div>
+    <button id="menuBtn" class="menu-btn secondary" aria-haspopup="true" aria-expanded="false" aria-controls="menuPanel" onclick="toggleMenu()">☰ <span class="menu-txt">Menu</span></button>
   </div>
-  <div class="controls">
-    <button onclick="resetAll()" class="secondary">Reset All</button>
-    <button onclick="toggleTheme()" class="secondary">🌓 Theme</button>
-    <button onclick="toggleSettings()" class="secondary">⚙ Settings</button>
-    <button onclick="toggleHistory()" class="secondary">📜 History</button>
-    <button onclick="toggleGuestView()" class="secondary">👁 Guest View</button>
-    <button onclick="requestNotify()" class="secondary">🔔 Enable Alerts</button>
-  </div>
-  <div class="summary" id="summary"></div>
+  <nav id="menuPanel" class="menu-panel" role="menu" hidden>
+    <div class="menu-group"><div class="menu-title">Selected seats</div>
+      <button class="mi" onclick="menuDo(startSelected)">▶ Start Selected</button>
+      <button class="mi" onclick="menuDo(pauseSelected)">⏸ Pause/Resume Selected</button>
+      <button class="mi" onclick="menuDo(extendSelected)">+15 Selected</button>
+      <button class="mi" onclick="menuDo(resetSelected)">⏹ End Selected</button>
+    </div>
+    <div class="menu-group"><div class="menu-title">Selection</div>
+      <button class="mi" onclick="menuDo(selectAll)">☑ Select All</button>
+      <button class="mi" onclick="menuDo(clearSelection)">☐ Clear Selection</button>
+    </div>
+    <div class="menu-group"><div class="menu-title">Views</div>
+      <button class="mi" onclick="menuDo(toggleHistory)">📜 History</button>
+      <button class="mi" onclick="menuDo(toggleGuestView)">👁 Guest View</button>
+      <button class="mi" onclick="menuDo(toggleSettings)">⚙ Settings</button>
+      <button class="mi" onclick="menuDo(exportCSV)">⬇ Export CSV</button>
+    </div>
+    <div class="menu-group"><div class="menu-title">System</div>
+      <button class="mi" onclick="menuDo(toggleTheme)">🌓 Theme</button>
+      <button class="mi" onclick="menuDo(requestNotify)">🔔 Enable Alerts</button>
+      <button class="mi danger" onclick="menuDo(resetAll)">⚠ Reset All</button>
+    </div>
+  </nav>
 </header>
+<div id="actionBar" class="action-bar" hidden>
+  <span id="actionCount" class="ab-count"></span>
+  <button onclick="startSelected()">▶ Start</button>
+  <button onclick="pauseSelected()" class="secondary">⏸ Pause</button>
+  <button onclick="extendSelected()" class="secondary">+15</button>
+  <button onclick="resetSelected()" class="secondary ab-end">⏹ End</button>
+  <button onclick="clearSelection()" class="ab-x secondary" aria-label="Clear selection">✕</button>
+</div>
 
 <div class="seats" id="seats"></div>
 
@@ -459,6 +518,10 @@ function updateSummary() {
     nextText = next.rem <= 0 ? `${next.id.toUpperCase()} is over time` : `Next free: ${next.id.toUpperCase()} in ${formatTime(next.rem)}`;
   }
   const sel = SEAT_IDS.filter(id => seats[id].selected).length;
+  const bar = document.getElementById('actionBar');
+  bar.hidden = sel === 0;
+  document.body.classList.toggle('has-selection', sel > 0);
+  document.getElementById('actionCount').textContent = sel + ' selected';
   document.getElementById('summary').innerHTML =
     `<span class="chip">Occupied <b>${occ}/8</b></span><span class="chip">Free <b>${free}</b></span><span class="chip">Selected <b>${sel}</b></span><span class="chip"><span class="dot" style="background:var(--yellow);margin-left:0"></span>Amber <b>${yellow}</b></span><span class="chip"><span class="dot" style="background:var(--red);margin-left:0"></span>Red <b>${red}</b></span><span class="chip next">${nextText}</span>`;
 }
@@ -595,6 +658,18 @@ function renderSeats() {
     cont.appendChild(d);
   });
 }
+
+function toggleMenu(force) {
+  const p = document.getElementById('menuPanel'), b = document.getElementById('menuBtn');
+  const open = force === undefined ? p.hidden : force;
+  p.hidden = !open; b.setAttribute('aria-expanded', String(open));
+}
+function menuDo(fn) { toggleMenu(false); fn(); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') toggleMenu(false); });
+document.addEventListener('click', e => {
+  const p = document.getElementById('menuPanel');
+  if (!p.hidden && !p.contains(e.target) && !document.getElementById('menuBtn').contains(e.target)) toggleMenu(false);
+});
 
 document.addEventListener('keydown', e => {
   const t = e.target;
