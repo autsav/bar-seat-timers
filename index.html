@@ -320,7 +320,7 @@ function endSession(id, auto) {
   const s = seats[id];
   if (s.running && s.startTime) {
     history.push({ seat: id, name: s.name, notes: s.notes, durationMin: Math.round(getElapsed(s) / 60000),
-                   extensions: s.extensions, start: s.sessionStart || new Date(s.startTime).toISOString(), autoEnd: !!auto });
+                   extensions: s.extensions, start: s.sessionStart || new Date(s.startTime).toISOString(), end: new Date().toISOString(), autoEnd: !!auto });
   }
   const keepSel = s.selected;
   seats[id] = { ...blankSeat(), selected: keepSel };
@@ -455,9 +455,9 @@ function updateSummary() {
 function renderHistory() {
   const div = document.getElementById('historyTable');
   if (!history.length) { div.innerHTML = '<p>No sessions yet.</p>'; document.getElementById('analytics').textContent = ''; return; }
-  let html = '<table><tr><th>Seat</th><th>Name</th><th>Duration</th><th>Ext</th><th>Start</th></tr>';
+  let html = '<table><tr><th>Seat</th><th>Name</th><th>Duration</th><th>Ext</th><th>Start</th><th>End</th></tr>';
   history.slice().reverse().slice(0, 50).forEach(h => {
-    html += `<tr><td>${escapeHTML(String(h.seat).toUpperCase())}</td><td>${escapeHTML(h.name || '-')}</td><td>${escapeHTML(h.durationMin)} min</td><td>${escapeHTML(h.extensions)}</td><td>${escapeHTML(new Date(h.start).toLocaleString())}</td></tr>`;
+    html += `<tr><td>${escapeHTML(String(h.seat).toUpperCase())}</td><td>${escapeHTML(h.name || '-')}</td><td>${escapeHTML(h.durationMin)} min</td><td>${escapeHTML(h.extensions)}</td><td>${escapeHTML(new Date(h.start).toLocaleString())}</td><td>${escapeHTML(h.end ? new Date(h.end).toLocaleString() : '-')}</td></tr>`;
   });
   html += '</table>';
   div.innerHTML = html;
@@ -468,9 +468,9 @@ function renderHistory() {
 
 function exportCSV() {
   if (!history.length) { alert('No history'); return; }
-  let csv = 'Seat,Name,Notes,DurationMin,Extensions,Start,AutoEnd\n';
+  let csv = 'Seat,Name,Notes,DurationMin,Extensions,Start,End,AutoEnd\n';
   history.forEach(h => {
-    csv += `${h.seat},"${(h.name||'').replace(/"/g,'""')}","${(h.notes||'').replace(/"/g,'""')}",${h.durationMin},${h.extensions},${h.start},${h.autoEnd}\n`;
+    csv += `${h.seat},"${(h.name||'').replace(/"/g,'""')}","${(h.notes||'').replace(/"/g,'""')}",${h.durationMin},${h.extensions},${h.start},${h.end || ''},${h.autoEnd}\n`;
   });
   const blob = new Blob([csv], {type: 'text/csv'});
   const a = document.createElement('a');
