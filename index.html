@@ -3,120 +3,131 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#0f172a">
+<meta name="theme-color" content="#0b0f17">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%F0%9F%8D%B8%3C/text%3E%3C/svg%3E">
 <title>Advanced Seat Timers - Multi Select</title>
 <style>
   :root {
-    --green: #22c55e;
-    --yellow: #ca8a04;
-    --red: #ef4444;
-    --bg: #0f172a;
-    --card: #1e293b;
-    --text: #f1f5f9;
-    --accent: #3b82f6;
-    --select: #60a5fa;
+    --green: #16a34a; --green-soft: rgba(22,163,74,.14);
+    --yellow: #d97706; --yellow-soft: rgba(217,119,6,.16);
+    --red: #dc2626; --red-soft: rgba(220,38,38,.15);
+    --bg: #0b0f17; --bg2: #111827; --card: #151b26; --card-2: #1c2433;
+    --border: rgba(255,255,255,.08); --text: #e8edf5; --muted: #8b95a7;
+    --accent: #6366f1; --accent-2: #818cf8; --select: #818cf8;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+    --radius: 18px;
   }
   body.light {
-    --bg: #f8fafc;
-    --card: #ffffff;
-    --text: #0f172a;
+    --bg: #f4f6fa; --bg2: #eef1f6; --card: #ffffff; --card-2: #f6f8fb;
+    --border: rgba(15,23,42,.08); --text: #0f172a; --muted: #64748b;
+    --shadow: 0 1px 2px rgba(15,23,42,.05), 0 8px 24px rgba(15,23,42,.07);
   }
   body.high-contrast {
-    --green: #00ff00;
-    --yellow: #ffff00;
-    --red: #ff0000;
-    --bg: #000000;
-    --card: #111111;
-    --text: #ffffff;
+    --green: #00ff00; --yellow: #ffff00; --red: #ff0000;
+    --bg: #000; --bg2: #000; --card: #111; --card-2: #1a1a1a; --text: #fff; --muted: #ddd; --border: #fff;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    padding: 16px;
-    transition: background 0.3s, color 0.3s;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: radial-gradient(1200px 600px at 50% -200px, var(--bg2), var(--bg));
+    color: var(--text); min-height: 100vh; padding: 28px 24px;
+    line-height: 1.45; -webkit-font-smoothing: antialiased;
+    transition: background .3s, color .3s;
   }
-  header { text-align: center; margin-bottom: 16px; }
-  h1 { margin: 0 0 8px; font-size: 1.6rem; }
-  .toolbar, .summary, .controls {
+  header { max-width: 1200px; margin: 0 auto 24px; }
+  h1 { margin: 0 0 18px; font-size: 1.75rem; font-weight: 700; letter-spacing: -.02em; text-align: center; }
+  h3 { margin: 0 0 14px; font-size: 1.1rem; font-weight: 650; letter-spacing: -.01em; }
+  .toolbar, .controls {
     display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center;
-    margin-bottom: 16px;
+    margin: 0 auto 12px;
   }
+  .toolbar { background: var(--card); border: 1px solid var(--border); padding: 8px; border-radius: 14px; box-shadow: var(--shadow); width: fit-content; max-width: 100%; }
   button, .btn {
-    background: var(--accent); color: white; border: none; padding: 8px 12px;
-    border-radius: 6px; cursor: pointer; font-size: 0.85rem;
+    font: inherit; font-size: .85rem; font-weight: 550;
+    background: var(--accent); color: #fff; border: 1px solid transparent; padding: 9px 14px;
+    border-radius: 10px; cursor: pointer;
+    transition: transform .15s ease, background .2s, box-shadow .2s, opacity .2s;
   }
-  button.secondary { background: #475569; }
-  button:hover { opacity: 0.9; }
-  button:disabled { opacity: 0.5; cursor: not-allowed; }
-  .summary { background: var(--card); padding: 10px; border-radius: 10px; font-size: 0.9rem; }
+  button:hover { background: var(--accent-2); box-shadow: 0 4px 14px rgba(99,102,241,.3); }
+  button:active { transform: translateY(1px) scale(.98); }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+  button.secondary { background: var(--card-2); color: var(--text); border-color: var(--border); }
+  button.secondary:hover { background: var(--card); box-shadow: var(--shadow); }
+  button:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; transform: none; }
+  .summary {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    max-width: 1200px; margin: 6px auto 0; font-size: .85rem;
+  }
+  .chip { background: var(--card); border: 1px solid var(--border); padding: 6px 12px; border-radius: 999px; color: var(--muted); }
+  .chip b { color: var(--text); font-weight: 650; font-variant-numeric: tabular-nums; }
+  .chip.next { color: var(--text); background: var(--card-2); }
   .seats {
-    display: flex; flex-wrap: wrap; justify-content: center; gap: 16px;
-    max-width: 1400px; margin: 0 auto 20px;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 18px;
+    max-width: 1200px; margin: 0 auto 24px;
   }
   .seat {
-    width: 180px; background: var(--card); border: 3px solid #334155;
-    border-radius: 14px; padding: 12px; text-align: center; position: relative;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.25); transition: all 0.3s;
+    background: var(--card); border: 1px solid var(--border); border-top: 4px solid var(--border);
+    border-radius: var(--radius); padding: 16px; position: relative; box-shadow: var(--shadow);
+    transition: transform .2s ease, box-shadow .25s ease, border-color .25s, background .25s;
   }
-  .seat.selected {
-    border-color: var(--select);
-    box-shadow: 0 0 12px var(--select);
-    background: #1e3a5f;
-  }
-  body.light .seat.selected { background: #dbeafe; }
-  .seat.green { border-color: var(--green); box-shadow: 0 0 18px var(--green); }
-  .seat.yellow { border-color: var(--yellow); box-shadow: 0 0 18px var(--yellow); }
-  .seat.red { border-color: var(--red); box-shadow: 0 0 18px var(--red); animation: pulse 1.5s infinite; }
-  @keyframes pulse { 50% { box-shadow: 0 0 28px var(--red); } }
-  .seat-name { font-weight: 700; font-size: 1.2rem; margin-bottom: 4px; cursor: pointer; }
-  .timer { font-size: 1.4rem; font-variant-numeric: tabular-nums; margin: 6px 0; }
-  .progress-container { height: 8px; background: #334155; border-radius: 4px; overflow: hidden; margin: 6px 0; }
-  .progress-bar { height: 100%; width: 0%; background: var(--green); transition: width 0.2s; }
+  .seat:hover { transform: translateY(-2px); }
+  .seat.selected { box-shadow: 0 0 0 2px var(--select), var(--shadow); }
+  .seat.green { border-top-color: var(--green); background: linear-gradient(180deg, var(--green-soft), var(--card) 45%); }
+  .seat.yellow { border-top-color: var(--yellow); background: linear-gradient(180deg, var(--yellow-soft), var(--card) 45%); }
+  .seat.red { border-top-color: var(--red); background: linear-gradient(180deg, var(--red-soft), var(--card) 45%); animation: pulse 1.8s ease-in-out infinite; }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 3px var(--red-soft), var(--shadow); } }
+  .seat-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .seat-label { font-weight: 700; font-size: 1.15rem; letter-spacing: -.01em; cursor: pointer; user-select: none; }
+  .timer { font-size: 2rem; font-weight: 650; letter-spacing: -.02em; font-variant-numeric: tabular-nums; margin: 8px 0 6px; }
+  .progress-container { height: 6px; background: var(--card-2); border-radius: 999px; overflow: hidden; margin: 6px 0 8px; }
+  .progress-bar { height: 100%; width: 0%; background: var(--green); border-radius: 999px; transition: width .3s ease, background .3s; }
   .progress-bar.yellow { background: var(--yellow); }
   .progress-bar.red { background: var(--red); }
   input, textarea, select {
-    width: 100%; padding: 4px 6px; margin: 4px 0; border: 1px solid #475569;
-    border-radius: 4px; background: #0f172a; color: var(--text); font-size: 0.8rem;
+    width: 100%; padding: 8px 10px; margin: 4px 0; border: 1px solid var(--border);
+    border-radius: 10px; background: var(--card-2); color: var(--text); font: inherit; font-size: .85rem;
+    transition: border-color .2s, box-shadow .2s;
   }
-  body.light input, body.light textarea { background: #fff; color: #000; }
-  .seat-actions { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
-  .seat-actions button { flex: 1 1 calc(50% - 4px); padding: 5px 4px; font-size: 0.75rem; }
-  .status { font-size: 0.75rem; opacity: 0.8; min-height: 1.2em; }
-  .select-box { font-size: 0.75rem; margin: 4px 0; }
+  input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,.2); }
+  .seat-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 12px; }
+  .seat-actions button { padding: 8px 6px; font-size: .8rem; }
+  .status { font-size: .78rem; color: var(--muted); min-height: 1.2em; }
+  .select-box { font-size: .75rem; color: var(--muted); display: flex; align-items: center; gap: 4px; cursor: pointer; }
   .history, .settings-panel, .guest-view {
-    max-width: 900px; margin: 20px auto; background: var(--card); padding: 16px;
-    border-radius: 12px; display: none;
+    max-width: 960px; margin: 24px auto; background: var(--card); padding: 24px;
+    border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); display: none;
   }
-  .history table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-  .history th, .history td { border: 1px solid #475569; padding: 6px; text-align: left; }
-  .legend { text-align: center; margin: 10px 0; font-size: 0.85rem; }
-  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
-  footer { text-align: center; margin-top: 30px; font-size: 0.75rem; opacity: 0.7; }
-  .select-box input[type=checkbox], .settings-panel input[type=checkbox] { width: auto; margin-right: 4px; }
-  .settings-panel label { display: block; margin: 8px 0; font-size: 0.85rem; }
-  .settings-panel .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-  #guestSeats { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+  .history table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  .history th { text-align: left; color: var(--muted); font-weight: 600; font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; padding: 10px; border-bottom: 1px solid var(--border); }
+  .history td { padding: 10px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+  .history tr:hover td { background: var(--card-2); }
+  .legend { text-align: center; margin: 12px 0; font-size: .82rem; color: var(--muted); }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin: 0 5px 0 10px; vertical-align: middle; }
+  footer { text-align: center; margin-top: 32px; font-size: .75rem; color: var(--muted); }
+  .select-box input[type=checkbox], .settings-panel input[type=checkbox] { width: auto; margin: 0 6px 0 0; accent-color: var(--accent); }
+  .settings-panel label { display: block; margin: 12px 0; font-size: .88rem; color: var(--muted); }
+  .settings-panel .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+  #guestSeats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+  .guest-card { text-align: center; padding: 18px 12px; border-radius: 14px; background: var(--card-2); border: 1px solid var(--border); border-top: 4px solid var(--border); }
+  .guest-card.green { border-top-color: var(--green); } .guest-card.yellow { border-top-color: var(--yellow); } .guest-card.red { border-top-color: var(--red); }
+  .guest-card .gt { display: block; font-size: 1.8rem; font-weight: 650; font-variant-numeric: tabular-nums; margin-top: 4px; }
   .history-wrap { overflow-x: auto; }
-  kbd { background: #334155; color: #f1f5f9; padding: 1px 5px; border-radius: 3px; font-size: 0.75rem; }
-
-  /* Mobile */
+  #analytics { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; font-size: .85rem; }
+  kbd { background: var(--card-2); color: var(--text); border: 1px solid var(--border); padding: 1px 6px; border-radius: 6px; font-size: .75rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
   @media (max-width: 640px) {
-    body { padding: 10px; }
-    h1 { font-size: 1.3rem; }
-    .toolbar, .controls { gap: 6px; }
-    .toolbar button, .controls button { flex: 1 1 calc(33% - 6px); min-height: 40px; padding: 8px 6px; }
-    .seats { gap: 10px; }
-    .seat { width: calc(50% - 5px); padding: 10px 8px; }
-    .seat-name { font-size: 1.1rem; }
-    .timer { font-size: 1.25rem; }
-    .seat-actions button { flex: 1 1 calc(50% - 4px); min-height: 36px; font-size: 0.8rem; }
-    input, textarea, select { font-size: 16px; } /* stops zoom-on-focus on mobile */
-    .summary { font-size: 0.8rem; }
+    body { padding: 14px 12px; }
+    h1 { font-size: 1.35rem; margin-bottom: 12px; }
+    .toolbar { width: 100%; }
+    .toolbar button, .controls button { flex: 1 1 calc(33% - 8px); min-height: 42px; padding: 8px 6px; }
+    .seats { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .seat { padding: 12px; }
+    .timer { font-size: 1.5rem; }
+    .seat-actions button { min-height: 38px; }
+    input, textarea, select { font-size: 16px; }
+    .summary { font-size: .78rem; }
+    .history, .settings-panel, .guest-view { padding: 16px; }
     .help { display: none; }
   }
 </style>
@@ -154,7 +165,7 @@
 <p class="legend help">
   Shortcuts: <kbd>1</kbd>–<kbd>8</kbd> start a free seat or select/deselect a running one ·
   <kbd>Shift</kbd>+<kbd>1</kbd>–<kbd>8</kbd> reset that seat · <kbd>R</kbd> reset all ·
-  click a seat name to select it
+  click a seat label to select it
 </p>
 
 <div class="settings-panel" id="settingsPanel">
@@ -174,7 +185,7 @@
 
 <div class="history" id="historyPanel">
   <h3>Session History</h3>
-  <div id="analytics" style="margin-bottom:8px;font-size:0.85rem"></div>
+  <div id="analytics"></div>
   <div class="history-wrap" id="historyTable"></div>
   <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
     <button onclick="exportCSV()">⬇ Export CSV</button>
@@ -204,7 +215,7 @@ let audioCtx = null;
 
 function blankSeat() {
   return { running: false, paused: false, startTime: null, pausedAt: null, pausedTotal: 0,
-           extraMs: 0, extensions: 0, name: '', notes: '', selected: false,
+           extraMs: 0, extensions: 0, notes: '', selected: false,
            warnedYellow: false, timeUpNotified: false, sessionStart: null };
 }
 
@@ -218,7 +229,8 @@ function loadAll() {
     const data = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
     settings = { ...DEFAULT_SETTINGS, ...(data.settings || {}) };
     history = Array.isArray(data.history) ? data.history : [];
-    SEAT_IDS.forEach(id => { seats[id] = { ...blankSeat(), ...((data.seats || {})[id] || {}) }; });
+    SEAT_IDS.forEach(id => { const saved = { ...((data.seats || {})[id] || {}) }; delete saved.name; seats[id] = { ...blankSeat(), ...saved }; });
+    history = history.map(h => { const { name: _legacy, ...rest } = h || {}; return rest; });
   } catch (e) {
     SEAT_IDS.forEach(id => { seats[id] = blankSeat(); });
   }
@@ -319,7 +331,7 @@ function extendTimer(id, silent) {
 function endSession(id, auto) {
   const s = seats[id];
   if (s.running && s.startTime) {
-    history.push({ seat: id, name: s.name, notes: s.notes, durationMin: Math.round(getElapsed(s) / 60000),
+    history.push({ seat: id, notes: s.notes, durationMin: Math.round(getElapsed(s) / 60000),
                    extensions: s.extensions, start: s.sessionStart || new Date(s.startTime).toISOString(), end: new Date().toISOString(), autoEnd: !!auto });
   }
   const keepSel = s.selected;
@@ -415,8 +427,7 @@ function updateSeat(id) {
   el.querySelector('.btn-extend').disabled = !s.running;
   el.querySelector('.btn-start').disabled = s.running && !s.paused;
   el.querySelector('.btn-reset').textContent = s.running ? 'End' : 'Reset';
-  const ni = el.querySelector('.name-input'), no = el.querySelector('.notes-input');
-  if (document.activeElement !== ni && ni.value !== s.name) ni.value = s.name;
+  const no = el.querySelector('.notes-input');
   if (document.activeElement !== no && no.value !== s.notes) no.value = s.notes;
 }
 
@@ -429,7 +440,7 @@ function checkAlerts(id) {
   }
   if (!s.timeUpNotified && el >= getDurationMs(s)) {
     s.timeUpNotified = true;
-    playBeep(1200, 0.4); notify(id.toUpperCase() + (s.name ? ' (' + s.name + ')' : '') + ': time is up');
+    playBeep(1200, 0.4); notify(id.toUpperCase() + ': time is up');
     saveAll();
     if (settings.autoEnd) endSession(id, true);   // fires once, then the seat is free
   }
@@ -449,28 +460,28 @@ function updateSummary() {
   }
   const sel = SEAT_IDS.filter(id => seats[id].selected).length;
   document.getElementById('summary').innerHTML =
-    `<strong>Occupied:</strong> ${occ}/8 &nbsp; <strong>Free:</strong> ${free} &nbsp; <strong>Selected:</strong> ${sel} &nbsp; <strong>Yellow:</strong> ${yellow} &nbsp; <strong>Red:</strong> ${red} &nbsp; <strong>${nextText}</strong>`;
+    `<span class="chip">Occupied <b>${occ}/8</b></span><span class="chip">Free <b>${free}</b></span><span class="chip">Selected <b>${sel}</b></span><span class="chip"><span class="dot" style="background:var(--yellow);margin-left:0"></span>Amber <b>${yellow}</b></span><span class="chip"><span class="dot" style="background:var(--red);margin-left:0"></span>Red <b>${red}</b></span><span class="chip next">${nextText}</span>`;
 }
 
 function renderHistory() {
   const div = document.getElementById('historyTable');
   if (!history.length) { div.innerHTML = '<p>No sessions yet.</p>'; document.getElementById('analytics').textContent = ''; return; }
-  let html = '<table><tr><th>Seat</th><th>Name</th><th>Duration</th><th>Ext</th><th>Start</th><th>End</th></tr>';
+  let html = '<table><tr><th>Seat</th><th>Duration</th><th>Ext</th><th>Start</th><th>End</th></tr>';
   history.slice().reverse().slice(0, 50).forEach(h => {
-    html += `<tr><td>${escapeHTML(String(h.seat).toUpperCase())}</td><td>${escapeHTML(h.name || '-')}</td><td>${escapeHTML(h.durationMin)} min</td><td>${escapeHTML(h.extensions)}</td><td>${escapeHTML(new Date(h.start).toLocaleString())}</td><td>${escapeHTML(h.end ? new Date(h.end).toLocaleString() : '-')}</td></tr>`;
+    html += `<tr><td>${escapeHTML(String(h.seat).toUpperCase())}</td><td>${escapeHTML(h.durationMin)} min</td><td>${escapeHTML(h.extensions)}</td><td>${escapeHTML(new Date(h.start).toLocaleString())}</td><td>${escapeHTML(h.end ? new Date(h.end).toLocaleString() : '-')}</td></tr>`;
   });
   html += '</table>';
   div.innerHTML = html;
   const total = history.length;
   const avg = total ? Math.round(history.reduce((a,b) => a + b.durationMin, 0) / total) : 0;
-  document.getElementById('analytics').textContent = `Total sessions: ${total} | Average duration: ${avg} min`;
+  document.getElementById('analytics').innerHTML = `<span class="chip">Total sessions <b>${total}</b></span><span class="chip">Average duration <b>${avg} min</b></span>`;
 }
 
 function exportCSV() {
   if (!history.length) { alert('No history'); return; }
-  let csv = 'Seat,Name,Notes,DurationMin,Extensions,Start,End,AutoEnd\n';
+  let csv = 'Seat,Notes,DurationMin,Extensions,Start,End,AutoEnd\n';
   history.forEach(h => {
-    csv += `${h.seat},"${(h.name||'').replace(/"/g,'""')}","${(h.notes||'').replace(/"/g,'""')}",${h.durationMin},${h.extensions},${h.start},${h.end || ''},${h.autoEnd}\n`;
+    csv += `${h.seat},"${(h.notes||'').replace(/"/g,'""')}",${h.durationMin},${h.extensions},${h.start},${h.end || ''},${h.autoEnd}\n`;
   });
   const blob = new Blob([csv], {type: 'text/csv'});
   const a = document.createElement('a');
@@ -522,7 +533,7 @@ function toggleGuestView() {
   const seatsDiv = document.getElementById('seats');
   if (p.style.display === 'block') {
     p.style.display = 'none';
-    seatsDiv.style.display = 'flex';
+    seatsDiv.style.display = '';
   } else {
     p.style.display = 'block';
     seatsDiv.style.display = 'none';
@@ -535,9 +546,10 @@ function renderGuestView() {
   SEAT_IDS.forEach(id => {
     const s = seats[id];
     const d = document.createElement('div');
-    d.style.cssText = 'width:140px;text-align:center;padding:12px;border-radius:10px;background:var(--card);';
+    const c = colourFor(s);
+    d.className = 'guest-card' + (c ? ' ' + c : '');
     const rem = s.running ? formatTime(Math.max(0, getDurationMs(s) - getElapsed(s))) : '--:--';
-    d.innerHTML = `<strong>${escapeHTML(id.toUpperCase())}</strong><br><span style="font-size:1.3rem">${escapeHTML(rem)}</span><br><small>${escapeHTML(s.name || '')}</small>`;
+    d.innerHTML = `<strong>${escapeHTML(id.toUpperCase())}</strong><span class="gt">${escapeHTML(rem)}</span>`;
     cont.appendChild(d);
   });
 }
@@ -559,9 +571,10 @@ function renderSeats() {
     d.className = 'seat';
     d.id = 'seat-' + id;
     d.innerHTML = `
-      <label class="select-box"><input type="checkbox" class="select-cb" aria-label="Select ${id.toUpperCase()}"> select</label>
-      <div class="seat-name" title="Click to select (key ${i + 1})">${id.toUpperCase()}</div>
-      <input class="name-input" type="text" placeholder="Guest name" maxlength="40">
+      <div class="seat-head">
+        <div class="seat-label" title="Click to select (key ${i + 1})">${id.toUpperCase()}</div>
+        <label class="select-box"><input type="checkbox" class="select-cb" aria-label="Select ${id.toUpperCase()}"> Select</label>
+      </div>
       <input class="notes-input" type="text" placeholder="Notes" maxlength="120">
       <div class="timer">--:--</div>
       <div class="progress-container"><div class="progress-bar"></div></div>
@@ -573,8 +586,7 @@ function renderSeats() {
         <button class="btn-reset secondary">Reset</button>
       </div>`;
     d.querySelector('.select-cb').addEventListener('change', () => toggleSelect(id));
-    d.querySelector('.seat-name').addEventListener('click', () => toggleSelect(id));
-    d.querySelector('.name-input').addEventListener('input', e => { seats[id].name = e.target.value; saveAll(); });
+    d.querySelector('.seat-label').addEventListener('click', () => toggleSelect(id));
     d.querySelector('.notes-input').addEventListener('input', e => { seats[id].notes = e.target.value; saveAll(); });
     d.querySelector('.btn-start').addEventListener('click', () => startTimer(id));
     d.querySelector('.btn-pause').addEventListener('click', () => togglePause(id));
