@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0f172a">
+<title>Advanced Seat Timers - Multi Select</title>
+<style>
+  :root {
+    --green: #22c55e;
+    --yellow: #ca8a04;
+    --red: #ef4444;
+    --bg: #0f172a;
+    --card: #1e293b;
+    --text: #f1f5f9;
+    --accent: #3b82f6;
+    --select: #60a5fa;
+  }
+  body.light {
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --text: #0f172a;
+  }
+  body.high-contrast {
+    --green: #00ff00;
+    --yellow: #ffff00;
+    --red: #ff0000;
+    --bg: #000000;
+    --card: #111111;
+    --text: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 16px;
+    transition: background 0.3s, color 0.3s;
+  }
+  header { text-align: center; margin-bottom: 16px; }
+  h1 { margin: 0 0 8px; font-size: 1.6rem; }
+  .toolbar, .summary, .controls {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center;
+    margin-bottom: 16px;
+  }
+  button, .btn {
+    background: var(--accent); color: white; border: none; padding: 8px 12px;
+    border-radius: 6px; cursor: pointer; font-size: 0.85rem;
+  }
+  button.secondary { background: #475569; }
+  button:hover { opacity: 0.9; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .summary { background: var(--card); padding: 10px; border-radius: 10px; font-size: 0.9rem; }
+  .seats {
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 16px;
+    max-width: 1400px; margin: 0 auto 20px;
+  }
+  .seat {
+    width: 180px; background: var(--card); border: 3px solid #334155;
+    border-radius: 14px; padding: 12px; text-align: center; position: relative;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.25); transition: all 0.3s;
+  }
+  .seat.selected {
+    border-color: var(--select);
+    box-shadow: 0 0 12px var(--select);
+    background: #1e3a5f;
+  }
+  body.light .seat.selected { background: #dbeafe; }
+  .seat.green { border-color: var(--green); box-shadow: 0 0 18px var(--green); }
+  .seat.yellow { border-color: var(--yellow); box-shadow: 0 0 18px var(--yellow); }
+  .seat.red { border-color: var(--red); box-shadow: 0 0 18px var(--red); animation: pulse 1.5s infinite; }
+  @keyframes pulse { 50% { box-shadow: 0 0 28px var(--red); } }
+  .seat-name { font-weight: 700; font-size: 1.2rem; margin-bottom: 4px; cursor: pointer; }
+  .timer { font-size: 1.4rem; font-variant-numeric: tabular-nums; margin: 6px 0; }
+  .progress-container { height: 8px; background: #334155; border-radius: 4px; overflow: hidden; margin: 6px 0; }
+  .progress-bar { height: 100%; width: 0%; background: var(--green); transition: width 0.2s; }
+  .progress-bar.yellow { background: var(--yellow); }
+  .progress-bar.red { background: var(--red); }
+  input, textarea, select {
+    width: 100%; padding: 4px 6px; margin: 4px 0; border: 1px solid #475569;
+    border-radius: 4px; background: #0f172a; color: var(--text); font-size: 0.8rem;
+  }
+  body.light input, body.light textarea { background: #fff; color: #000; }
+  .seat-actions { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
+  .seat-actions button { flex: 1 1 calc(50% - 4px); padding: 5px 4px; font-size: 0.75rem; }
+  .status { font-size: 0.75rem; opacity: 0.8; min-height: 1.2em; }
+  .select-box { font-size: 0.75rem; margin: 4px 0; }
+  .history, .settings-panel, .guest-view {
+    max-width: 900px; margin: 20px auto; background: var(--card); padding: 16px;
+    border-radius: 12px; display: none;
+  }
+  .history table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .history th, .history td { border: 1px solid #475569; padding: 6px; text-align: left; }
+  .legend { text-align: center; margin: 10px 0; font-size: 0.85rem; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
+  footer { text-align: center; margin-top: 30px; font-size: 0.75rem; opacity: 0.7; }
+  .select-box input[type=checkbox], .settings-panel input[type=checkbox] { width: auto; margin-right: 4px; }
+  .settings-panel label { display: block; margin: 8px 0; font-size: 0.85rem; }
+  .settings-panel .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  #guestSeats { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+  .history-wrap { overflow-x: auto; }
+  kbd { background: #334155; color: #f1f5f9; padding: 1px 5px; border-radius: 3px; font-size: 0.75rem; }
+
+  /* Mobile */
+  @media (max-width: 640px) {
+    body { padding: 10px; }
+    h1 { font-size: 1.3rem; }
+    .toolbar, .controls { gap: 6px; }
+    .toolbar button, .controls button { flex: 1 1 calc(33% - 6px); min-height: 40px; padding: 8px 6px; }
+    .seats { gap: 10px; }
+    .seat { width: calc(50% - 5px); padding: 10px 8px; }
+    .seat-name { font-size: 1.1rem; }
+    .timer { font-size: 1.25rem; }
+    .seat-actions button { flex: 1 1 calc(50% - 4px); min-height: 36px; font-size: 0.8rem; }
+    input, textarea, select { font-size: 16px; } /* stops zoom-on-focus on mobile */
+    .summary { font-size: 0.8rem; }
+    .help { display: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>🍸 Advanced Seat Timers</h1>
+  <div class="toolbar">
+    <button onclick="startSelected()">▶ Start Selected</button>
+    <button onclick="pauseSelected()">⏸ Pause/Resume Selected</button>
+    <button onclick="extendSelected()">+15 Selected</button>
+    <button onclick="resetSelected()" class="secondary">⏹ End Selected</button>
+    <button onclick="selectAll()" class="secondary">Select All</button>
+    <button onclick="clearSelection()" class="secondary">Clear Selection</button>
+  </div>
+  <div class="controls">
+    <button onclick="resetAll()" class="secondary">Reset All</button>
+    <button onclick="toggleTheme()" class="secondary">🌓 Theme</button>
+    <button onclick="toggleSettings()" class="secondary">⚙ Settings</button>
+    <button onclick="toggleHistory()" class="secondary">📜 History</button>
+    <button onclick="toggleGuestView()" class="secondary">👁 Guest View</button>
+    <button onclick="requestNotify()" class="secondary">🔔 Enable Alerts</button>
+  </div>
+  <div class="summary" id="summary"></div>
+</header>
+
+<div class="seats" id="seats"></div>
+
+<div class="legend">
+  <span class="dot" style="background:var(--green)"></span>On time &nbsp;
+  <span class="dot" style="background:var(--yellow)"></span>Getting close &nbsp;
+  <span class="dot" style="background:var(--red)"></span>Overdue / time up &nbsp;
+  <span class="dot" style="background:var(--select)"></span>Selected
+</div>
+<p class="legend help">
+  Shortcuts: <kbd>1</kbd>–<kbd>8</kbd> start a free seat or select/deselect a running one ·
+  <kbd>Shift</kbd>+<kbd>1</kbd>–<kbd>8</kbd> reset that seat · <kbd>R</kbd> reset all ·
+  click a seat name to select it
+</p>
+
+<div class="settings-panel" id="settingsPanel">
+  <h3>Settings</h3>
+  <label>Session length (min) <input type="number" id="setDuration" min="1" value="60"></label>
+  <label>Green until (min) <input type="number" id="setGreen" min="1" value="30"></label>
+  <label>Yellow until (min) <input type="number" id="setYellow" min="1" value="45"></label>
+  <label>Manager PIN for resets (blank = none) <input type="password" id="setPin" inputmode="numeric" autocomplete="off"></label>
+  <label><input type="checkbox" id="setMute"> Mute sounds</label>
+  <label><input type="checkbox" id="setHighContrast"> High contrast</label>
+  <label><input type="checkbox" id="setAutoEnd"> Auto-end a session when time is up</label>
+  <div class="row">
+    <button onclick="saveSettings()">Save Settings</button>
+    <button onclick="toggleSettings()" class="secondary">Close</button>
+  </div>
+</div>
+
+<div class="history" id="historyPanel">
+  <h3>Session History</h3>
+  <div id="analytics" style="margin-bottom:8px;font-size:0.85rem"></div>
+  <div class="history-wrap" id="historyTable"></div>
+  <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+    <button onclick="exportCSV()">⬇ Export CSV</button>
+    <button onclick="clearHistory()" class="secondary">Clear History</button>
+    <button onclick="toggleHistory()" class="secondary">Close</button>
+  </div>
+</div>
+
+<div class="guest-view" id="guestView">
+  <h3 style="text-align:center">Time Remaining</h3>
+  <div id="guestSeats"></div>
+  <div style="text-align:center;margin-top:12px"><button onclick="toggleGuestView()" class="secondary">Back to staff view</button></div>
+</div>
+
+<footer>Saved automatically in this browser · Bar seats B1–B8</footer>
+
+<script>
+const SEAT_IDS = ['b1','b2','b3','b4','b5','b6','b7','b8'];
+const STORE_KEY = 'barSeatTimers.v2';
+const DEFAULT_SETTINGS = { durationMin: 60, greenMin: 30, yellowMin: 45, pin: '', mute: false, highContrast: false, theme: 'dark', autoEnd: false };
+const EXTEND_MS = 15 * 60 * 1000;
+
+let seats = {};
+let history = [];
+let settings = { ...DEFAULT_SETTINGS };
+let audioCtx = null;
+
+function blankSeat() {
+  return { running: false, paused: false, startTime: null, pausedAt: null, pausedTotal: 0,
+           extraMs: 0, extensions: 0, name: '', notes: '', selected: false,
+           warnedYellow: false, timeUpNotified: false, sessionStart: null };
+}
+
+function escapeHTML(str) {
+  return String(str == null ? '' : str).replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function loadAll() {
+  try {
+    const data = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
+    settings = { ...DEFAULT_SETTINGS, ...(data.settings || {}) };
+    history = Array.isArray(data.history) ? data.history : [];
+    SEAT_IDS.forEach(id => { seats[id] = { ...blankSeat(), ...((data.seats || {})[id] || {}) }; });
+  } catch (e) {
+    SEAT_IDS.forEach(id => { seats[id] = blankSeat(); });
+  }
+  applyTheme();
+}
+
+function saveAll() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify({ seats, history, settings })); } catch (e) {}
+}
+
+function getDurationMs(s) {
+  return settings.durationMin * 60000 + (s ? s.extraMs : 0);
+}
+
+// Elapsed active time. Paused time is excluded, so resuming continues where it stopped.
+function getElapsed(s) {
+  if (!s.startTime) return 0;
+  const now = s.paused ? s.pausedAt : Date.now();
+  return Math.max(0, now - s.startTime - s.pausedTotal);
+}
+
+function formatTime(ms) {
+  const neg = ms < 0;
+  const total = Math.floor(Math.abs(ms) / 1000);
+  const h = Math.floor(total / 3600), m = Math.floor((total % 3600) / 60), sec = total % 60;
+  const body = (h ? h + ':' + String(m).padStart(2, '0') : String(m).padStart(2, '0')) + ':' + String(sec).padStart(2, '0');
+  return (neg ? '-' : '') + body;
+}
+
+function colourFor(s) {
+  if (!s.running) return '';
+  const el = getElapsed(s);
+  if (el >= getDurationMs(s)) return 'red';
+  if (el < settings.greenMin * 60000 + s.extraMs) return 'green';
+  if (el < settings.yellowMin * 60000 + s.extraMs) return 'yellow';
+  return 'red';
+}
+
+function playBeep(freq = 880, dur = 0.2) {
+  if (settings.mute) return;
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.frequency.value = freq; o.connect(g); g.connect(audioCtx.destination);
+    g.gain.setValueAtTime(0.2, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    o.start(); o.stop(audioCtx.currentTime + dur);
+  } catch (e) {}
+}
+
+function notify(msg) {
+  if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+    try { new Notification('Seat Timers', { body: msg }); } catch (e) {}
+  }
+  if (navigator.vibrate) { try { navigator.vibrate([200, 100, 200]); } catch (e) {} }
+}
+
+function checkPin() {
+  if (!settings.pin) return true;
+  const p = prompt('Manager PIN');
+  if (p === settings.pin) return true;
+  if (p !== null) alert('Wrong PIN');
+  return false;
+}
+
+function startTimer(id, silent) {
+  const s = seats[id];
+  if (s.running) {
+    if (s.paused) togglePause(id, true);
+    return;
+  }
+  Object.assign(s, { running: true, paused: false, startTime: Date.now(), pausedAt: null, pausedTotal: 0,
+                     extraMs: 0, extensions: 0, warnedYellow: false, timeUpNotified: false, sessionStart: new Date().toISOString() });
+  if (!silent) { playBeep(660, 0.12); saveAll(); updateSeat(id); updateSummary(); }
+}
+
+function togglePause(id, silent) {
+  const s = seats[id];
+  if (!s.running) return;
+  if (s.paused) {
+    s.pausedTotal += Date.now() - s.pausedAt;
+    s.paused = false; s.pausedAt = null;
+  } else {
+    s.paused = true; s.pausedAt = Date.now();
+  }
+  if (!silent) { saveAll(); updateSeat(id); updateSummary(); }
+}
+
+function extendTimer(id, silent) {
+  const s = seats[id];
+  if (!s.running) return;
+  s.extraMs += EXTEND_MS;      // extend the session length, keep the real start time
+  s.extensions += 1;
+  s.timeUpNotified = false;
+  if (!silent) { playBeep(990, 0.08); saveAll(); updateSeat(id); updateSummary(); }
+}
+
+function endSession(id, auto) {
+  const s = seats[id];
+  if (s.running && s.startTime) {
+    history.push({ seat: id, name: s.name, notes: s.notes, durationMin: Math.round(getElapsed(s) / 60000),
+                   extensions: s.extensions, start: s.sessionStart || new Date(s.startTime).toISOString(), autoEnd: !!auto });
+  }
+  const keepSel = s.selected;
+  seats[id] = { ...blankSeat(), selected: keepSel };
+  saveAll();
+  updateSeat(id);
+  updateSummary();
+  if (document.getElementById('historyPanel').style.display === 'block') renderHistory();
+}
+
+function resetSeat(id) {
+  if (!checkPin()) return;
+  endSession(id, false);
+}
+
+function selectedIds() { return SEAT_IDS.filter(id => seats[id].selected); }
+
+function startSelected() {
+  const ids = selectedIds();
+  if (!ids.length) { alert('Select one or more seats first'); return; }
+  ids.forEach(id => startTimer(id, true));
+  playBeep(660, 0.12);
+  saveAll();
+  ids.forEach(updateSeat);
+  updateSummary();
+}
+function pauseSelected() {
+  const ids = selectedIds().filter(id => seats[id].running);
+  ids.forEach(id => togglePause(id, true));
+  saveAll(); ids.forEach(updateSeat); updateSummary();
+}
+function extendSelected() {
+  const ids = selectedIds().filter(id => seats[id].running);
+  ids.forEach(id => extendTimer(id, true));
+  if (ids.length) playBeep(990, 0.08);
+  saveAll(); ids.forEach(updateSeat); updateSummary();
+}
+function resetSelected() {
+  const ids = selectedIds();
+  if (!ids.length) return;
+  if (!checkPin()) return;
+  ids.forEach(id => endSession(id, false));
+}
+function resetAll() {
+  if (!confirm('End all running sessions and reset every seat?')) return;
+  if (!checkPin()) return;
+  SEAT_IDS.forEach(id => endSession(id, false));
+}
+function toggleSelect(id) {
+  seats[id].selected = !seats[id].selected;
+  saveAll(); updateSeat(id); updateSummary();
+}
+function selectAll() { SEAT_IDS.forEach(id => seats[id].selected = true); saveAll(); SEAT_IDS.forEach(updateSeat); updateSummary(); }
+function clearSelection() { SEAT_IDS.forEach(id => seats[id].selected = false); saveAll(); SEAT_IDS.forEach(updateSeat); updateSummary(); }
+
+function applyTheme() {
+  document.body.classList.toggle('light', settings.theme === 'light');
+  document.body.classList.toggle('high-contrast', !!settings.highContrast);
+  const f = (id) => document.getElementById(id);
+  if (f('setDuration')) {
+    f('setDuration').value = settings.durationMin;
+    f('setGreen').value = settings.greenMin;
+    f('setYellow').value = settings.yellowMin;
+    f('setPin').value = settings.pin;
+    f('setMute').checked = !!settings.mute;
+    f('setHighContrast').checked = !!settings.highContrast;
+    f('setAutoEnd').checked = !!settings.autoEnd;
+  }
+}
+
+function updateSeat(id) {
+  const s = seats[id];
+  const el = document.getElementById('seat-' + id);
+  if (!el) return;
+  const colour = colourFor(s);
+  el.className = 'seat' + (colour ? ' ' + colour : '') + (s.selected ? ' selected' : '');
+  el.querySelector('.select-cb').checked = !!s.selected;
+  const remaining = getDurationMs(s) - getElapsed(s);
+  el.querySelector('.timer').textContent = s.running ? formatTime(remaining) : formatTime(getDurationMs(s));
+  const pct = s.running ? Math.min(100, (getElapsed(s) / getDurationMs(s)) * 100) : 0;
+  const bar = el.querySelector('.progress-bar');
+  bar.style.width = pct + '%';
+  bar.className = 'progress-bar' + (colour && colour !== 'green' ? ' ' + colour : '');
+  let status = 'Free';
+  if (s.running) {
+    status = s.paused ? '⏸ Paused' : (remaining <= 0 ? '⏰ Time up' : '● Running');
+    if (s.extensions) status += ` · +${s.extensions * 15} min`;
+  }
+  el.querySelector('.status').textContent = status;
+  const pBtn = el.querySelector('.btn-pause');
+  pBtn.textContent = s.paused ? 'Resume' : 'Pause';
+  pBtn.disabled = !s.running;
+  el.querySelector('.btn-extend').disabled = !s.running;
+  el.querySelector('.btn-start').disabled = s.running && !s.paused;
+  el.querySelector('.btn-reset').textContent = s.running ? 'End' : 'Reset';
+  const ni = el.querySelector('.name-input'), no = el.querySelector('.notes-input');
+  if (document.activeElement !== ni && ni.value !== s.name) ni.value = s.name;
+  if (document.activeElement !== no && no.value !== s.notes) no.value = s.notes;
+}
+
+function checkAlerts(id) {
+  const s = seats[id];
+  if (!s.running || s.paused) return;
+  const el = getElapsed(s);
+  if (!s.warnedYellow && el >= settings.yellowMin * 60000 + s.extraMs && el < getDurationMs(s)) {
+    s.warnedYellow = true; playBeep(700, 0.2); notify(id.toUpperCase() + ' is getting close to time'); saveAll();
+  }
+  if (!s.timeUpNotified && el >= getDurationMs(s)) {
+    s.timeUpNotified = true;
+    playBeep(1200, 0.4); notify(id.toUpperCase() + (s.name ? ' (' + s.name + ')' : '') + ': time is up');
+    saveAll();
+    if (settings.autoEnd) endSession(id, true);   // fires once, then the seat is free
+  }
+}
+
+function updateSummary() {
+  const occ = SEAT_IDS.filter(id => seats[id].running).length;
+  const free = SEAT_IDS.length - occ;
+  const yellow = SEAT_IDS.filter(id => colourFor(seats[id]) === 'yellow').length;
+  const red = SEAT_IDS.filter(id => colourFor(seats[id]) === 'red').length;
+  let nextText = 'No seats in use';
+  const running = SEAT_IDS.filter(id => seats[id].running);
+  if (running.length) {
+    const next = running.map(id => ({ id, rem: getDurationMs(seats[id]) - getElapsed(seats[id]) }))
+                        .sort((a, b) => a.rem - b.rem)[0];
+    nextText = next.rem <= 0 ? `${next.id.toUpperCase()} is over time` : `Next free: ${next.id.toUpperCase()} in ${formatTime(next.rem)}`;
+  }
+  const sel = SEAT_IDS.filter(id => seats[id].selected).length;
+  document.getElementById('summary').innerHTML =
+    `<strong>Occupied:</strong> ${occ}/8 &nbsp; <strong>Free:</strong> ${free} &nbsp; <strong>Selected:</strong> ${sel} &nbsp; <strong>Yellow:</strong> ${yellow} &nbsp; <strong>Red:</strong> ${red} &nbsp; <strong>${nextText}</strong>`;
+}
+
+function renderHistory() {
+  const div = document.getElementById('historyTable');
+  if (!history.length) { div.innerHTML = '<p>No sessions yet.</p>'; document.getElementById('analytics').textContent = ''; return; }
+  let html = '<table><tr><th>Seat</th><th>Name</th><th>Duration</th><th>Ext</th><th>Start</th></tr>';
+  history.slice().reverse().slice(0, 50).forEach(h => {
+    html += `<tr><td>${escapeHTML(String(h.seat).toUpperCase())}</td><td>${escapeHTML(h.name || '-')}</td><td>${escapeHTML(h.durationMin)} min</td><td>${escapeHTML(h.extensions)}</td><td>${escapeHTML(new Date(h.start).toLocaleString())}</td></tr>`;
+  });
+  html += '</table>';
+  div.innerHTML = html;
+  const total = history.length;
+  const avg = total ? Math.round(history.reduce((a,b) => a + b.durationMin, 0) / total) : 0;
+  document.getElementById('analytics').textContent = `Total sessions: ${total} | Average duration: ${avg} min`;
+}
+
+function exportCSV() {
+  if (!history.length) { alert('No history'); return; }
+  let csv = 'Seat,Name,Notes,DurationMin,Extensions,Start,AutoEnd\n';
+  history.forEach(h => {
+    csv += `${h.seat},"${(h.name||'').replace(/"/g,'""')}","${(h.notes||'').replace(/"/g,'""')}",${h.durationMin},${h.extensions},${h.start},${h.autoEnd}\n`;
+  });
+  const blob = new Blob([csv], {type: 'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'seat-history.csv';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+function clearHistory() {
+  if (confirm('Clear all history?')) { history = []; saveAll(); renderHistory(); }
+}
+
+function saveSettings() {
+  settings.durationMin = +document.getElementById('setDuration').value || 60;
+  settings.greenMin = +document.getElementById('setGreen').value || 30;
+  settings.yellowMin = +document.getElementById('setYellow').value || 45;
+  settings.pin = document.getElementById('setPin').value;
+  settings.mute = document.getElementById('setMute').checked;
+  settings.highContrast = document.getElementById('setHighContrast').checked;
+  settings.autoEnd = document.getElementById('setAutoEnd').checked;
+  if (settings.yellowMin <= settings.greenMin) settings.yellowMin = settings.greenMin + 15;
+  saveAll();
+  applyTheme();
+  SEAT_IDS.forEach(updateSeat);
+  updateSummary();
+  alert('Settings saved');
+}
+
+function toggleTheme() {
+  settings.theme = settings.theme === 'light' ? 'dark' : 'light';
+  saveAll();
+  applyTheme();
+}
+
+function toggleSettings() {
+  const p = document.getElementById('settingsPanel');
+  p.style.display = p.style.display === 'block' ? 'none' : 'block';
+}
+function toggleHistory() {
+  const p = document.getElementById('historyPanel');
+  p.style.display = p.style.display === 'block' ? 'none' : 'block';
+  if (p.style.display === 'block') renderHistory();
+}
+function toggleGuestView() {
+  const p = document.getElementById('guestView');
+  const seatsDiv = document.getElementById('seats');
+  if (p.style.display === 'block') {
+    p.style.display = 'none';
+    seatsDiv.style.display = 'flex';
+  } else {
+    p.style.display = 'block';
+    seatsDiv.style.display = 'none';
+    renderGuestView();
+  }
+}
+function renderGuestView() {
+  const cont = document.getElementById('guestSeats');
+  cont.innerHTML = '';
+  SEAT_IDS.forEach(id => {
+    const s = seats[id];
+    const d = document.createElement('div');
+    d.style.cssText = 'width:140px;text-align:center;padding:12px;border-radius:10px;background:var(--card);';
+    const rem = s.running ? formatTime(Math.max(0, getDurationMs(s) - getElapsed(s))) : '--:--';
+    d.innerHTML = `<strong>${escapeHTML(id.toUpperCase())}</strong><br><span style="font-size:1.3rem">${escapeHTML(rem)}</span><br><small>${escapeHTML(s.name || '')}</small>`;
+    cont.appendChild(d);
+  });
+}
+
+function requestNotify() {
+  if ('Notification' in window) Notification.requestPermission();
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  playBeep(1000, 0.1);
+  if (!('Notification' in window)) {
+    alert('This browser does not support notifications. Sound and vibration alerts are still on.');
+  }
+}
+
+function renderSeats() {
+  const cont = document.getElementById('seats');
+  cont.innerHTML = '';
+  SEAT_IDS.forEach((id, i) => {
+    const d = document.createElement('div');
+    d.className = 'seat';
+    d.id = 'seat-' + id;
+    d.innerHTML = `
+      <label class="select-box"><input type="checkbox" class="select-cb" aria-label="Select ${id.toUpperCase()}"> select</label>
+      <div class="seat-name" title="Click to select (key ${i + 1})">${id.toUpperCase()}</div>
+      <input class="name-input" type="text" placeholder="Guest name" maxlength="40">
+      <input class="notes-input" type="text" placeholder="Notes" maxlength="120">
+      <div class="timer">--:--</div>
+      <div class="progress-container"><div class="progress-bar"></div></div>
+      <div class="status"></div>
+      <div class="seat-actions">
+        <button class="btn-start">Start</button>
+        <button class="btn-pause secondary">Pause</button>
+        <button class="btn-extend">+15</button>
+        <button class="btn-reset secondary">Reset</button>
+      </div>`;
+    d.querySelector('.select-cb').addEventListener('change', () => toggleSelect(id));
+    d.querySelector('.seat-name').addEventListener('click', () => toggleSelect(id));
+    d.querySelector('.name-input').addEventListener('input', e => { seats[id].name = e.target.value; saveAll(); });
+    d.querySelector('.notes-input').addEventListener('input', e => { seats[id].notes = e.target.value; saveAll(); });
+    d.querySelector('.btn-start').addEventListener('click', () => startTimer(id));
+    d.querySelector('.btn-pause').addEventListener('click', () => togglePause(id));
+    d.querySelector('.btn-extend').addEventListener('click', () => extendTimer(id));
+    d.querySelector('.btn-reset').addEventListener('click', () => resetSeat(id));
+    cont.appendChild(d);
+  });
+}
+
+document.addEventListener('keydown', e => {
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const m = /^Digit([1-8])$/.exec(e.code) || /^Numpad([1-8])$/.exec(e.code);
+  if (m) {
+    const id = SEAT_IDS[+m[1] - 1];
+    e.preventDefault();
+    if (e.shiftKey) resetSeat(id);
+    else if (!seats[id].running) startTimer(id);
+    else toggleSelect(id);
+    return;
+  }
+  if (e.key === 'r' || e.key === 'R') { e.preventDefault(); resetAll(); }
+});
+
+function tick() {
+  SEAT_IDS.forEach(id => { checkAlerts(id); updateSeat(id); });
+  updateSummary();
+  if (document.getElementById('guestView').style.display === 'block') renderGuestView();
+}
+
+loadAll();
+renderSeats();
+SEAT_IDS.forEach(updateSeat);
+updateSummary();
+setInterval(tick, 250);
+</script>
+</body>
+</html>
