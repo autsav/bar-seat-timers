@@ -11,7 +11,8 @@ approaches, with sound, vibration and optional system notifications.
 - **Stays awake:** uses the Screen Wake Lock API while any seat is running (toggle in Settings), and re-acquires it when you come back to the tab.
 - **Missed alerts:** if the phone slept or the tab was hidden, the amber, red and time-up alerts you missed are caught up and summarised when you return.
 - **Install / offline:** an installable PWA (manifest, icons, versioned service worker). Use **Menu → Install app**, or Chrome's "Install app" / "Add to Home screen". It works offline after the first visit.
-- Multi-select bulk actions, notes, session history with CSV export, guest-facing view, light/dark/high-contrast themes, optional manager PIN, and keyboard shortcuts (`1`–`8` start or select, `Shift`+`1`–`8` end, `R` reset all).
+- **Selecting seats (no checkboxes):** tap a free seat to start it straight away (Undo appears for 8 s). To act on several seats, **long-press** any seat or tap **☑ Select**. In selection mode, tap seats to toggle them (tinted with a ✓ and a short vibration), or **drag across** seats to select several in one move. The bottom bar shows the count with **Start / Pause / +15 / End / Cancel**. Running an action, **Cancel**, **Done**, **Esc** or the phone's **Back** button exits the mode. Seat labels (B1…) are buttons that work with a keyboard or screen reader (`aria-pressed`), and the selected count is announced.
+- Bulk actions, notes, session history with CSV export, guest-facing view, light/dark/high-contrast themes, optional manager PIN, and keyboard shortcuts (`1`–`8` start a free seat or select a running one, `Shift`+`1`–`8` end, `R` reset all).
 
 ## Privacy
 - Everything (seats, notes, history, settings) is stored **only in this browser's local storage on this device**. Nothing is sent to a server, and there's no analytics or tracking. The page is static, hosted on GitHub Pages.

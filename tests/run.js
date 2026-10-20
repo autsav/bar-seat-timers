@@ -219,6 +219,101 @@ async function migrationAndShot(browser, name, opts) {
   await c2.close();
 }
 
+// Selection mode: long-press enters, tap toggles, drag paints, batch actions, Esc/back exit, tap free seat starts (+undo).
+async function selectionTests(browser, name, opts) {
+  const ctx = await browser.newContext({ ...opts, serviceWorkers: 'block' });
+  const p = await ctx.newPage();
+  const errs = []; p.on('pageerror', e => errs.push(e.message));
+  p.on('dialog', d => d.accept());
+  await p.addInitScript(INIT);
+  await p.clock.install({ time: new Date('2026-10-20T19:00:00') });
+  await p.goto(BASE);
+  const ev = f => p.evaluate(f), tick = ms => p.clock.fastForward(ms);
+  const touch = !!opts.hasTouch;
+  const cdp = touch ? await ctx.newCDPSession(p) : null;
+  const centre = async i => { await p.evaluate(i => { const r = document.querySelector('#seat-b' + i + ' .timer').getBoundingClientRect(); if (r.top < 90 || r.bottom > innerHeight - 170) document.getElementById('seat-b' + i).scrollIntoView({ block: 'center' }); }, i); const b = await p.locator('#seat-b' + i + ' .timer').boundingBox(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; };
+  const down = async pt => touch ? cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: pt.x, y: pt.y }] }) : (await p.mouse.move(pt.x, pt.y), p.mouse.down());
+  const move = async pt => touch ? cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: pt.x, y: pt.y }] }) : p.mouse.move(pt.x, pt.y, { steps: 4 });
+  const up = async () => touch ? cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }) : p.mouse.up();
+  const tap = async i => { const c = await centre(i); await down(c); await tick(60); await up(); await tick(50); };
+  const selected = () => ev(() => SEAT_IDS.filter(id => seats[id].selected));
+
+  ok(await ev(() => !document.querySelector('input[type=checkbox].select-cb, .select-box, .seat input[type=checkbox]')), `${name}: no select checkboxes on seat cards`);
+
+  // tap a free seat = start instantly, with undo
+  await tap(4);
+  ok(await ev(() => seats.b4.running), `${name}: tapping a free seat starts it`);
+  ok(/Started B4/.test(await p.locator('#snackText').textContent()) && await p.locator('#snackUndo').isVisible(), `${name}: start shows Undo`);
+  await p.locator('#snackUndo').click(); await tick(100);
+  ok(await ev(() => !seats.b4.running && history.length === 0), `${name}: Undo reverts the tap-start (no history row)`);
+
+  // long-press enters selection mode and selects that seat
+  const c1 = await centre(1);
+  await down(c1); await tick(500); await up(); await tick(50);
+  ok(await ev(() => selectMode) && JSON.stringify(await selected()) === '["b1"]', `${name}: long-press enters selection mode with B1 selected`);
+  ok(await ev(() => !seats.b1.running), `${name}: long-press did not start the seat`);
+  ok(await p.locator('#actionBar').isVisible() && /1 seat selected/.test(await p.locator('#actionCount').textContent()), `${name}: action bar shows "1 seat selected"`);
+  ok(await ev(() => document.getElementById('lbl-b1').getAttribute('aria-pressed') === 'true' && getComputedStyle(document.querySelector('#seat-b1 .sel-check')).display !== 'none'),
+     `${name}: selected seat has aria-pressed + checkmark`);
+  // tap toggles
+  await tap(2);
+  ok(JSON.stringify(await selected()) === '["b1","b2"]', `${name}: tap adds B2 in selection mode`);
+  await tap(2);
+  ok(JSON.stringify(await selected()) === '["b1"]', `${name}: tap again removes B2`);
+  ok(await ev(() => !seats.b2.running), `${name}: taps in selection mode never start seats`);
+  // drag-to-paint from B5 across B6, B7, B8 (layout-dependent path through centres)
+  await ev(() => { const r = document.getElementById('seat-b5').getBoundingClientRect(); window.scrollBy(0, r.top - 90); });
+  await tick(50);
+  await down(await centre(5)); await tick(30);
+  for (const i of [6, 7, 8]) { await move(await centre(i)); await tick(20); }
+  await up(); await tick(50);
+  ok(JSON.stringify(await selected()) === '["b1","b5","b6","b7","b8"]', `${name}: drag across B5→B8 selects them (${(await selected()).join(',')})`);
+  ok(/5 seats selected/.test(await p.locator('#actionCount').textContent()), `${name}: count announced (aria-live) "5 seats selected"`);
+  // batch Start exits mode
+  await p.locator('#actionBar').getByRole('button', { name: /Start/ }).click(); await tick(300);
+  ok(await ev(() => ['b1','b5','b6','b7','b8'].every(id => seats[id].running) && !selectMode), `${name}: batch Start starts 5 seats and exits selection mode`);
+  // batch +15 and End via the Select button
+  await p.locator('#selectBtn').click();
+  ok(await ev(() => selectMode), `${name}: Select button enters selection mode`);
+  await tap(5); await tap(6);
+  await p.locator('#actionBar').getByRole('button', { name: '+15' }).click(); await tick(200);
+  ok(await ev(() => seats.b5.extensions === 1 && seats.b6.extensions === 1 && seats.b1.extensions === 0), `${name}: batch +15 extends only selected`);
+  await p.locator('#selectBtn').click(); await tap(7); await tap(8);
+  await p.locator('#actionBar').getByRole('button', { name: /End/ }).click(); await tick(200);
+  ok(await ev(() => !seats.b7.running && !seats.b8.running && seats.b1.running && !selectMode), `${name}: batch End ends B7+B8 and exits`);
+  ok(/Ended B7, B8/.test(await p.locator('#snackText').textContent()), `${name}: batch End offers Undo`);
+  await p.locator('#snackUndo').click(); await tick(100);
+  ok(await ev(() => seats.b7.running && seats.b8.running), `${name}: Undo restores batch End`);
+  // back exits mode
+  await p.locator('#selectBtn').click(); await tap(3);
+  await p.goBack(); await tick(200);
+  ok(await ev(() => !selectMode && SEAT_IDS.every(id => !seats[id].selected)) && await ev(() => document.getElementById('actionBar').hidden), `${name}: Back exits selection mode and clears selection`);
+  ok(p.url().startsWith(BASE.replace(/\/$/, '')), `${name}: Back did not leave the app (${p.url()})`);
+  // Esc exits; Cancel exits
+  await p.locator('#selectBtn').click(); await tap(3);
+  await p.keyboard.press('Escape'); await tick(200);
+  ok(await ev(() => !selectMode), `${name}: Esc exits selection mode`);
+  await p.locator('#selectBtn').click();
+  await p.locator('#actionBar').getByRole('button', { name: /Cancel/ }).click(); await tick(200);
+  ok(await ev(() => !selectMode), `${name}: Cancel exits selection mode`);
+  // keyboard shortcut: digit on running seat selects (enters mode)
+  if (!touch) {
+    await p.locator('h1').click();
+    await p.keyboard.press('Digit1'); await tick(100);
+    ok(await ev(() => selectMode && seats.b1.selected), `${name}: key 1 on running B1 enters selection mode`);
+    await p.keyboard.press('Escape'); await tick(100);
+  }
+  // reduced motion still honoured
+  ok(/prefers-reduced-motion: reduce/.test(await ev(() => document.documentElement.outerHTML)), `${name}: reduced-motion rule present`);
+  // screenshot of selection mode
+  await p.locator('#selectBtn').click(); await tap(2); await tap(3); await tap(6);
+  await ev(() => window.scrollTo(0, 0)); await tick(300); await p.waitForTimeout(400);
+  fs.mkdirSync(SHOTS, { recursive: true });
+  await p.screenshot({ path: path.join(SHOTS, `${TAG}-${name}-select-mode.png`) });
+  ok(errs.length === 0, `${name}: no page errors (selection) ${errs.join(' | ')}`);
+  await ctx.close();
+}
+
 function pngSize(buf) { return buf.slice(1, 4).toString() === 'PNG' ? [buf.readUInt32BE(16), buf.readUInt32BE(20)] : null; }
 
 async function pwaTests(browser, name, opts) {
@@ -288,6 +383,7 @@ let TAG;
   for (const [name, opts] of [['desktop', { viewport: { width: 1366, height: 900 } }], ['pixel7', devices['Pixel 7']]]) {
     await featureTests(browser, name, opts);
     await migrationAndShot(browser, name, opts);
+    await selectionTests(browser, name, opts);
     await pwaTests(browser, name, opts);
   }
   await browser.close();

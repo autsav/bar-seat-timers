@@ -181,6 +181,23 @@
   .seat.timeup::after { animation: alarm 1.2s ease-in-out infinite; }
   @keyframes alarm { 0%,100% { opacity: .25; } 50% { opacity: 1; } }
   .seat.selected { outline: 3px solid var(--c-select); outline-offset: 2px; }
+  /* ============ Selection mode (long-press / Select button) ============ */
+  .seat { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  .seat .notes-input { -webkit-user-select: text; user-select: text; }
+  .seat.free { cursor: pointer; }
+  body.select-mode .seat { cursor: pointer; touch-action: none; }
+  body.select-mode .seat .seat-actions, body.select-mode .seat .notes-input { pointer-events: none; opacity: .45; }
+  body.select-mode .seat:not(.selected) { opacity: .82; }
+  .seat .sel-check { position: absolute; top: var(--s-2); right: var(--s-2); width: 32px; height: 32px; border-radius: 50%;
+    display: none; align-items: center; justify-content: center; font-weight: 900; font-size: 1.05rem;
+    border: 2px solid var(--c-border); color: transparent; background: var(--c-surface-strong); }
+  body.select-mode .seat .sel-check { display: inline-flex; }
+  .seat.selected .sel-check { background: var(--c-select); border-color: var(--c-select); color: #0b0f17; }
+  .seat.selected { background: linear-gradient(color-mix(in srgb, var(--c-select) 22%, transparent), color-mix(in srgb, var(--c-select) 22%, transparent)), var(--c-surface) !important;
+    transform: scale(.97); transition: transform .12s ease, background-color .12s ease; }
+  body.select-mode .seat-head .badge { margin-right: 40px; }
+  .select-btn[aria-pressed="true"] { background: var(--c-select); color: #0b0f17; border-color: var(--c-select); }
+  .action-bar button:disabled { opacity: .45; }
   body.high-contrast .seat { border-width: 2px; border-left-width: 6px; }
   body.high-contrast .seat.green { border-left-color: var(--bar-ok); } body.high-contrast .seat.yellow { border-left-color: var(--bar-warn); }
   body.high-contrast .seat.red { border-left-color: var(--bar-danger); }
@@ -198,12 +215,6 @@
   .seat.yellow .badge { color: var(--c-warn); border-color: color-mix(in srgb, var(--c-warn) 45%, transparent); }
   .seat.red .badge    { color: var(--c-danger); border-color: color-mix(in srgb, var(--c-danger) 45%, transparent); }
   .seat.paused .badge { color: var(--c-paused); border-color: color-mix(in srgb, var(--c-paused) 45%, transparent); }
-  .select-box { margin-left: auto; display: inline-flex; align-items: center; justify-content: center; gap: var(--s-2);
-    min-height: var(--tap); min-width: var(--tap); padding: 0 var(--s-2); border-radius: var(--radius-sm);
-    font-size: var(--fs-sm); color: var(--c-text-muted); cursor: pointer; }
-  .select-box:hover { background: var(--c-surface-raised); }
-  .select-box:focus-within { outline: 3px solid var(--c-focus); outline-offset: 1px; }
-  .seat.selected .select-box { color: var(--c-text); font-weight: 700; }
 
   .timer { font-size: var(--fs-time); font-weight: 750; line-height: 1.1; letter-spacing: -.02em;
     font-variant-numeric: tabular-nums; color: var(--c-text); margin-top: var(--s-1); }
@@ -229,7 +240,7 @@
     transition: opacity var(--dur) ease, transform var(--dur) ease, visibility 0s var(--dur); }
   .action-bar button { padding: var(--s-2); }
   .ab-count { grid-column: 1 / -1; font-size: var(--fs-sm); color: var(--c-text-muted); padding: 0 var(--s-2); }
-  body.has-selection { padding-bottom: 150px; }
+  body.select-mode { padding-bottom: 150px; }
 
   /* ============ Panels ============ */
   .history, .settings-panel, .guest-view { display: none; max-width: 960px; margin: 0 auto var(--s-5); padding: var(--s-5) var(--s-4);
@@ -279,7 +290,7 @@
     .action-bar { left: 50%; right: auto; transform: translateX(-50%); grid-template-columns: auto repeat(5, auto); }
     .action-bar[hidden] { transform: translate(-50%, 16px); }
     .ab-count { grid-column: auto; }
-    body.has-selection { padding-bottom: 96px; }
+    body.select-mode { padding-bottom: 96px; }
     .help { display: flex; }
     #guestSeats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   }
@@ -335,7 +346,7 @@
   .snackbar[hidden] { display: none; }
   .snackbar button { background: var(--c-accent); color: #fff; min-height: var(--tap); }
   .snackbar .sb-x { background: transparent; color: #0b0f17; border-color: transparent; min-width: var(--tap); padding: 0; }
-  body.has-selection .snackbar { bottom: 120px; }
+  body.select-mode .snackbar { bottom: 120px; }
   .install-banner { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); margin: 0 0 var(--s-3);
     padding: var(--s-2) var(--s-3); border-radius: var(--radius); background: var(--c-surface-strong); border: 1px solid var(--c-border); font-size: var(--fs-sm); }
   .install-banner[hidden] { display: none; }
@@ -355,6 +366,7 @@
   <div class="topbar-row">
     <h1><span aria-hidden="true">🍸</span> Seat Timers</h1>
     <div class="summary" id="summary" role="status" aria-label="Summary"></div>
+    <button id="selectBtn" class="select-btn secondary" aria-pressed="false" onclick="toggleSelectMode()" title="Select several seats (or long-press a seat)">☑ Select</button>
     <button id="menuBtn" class="menu-btn secondary" aria-haspopup="true" aria-expanded="false" aria-controls="menuPanel" onclick="toggleMenu()"><span aria-hidden="true">☰</span> <span class="menu-txt">Menu</span></button>
   </div>
   <nav id="menuPanel" class="menu-panel" aria-label="Main menu" hidden>
@@ -366,7 +378,7 @@
     </div>
     <div class="menu-group"><div class="menu-title">Selection</div>
       <button class="mi" onclick="menuDo(selectAll)">☑ Select All</button>
-      <button class="mi" onclick="menuDo(clearSelection)">☐ Clear Selection</button>
+      <button class="mi" onclick="menuDo(exitSelectMode)">✕ Cancel selection</button>
     </div>
     <div class="menu-group"><div class="menu-title">Views</div>
       <button class="mi" onclick="menuDo(toggleHistory)">📜 History</button>
@@ -384,11 +396,11 @@
 </header>
 <div id="actionBar" class="action-bar" role="toolbar" aria-label="Actions for selected seats" hidden>
   <span id="actionCount" class="ab-count" aria-live="polite"></span>
-  <button onclick="startSelected()">▶ Start</button>
-  <button onclick="pauseSelected()" class="secondary">⏸ Pause</button>
-  <button onclick="extendSelected()" class="secondary">+15</button>
-  <button onclick="resetSelected()" class="danger-btn ab-end">⏹ End</button>
-  <button onclick="clearSelection()" class="ab-x secondary" aria-label="Clear selection">✕</button>
+  <button class="ab-act" onclick="batch(startSelected)">▶ Start</button>
+  <button class="ab-act secondary" onclick="batch(pauseSelected)">⏸ Pause</button>
+  <button class="ab-act secondary" onclick="batch(extendSelected)">+15</button>
+  <button class="ab-act danger-btn ab-end" onclick="batch(resetSelected)">⏹ End</button>
+  <button onclick="exitSelectMode()" class="ab-x secondary" aria-label="Cancel selection">✕ Cancel</button>
 </div>
 
 <div id="liveRegion" class="sr-only" aria-live="assertive" role="alert"></div>
@@ -415,7 +427,7 @@
 <p class="legend help">
   Shortcuts: <kbd>1</kbd>–<kbd>8</kbd> start a free seat or select/deselect a running one ·
   <kbd>Shift</kbd>+<kbd>1</kbd>–<kbd>8</kbd> reset that seat · <kbd>R</kbd> reset all ·
-  click a seat label to select it
+  tap a free seat to start it · long-press a seat (or ☑ Select) to pick several, drag to add more · <kbd>Esc</kbd> exits
 </p>
 
 <section class="settings-panel" id="settingsPanel" aria-labelledby="settingsTitle">
@@ -494,6 +506,7 @@ function loadAll() {
     history = Array.isArray(data.history) ? data.history : [];
     SEAT_IDS.forEach(id => { const saved = { ...((data.seats || {})[id] || {}) }; delete saved.name; seats[id] = { ...blankSeat(), ...saved }; });
     history = history.map(h => { const { name: _legacy, type: _type, ...rest } = h || {}; return rest; });
+    SEAT_IDS.forEach(id => { seats[id].selected = false; });   // selection mode never survives a reload
     SEAT_IDS.forEach(id => {   // migrate running seats saved before per-seat limits existed
       const st = seats[id];
       if (st.running && !st.limitMs) {
@@ -712,11 +725,93 @@ function resetAll() {
   updateWakeLock();
 }
 function toggleSelect(id) {
-  seats[id].selected = !seats[id].selected;
+  if (!selectMode) enterSelectMode();
+  seats[id].selected = !seats[id].selected; haptic(12);
   saveAll(); updateSeat(id); updateSummary();
 }
-function selectAll() { SEAT_IDS.forEach(id => seats[id].selected = true); saveAll(); SEAT_IDS.forEach(updateSeat); updateSummary(); }
+function selectAll() { if (!selectMode) enterSelectMode(); SEAT_IDS.forEach(id => seats[id].selected = true); saveAll(); SEAT_IDS.forEach(updateSeat); updateSummary(); }
 function clearSelection() { SEAT_IDS.forEach(id => seats[id].selected = false); saveAll(); SEAT_IDS.forEach(updateSeat); updateSummary(); }
+
+// ---- Selection mode: long-press (or Select button) enters, tap toggles, drag paints, Esc/back/Cancel exits ----
+let selectMode = false, suppressClick = false, pushedEntry = false, pendingBack = false;
+const LONG_PRESS_MS = 450, MOVE_TOL = 10;
+let press = null;   // { id, x, y, timer, painting, value, pointerId }
+function haptic(ms) { if (navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) {} } }
+function enterSelectMode() {
+  if (selectMode) return;
+  selectMode = true;
+  pushSelectEntry();
+  haptic(30);
+  updateSummary(); announce('Selection mode. Tap seats to select.');
+}
+function exitSelectMode(fromPop) {
+  if (!selectMode) return;
+  selectMode = false; press = null;
+  clearSelection();
+  if (fromPop) pushedEntry = false;
+  else if (pushedEntry) { pushedEntry = false; pendingBack = true; try { window.history.back(); } catch (e) { pendingBack = false; } }
+  announce('Selection mode off');
+}
+// One history entry while selecting, so Android/browser Back exits the mode instead of leaving the app.
+function pushSelectEntry() {
+  if (pushedEntry || pendingBack) return;   // if a back() is still in flight, push after it lands (see popstate)
+  try { window.history.pushState({ bstSelect: true }, ''); pushedEntry = true; } catch (e) {}
+}
+function toggleSelectMode() { selectMode ? exitSelectMode() : enterSelectMode(); }
+function setSelected(id, v) {
+  if (!!seats[id].selected === v) return;
+  seats[id].selected = v; haptic(12);
+  saveAll(); updateSeat(id); updateSummary();
+}
+function batch(fn) { fn(); exitSelectMode(); }
+function isControl(t) { return !!(t.closest && t.closest('button, input, textarea, select, a, label')); }
+function seatAt(x, y) { const el = document.elementFromPoint(x, y); const c = el && el.closest && el.closest('.seat'); return c ? c.dataset.seat : null; }
+function onSeatPointerDown(e) {
+  if (e.button > 0) return;
+  const id = e.currentTarget.dataset.seat;
+  const onLabel = !!e.target.closest('.seat-label');
+  if (selectMode) {
+    if (onLabel) return;                      // label click handles its own toggle
+    e.preventDefault();
+    const value = !seats[id].selected;
+    setSelected(id, value);
+    press = { id, painting: true, value, pointerId: e.pointerId };
+    suppressClick = true;
+    return;
+  }
+  if (isControl(e.target) && !onLabel) return;
+  press = { id, x: e.clientX, y: e.clientY, painting: false, pointerId: e.pointerId,
+    timer: setTimeout(() => {
+      if (!press) return;
+      enterSelectMode(); setSelected(id, true);
+      press.painting = true; press.value = true; suppressClick = true;
+    }, LONG_PRESS_MS) };
+}
+document.addEventListener('pointermove', e => {
+  if (!press || e.pointerId !== press.pointerId) return;
+  if (!press.painting) {
+    if (Math.hypot(e.clientX - press.x, e.clientY - press.y) > MOVE_TOL) { clearTimeout(press.timer); press = null; }  // it's a scroll
+    return;
+  }
+  e.preventDefault();
+  const id = seatAt(e.clientX, e.clientY);
+  if (id) setSelected(id, press.value);
+}, { passive: false });
+function endPress() { if (press) clearTimeout(press.timer); press = null; setTimeout(() => { suppressClick = false; }, 0); }
+document.addEventListener('pointerup', endPress);
+document.addEventListener('pointercancel', endPress);
+function onSeatClick(e, id) {
+  if (suppressClick || selectMode) return;
+  if (isControl(e.target)) return;
+  if (!seats[id].running) {                   // tap a free seat = start now (undo available)
+    withUndo('Started ' + id.toUpperCase(), () => startTimer(id));
+    haptic(15); updateWakeLock();
+  }
+}
+window.addEventListener('popstate', () => {
+  if (pendingBack) { pendingBack = false; if (selectMode) pushSelectEntry(); return; }   // our own back() from Cancel/Done/action
+  if (selectMode) exitSelectMode(true);
+});
 
 function applyTheme() {
   document.body.classList.toggle('light', settings.theme === 'light');
@@ -758,7 +853,6 @@ function updateSeat(id) {
   const remaining = getDurationMs(s) - getElapsed(s);
   const cls = 'seat ' + (colour || 'free') + (s.paused ? ' paused' : '') + (s.running && remaining <= 0 ? ' timeup' : '') + (s.selected ? ' selected' : '');
   if (el.className !== cls) el.className = cls;
-  if (r.cb.checked !== !!s.selected) r.cb.checked = !!s.selected;
   r.label.setAttribute('aria-pressed', String(!!s.selected));
   const st = STATUS[state];
   setText(r.icon, st.icon); setText(r.stext, st.text);
@@ -836,9 +930,12 @@ function updateSummary() {
   }
   const sel = SEAT_IDS.filter(id => seats[id].selected).length;
   const bar = document.getElementById('actionBar');
-  bar.hidden = sel === 0;
-  document.body.classList.toggle('has-selection', sel > 0);
-  document.getElementById('actionCount').textContent = sel + ' selected';
+  bar.hidden = !selectMode;
+  document.body.classList.toggle('select-mode', selectMode);
+  setText(document.getElementById('actionCount'), sel ? sel + (sel === 1 ? ' seat selected' : ' seats selected') : 'Tap or drag across seats to select');
+  bar.querySelectorAll('.ab-act').forEach(b => { if (b.disabled !== (sel === 0)) b.disabled = sel === 0; });
+  const sb = document.getElementById('selectBtn');
+  if (sb.getAttribute('aria-pressed') !== String(selectMode)) { sb.setAttribute('aria-pressed', String(selectMode)); sb.textContent = selectMode ? '✓ Done' : '☑ Select'; }
   document.getElementById('summary').innerHTML =
     `<span class="chip">Occupied <b>${occ}/8</b></span><span class="chip">Free <b>${free}</b></span><span class="chip">Selected <b>${sel}</b></span><span class="chip"><span class="dot" style="background:var(--yellow);margin-left:0"></span>Amber <b>${yellow}</b></span><span class="chip"><span class="dot" style="background:var(--red);margin-left:0"></span>Red <b>${red}</b></span><span class="chip next">${nextText}</span>`;
 }
@@ -969,9 +1066,9 @@ function renderSeats() {
     d.setAttribute('aria-labelledby', 'lbl-' + id);
     d.innerHTML = `
       <div class="seat-head">
-        <button class="seat-label" id="lbl-${id}" aria-pressed="false" title="Select ${U} (key ${i + 1})">${U}</button>
+        <button class="seat-label" id="lbl-${id}" aria-pressed="false" title="Select ${U} (key ${i + 1}, or long-press the seat)">${U}</button>
         <span class="badge" role="status"><span class="ic" aria-hidden="true">○</span><span class="stext">Free</span></span>
-        <label class="select-box"><input type="checkbox" class="select-cb"> <span>Select<span class="sr-only"> ${U}</span></span></label>
+        <span class="sel-check" aria-hidden="true">✓</span>
       </div>
       <div class="timer" aria-label="Time remaining for ${U}">--:--</div>
       <div class="progress-container" role="progressbar" aria-label="${U} session progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-bar"></div></div>
@@ -984,11 +1081,14 @@ function renderSeats() {
         <button class="btn-reset danger-btn" aria-label="End session on ${U}">⏹ End</button>
       </div>`;
     const q = c => d.querySelector(c);
-    d._refs = { cb: q('.select-cb'), label: q('.seat-label'), icon: q('.badge .ic'), stext: q('.stext'), timer: q('.timer'),
+    d._refs = { label: q('.seat-label'), icon: q('.badge .ic'), stext: q('.stext'), timer: q('.timer'),
       bar: q('.progress-bar'), prog: q('.progress-container'), left: q('.left'), ext: q('.ext'),
       primary: q('.btn-primary'), extend: q('.btn-extend'), reset: q('.btn-reset'), notes: q('.notes-input'), };
-    d._refs.cb.addEventListener('change', () => toggleSelect(id));
-    d._refs.label.addEventListener('click', () => toggleSelect(id));
+    d._refs.label.addEventListener('click', e => { e.stopPropagation(); if (suppressClick) return; if (!selectMode) enterSelectMode(); toggleSelect(id); });
+    d.dataset.seat = id;
+    d.addEventListener('pointerdown', onSeatPointerDown);
+    d.addEventListener('click', e => onSeatClick(e, id));
+    d.addEventListener('contextmenu', e => e.preventDefault());
     d._refs.notes.addEventListener('input', e => { seats[id].notes = e.target.value; saveAll(); });
     d._refs.primary.addEventListener('click', () => { seatPrimary(id); updateWakeLock(); });
     d._refs.extend.addEventListener('click', () => extendTimer(id));
@@ -1005,7 +1105,8 @@ function toggleMenu(force) {
 }
 function menuDo(fn) { toggleMenu(false); fn(); }
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && !document.getElementById('menuPanel').hidden) { toggleMenu(false); document.getElementById('menuBtn').focus(); }
+  if (e.key === 'Escape' && !document.getElementById('menuPanel').hidden) { toggleMenu(false); document.getElementById('menuBtn').focus(); return; }
+  if (e.key === 'Escape' && selectMode) exitSelectMode();
 });
 document.addEventListener('click', e => {
   const p = document.getElementById('menuPanel');

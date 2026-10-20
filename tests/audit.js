@@ -1,4 +1,4 @@
-// Smoke audit: node audit.js <url>  (start/pause/+15/multi-select/End/no console errors, desktop + Pixel 7)
+// Smoke audit: node audit.js <url>  (start/pause/+15/multi-select (seat labels)/End/no console errors, desktop + Pixel 7)
 const { chromium, devices } = require('playwright-core');
 const U = process.argv[2]; let f=0; const ok=(c,m)=>{console.log((c?'PASS ':'FAIL ')+m); if(!c) f++;};
 (async()=>{ const b=await chromium.launch({executablePath:'/usr/bin/google-chrome',args:['--no-sandbox']});
@@ -15,7 +15,7 @@ for (const [n,o] of [['desktop',{viewport:{width:1366,height:900}}],['pixel7',de
  await p.clock.fastForward(300000); ok((await s(1).locator('.timer').textContent()).trim()===t1,`${n} pause holds`);
  await s(1).locator('.btn-primary').click(); await s(1).locator('.btn-extend').click(); await p.clock.fastForward(1000);
  ok(/^1:0[45]/.test((await s(1).locator('.timer').textContent()).trim()),`${n} +15`);
- await s(2).locator('.seat-label').click(); await s(3).locator('.select-cb').check();
+ await s(2).locator('.seat-label').click(); await s(3).locator('.seat-label').click();
  await p.locator('#actionBar').getByRole('button',{name:/Start/}).click(); await p.clock.fastForward(1000);
  ok(await p.evaluate(()=>seats.b2.running&&seats.b3.running),`${n} multi-select start`);
  dialogs=0; await s(1).locator('.btn-reset').click(); await p.clock.fastForward(300);
