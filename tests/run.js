@@ -603,13 +603,13 @@ async function rowTests(browser, name, opts) {
   await ev(() => { seats.b8.startTime -= 31 * 60000; }); await tick(300);
   ok(await ev(() => !seatVisible('b8') && document.getElementById('seat-b8').classList.contains('flag') && document.getElementById('seat-b8').classList.contains('yellow')), `${name}: B8 turning amber off-centre pulses its amber side card`);
   // indicator jump
-  if (/pixel7/.test(name)) { await ev(() => jumpTo('b4')); await tick(30); await p.waitForTimeout(900); }   // phones show fewer side cards: bring B8 into the stack first
+  if (/pixel7/.test(name)) { await ev(() => jumpTo('b5')); await tick(30); await p.waitForTimeout(900); }   // phones show fewer side cards: bring B8 into the stack first
   await tapStrip('b8'); for (let k = 0; k < 15; k++) { await tick(30); await p.waitForTimeout(40); }
   ok(await ev(() => seatVisible('b8') && centreId === 'b8'), `${name}: tapping B8's side strip centres B8 (${await ev(() => centreId + ' sy' + scrollY + ' ' + JSON.stringify(document.getElementById('seat-b8').getBoundingClientRect()) + ' op' + getComputedStyle(document.getElementById('seat-b8')).opacity)})`);
   await shot('b8');
-  if (/pixel7/.test(name)) { await ev(() => jumpTo('b4')); await tick(30); await p.waitForTimeout(900); }
+  if (/pixel7/.test(name)) { await ev(() => jumpTo('b3')); await tick(30); await p.waitForTimeout(900); }
   await tapStrip('b1'); for (let k = 0; k < 15; k++) { await tick(30); await p.waitForTimeout(40); }
-  ok(await ev(() => seatVisible('b1')), `${name}: tapping B1's side strip centres it again`);
+  ok(await ev(() => seatVisible('b1')), `${name}: tapping B1's side strip centres it again (${await ev(() => centreId + ' ' + ['b1','b2','b3'].map(i => { const c = document.getElementById('seat-' + i), a = c.getBoundingClientRect(); return i + ':' + Math.round(a.left) + '-' + Math.round(a.right) + ' op' + c.style.opacity + ' z' + c.style.zIndex; }).join(' ') + JSON.stringify(fanGeom(document.getElementById('seats'), document.getElementById('seats').scrollLeft)) + ' tier' + Q.tier + ' W' + innerWidth)})`);
   // swipes scroll outside selection mode (touch-action allows pan-x), selection mode blocks pan so drag selects
   ok(await ev(() => getComputedStyle(document.getElementById('seat-b2')).touchAction) !== 'none', `${name}: outside selection mode cards allow swipe scrolling`);
   await ev(() => enterSelectMode());
@@ -1013,7 +1013,7 @@ async function smoothTests(browser, name, opts) {
   await p.waitForTimeout(600);
   const cdp = await ctx.newCDPSession(p); await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
   // frame times during scripted tap-to-front glides + a touch swipe, measured with rAF in the page
-  await p.evaluate(() => { const f = []; let last = 0, on = true; const loop = t => { if (last) f.push(t - last); last = t; if (on) requestAnimationFrame(loop); }; requestAnimationFrame(loop); window.__stopF = () => { on = false; return f; }; });
+  await p.evaluate(() => { const f = []; let last = 0, on = true; const loop = t => { if (last && inMotion()) f.push(t - last); last = t; if (on) requestAnimationFrame(loop); }; requestAnimationFrame(loop); window.__stopF = () => { on = false; return f; }; });   // frames while a drag or settle is in progress
   const mid = [];
   for (const id of ['b6', 'b2', 'b8', 'b1']) { await p.evaluate(id => { jumpTo(id, true); }, id); await p.waitForTimeout(150); mid.push(await p.evaluate(() => document.body.classList.contains('moving'))); await p.waitForTimeout(600); }
   const box = await p.locator('#seats').boundingBox(), y = Math.round(box.y + box.height * .45);
@@ -1022,12 +1022,15 @@ async function smoothTests(browser, name, opts) {
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await p.waitForTimeout(900);
   const f = (await p.evaluate(() => window.__stopF())).sort((a, b) => a - b), q = k => f[Math.min(f.length - 1, Math.floor(k * f.length))];
   console.log(`INFO ${tag}: 4x CPU throttle, ${f.length} frames: p50 ${q(.5).toFixed(1)}ms, p95 ${q(.95).toFixed(1)}ms, max ${f[f.length - 1].toFixed(1)}ms`);
-  ok(q(.5) <= 20 && q(.95) <= 51, `${tag}: motion frame times under 4x CPU throttle (p50 ${q(.5).toFixed(1)}ms ≤ 20, p95 ${q(.95).toFixed(1)}ms ≤ 51 i.e. at most 3 vsyncs; headless software raster)`);
+  const drops = f.filter(x => x > 17.5).length;
+  console.log(`INFO ${tag}: 60 Hz motion frames: ${drops} of ${f.length} missed one vsync`);
+  ok(q(.5) <= 17 && q(.95) <= 17, `${tag}: drag + settle hold 60 fps under 4x CPU throttle (p50 ${q(.5).toFixed(1)}ms, p95 ${q(.95).toFixed(1)}ms ≤ 17)`);
+  ok(f[f.length - 1] <= 34, `${tag}: no motion frame longer than two vsyncs (max ${f[f.length - 1].toFixed(1)}ms ≤ 34; 33.3 = a single missed vsync)`);
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
   ok(mid.every(Boolean), `${tag}: ambient effects pause while the fan moves (body.moving during glides)`);
   await p.waitForTimeout(500);
   ok(await p.evaluate(() => !document.body.classList.contains('moving')), `${tag}: ambient effects resume at rest`);
-  ok(await p.evaluate(() => [...document.querySelectorAll('#seats .seat')].every(c => getComputedStyle(c).backdropFilter === 'none' && getComputedStyle(c).willChange === 'transform')), `${tag}: cards have no backdrop blur and are their own compositor layers`);
+  ok(await p.evaluate(() => [...document.querySelectorAll('#seats .seat')].every(c => getComputedStyle(c).backdropFilter === 'none' && getComputedStyle(c).willChange === 'auto')) && await p.evaluate(() => { glide = { raf: 0 }; moving(); const ok = [...document.querySelectorAll('#seats .seat')].every(c => /transform/.test(getComputedStyle(c).willChange) && /opacity/.test(getComputedStyle(c).willChange)); glide = null; return ok; }), `${tag}: cards have no backdrop blur; promoted (will-change) only while moving, freed at rest`);
   // the per-frame pose reads no layout: updateFlow with a known scroll position triggers no forced layout
   ok(await p.evaluate(() => { let reads = 0; const P = HTMLElement.prototype, keys = ['offsetLeft', 'offsetWidth', 'offsetTop', 'offsetHeight', 'offsetParent', 'clientWidth']; const saved = keys.map(k => [k, Object.getOwnPropertyDescriptor(P, k) || Object.getOwnPropertyDescriptor(Element.prototype, k)]);
     for (const [k, d] of saved) { const host = Object.getOwnPropertyDescriptor(P, k) ? P : Element.prototype; Object.defineProperty(host, k, { configurable: true, get() { reads++; return d.get.call(this); } }); }
@@ -1098,7 +1101,7 @@ async function smoothTests(browser, name, opts) {
   await p.evaluate(() => setPerfMeter(false));
   ok(await p.evaluate(() => document.getElementById('perfMeter').hidden && !settings.perfMeter), `${tag}: performance meter turns off`);
   // Smooth mode: slow frames engage lite automatically
-  ok(await p.evaluate(() => { delete window.__noLite; perfWatch.slow = 0; for (let r = 0; r < 2; r++) { perfWatch.f = Array.from({ length: 30 }, () => 40); perfWatch.raf = 1; perfWatch.stop(); } return document.body.classList.contains('lite') && localStorage.getItem('bst.lite') === 'auto'; }), `${tag}: slow frames switch on Smooth mode automatically`);
+  ok(await p.evaluate(() => { delete window.__noLite; setQuality('auto'); perfWatch.slow = 0; for (let r = 0; r < 8; r++) { perfWatch.f = Array.from({ length: 30 }, () => 40); perfWatch.raf = 1; perfWatch.stop(); } return document.body.classList.contains('lite') && localStorage.getItem('bst.lite') === 'auto'; }), `${tag}: slow frames switch on Smooth mode automatically`);
   ok(await p.evaluate(() => { const c = getComputedStyle(document.getElementById('seat-b2')); return c.webkitBoxReflect === 'none' || !c.webkitBoxReflect || c.webkitBoxReflect === ''; }) && await p.evaluate(() => getComputedStyle(document.getElementById('spot')).display === 'none'), `${tag}: Smooth mode drops reflections and the spotlight`);
   await p.reload(); await p.waitForTimeout(500);
   ok(await p.evaluate(() => document.body.classList.contains('lite')), `${tag}: Smooth mode remembered on this device`);
@@ -1230,6 +1233,112 @@ async function coverflowTests(browser) {
     ok(Math.abs(mid[0]) > 1 && Math.abs(mid[0]) < 64 && Math.abs(mid[1]) < 64, `${tag}: mid-drag the cards swing through the centre (rotations ${mid.map(v => v.toFixed(1)).join(', ')})`);
     ok(await ev(() => { const sc = document.getElementById('seats'), i = DISPLAY_IDS.indexOf(centreId), t = Math.max(0, Math.min(FG.max, FG.lefts[i] - (FG.W - FG.cw) / 2)); return !glide && Math.abs(sc.scrollLeft - t) < .5 && /rotateY\(0(\.0+)?deg\)/.test(document.getElementById('seat-' + centreId).style.transform); }), `${tag}: release settles exactly on a seat (${await ev(() => centreId)}), facing forward`);
     if (['pixel7', '915x412', '768x1024', '1024x768'].includes(name)) { await ev(() => jumpTo('b5')); await p.waitForTimeout(700); await p.screenshot({ path: path.join(SHOTS, `coverflow-${TAG}-${name}.png`) }); }
+    ok(errs.length === 0, `${tag}: no page errors ${errs.join(' | ')}`);
+    await ctx.close();
+  }
+}
+
+// ---- v4.5: frame-rate independent spring, motion quality tiers + setting
+async function qualityTests(browser) {
+  for (const [name, o] of [['pixel7', devices['Pixel 7']], ['1280x800', { viewport: { width: 1280, height: 800 } }]]) {
+    const tag = 'quality ' + name;
+    const ctx = await browser.newContext({ ...o, serviceWorkers: 'block', reducedMotion: 'no-preference' });
+    const p = await ctx.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message));
+    await p.addInitScript(INIT); await p.addInitScript(() => sessionStorage.setItem('bst.intro', '1'));
+    await p.goto(BASE); await p.waitForTimeout(700);
+    const ev = (f, a) => p.evaluate(f, a);
+    if (name === 'pixel7') {
+      // the spring itself, stepped at 60 vs 120 Hz (and 90, 30): same landing, same duration within one frame
+      const s = await ev(() => [60, 90, 120, 30].map(hz => springSim(-600, 2500, hz)));
+      ok(s.every(r => r.x === 0) && Math.max(...s.map(r => r.t)) - Math.min(...s.map(r => r.t)) <= 1 / 30 + 1e-9, `${tag}: spring lands on the seat with the same duration at 60/90/120/30 Hz (${s.map(r => (r.t * 1000).toFixed(0) + 'ms').join(' / ')})`);
+      // the real glide driven by synthetic rAF timestamps at 60 Hz vs 120 Hz: the same curve in time and the same landing
+      const run = await ev(async () => { const sc = document.getElementById('seats'), R = window.requestAnimationFrame, C = window.cancelAnimationFrame, res = {};
+        for (const hz of [60, 120]) {
+          jumpTo('b1'); let q = [], now = performance.now(), t0 = now; window.requestAnimationFrame = f => { q.push(f); return q.length; }; window.cancelAnimationFrame = () => {};
+          const i = DISPLAY_IDS.indexOf('b6'), to = Math.max(0, Math.min(FG.max, FG.lefts[i] - (FG.W - FG.cw) / 2));
+          glideTo(sc, to, 0); const tr = []; let n = 0;
+          while (glide && n < 2000) { const fs = q; q = []; now += 1000 / hz; fs.forEach(f => f(now)); n++; tr.push([now - t0, sc.scrollLeft]); }
+          window.requestAnimationFrame = R; window.cancelAnimationFrame = C;
+          const at = ms => { let k = 0; tr.forEach((x, j) => { if (Math.abs(x[0] - ms) < Math.abs(tr[k][0] - ms)) k = j; }); return tr[k][1]; };
+          res[hz] = { end: sc.scrollLeft, to, dur: tr.length ? tr[tr.length - 1][0] : 0, p100: at(100), p200: at(200) };
+          if (glide) glideStop();
+        }
+        return res; });
+      const a = run[60], b = run[120];
+      ok(Math.abs(a.end - a.to) < .01 && Math.abs(b.end - b.to) < .01, `${tag}: glide lands exactly on the seat at 60 Hz and 120 Hz`);
+      ok(Math.abs(a.dur - b.dur) <= 17 && Math.abs(a.p100 - b.p100) < 2 && Math.abs(a.p200 - b.p200) < 2, `${tag}: glide is frame-rate independent (duration ${a.dur.toFixed(0)} vs ${b.dur.toFixed(0)}ms; position at 100ms ${a.p100.toFixed(1)} vs ${b.p100.toFixed(1)}, at 200ms ${a.p200.toFixed(1)} vs ${b.p200.toFixed(1)})`);
+      // a stalled frame (200 ms gap) is clamped: no jump past 1/30 s of spring time
+      const st = await ev(() => { const sc = document.getElementById('seats'), R = window.requestAnimationFrame; jumpTo('b1'); let q = [], now = performance.now(); window.requestAnimationFrame = f => { q.push(f); return 1; };
+        glideTo(sc, 0, 0); const xs = []; for (const dt of [16.7, 16.7, 200, 16.7]) { const fs = q; q = []; now += dt; fs.forEach(f => f(now)); xs.push(sc.scrollLeft); } window.requestAnimationFrame = R; glideStop(); return xs; });
+      ok(Math.abs(st[2] - st[1]) > 0 && Math.abs(st[2] - st[1]) < Math.abs(st[1] - st[0]) * 2.6, `${tag}: a stalled frame is clamped (step after a 200ms stall ${(st[2] - st[1]).toFixed(1)}px vs normal ${(st[1] - st[0]).toFixed(1)}px)`);
+      // pointer moves only record; drawing happens once per rAF
+      ok(await ev(() => { const src = document.documentElement.innerHTML; return /getCoalescedEvents/.test(src); }), `${tag}: pointer velocity uses coalesced events`);
+    }
+    // setting: Motion quality Auto / High / Smooth
+    ok(await ev(() => { const s = document.getElementById('setQuality'); return !!s && [...s.options].map(o => o.textContent).join() === 'Auto,High,Smooth' && s.value === 'auto'; }), `${tag}: Settings has 'Motion quality: Auto / High / Smooth' (default Auto)`);
+    await ev(() => { ['b2', 'b3', 'b7'].forEach(id => startTimer(id, true)); jumpTo('b4'); }); await p.waitForTimeout(400);
+    const snap = () => ev(() => { const c = [...document.querySelectorAll('#seats .seat')], shown = c.filter(x => x.style.opacity !== '0.00' && x.style.visibility !== 'hidden'), refl = getComputedStyle(document.querySelector('#seat-b3 .refl')).display;
+      const G = fanGeom(document.getElementById('seats'), document.getElementById('seats').scrollLeft); return { tier: Q.tier, refl, kL: G.kL, kR: G.kR, rot: c.some(x => /rotateY\((?!0(\.0+)?deg)/.test(x.style.transform)), lite: document.body.classList.contains('lite'), shown: shown.length }; });
+    const s0 = await snap();
+    ok(s0.tier === 0 && s0.refl !== 'none' && s0.rot && !s0.lite, `${tag}: full quality at start (reflections, perspective) ${JSON.stringify(s0)}`);
+    const slow = () => ev(() => { delete window.__noLite; for (let r = 0; r < 2; r++) { perfWatch.f = Array.from({ length: 30 }, () => 33.3); perfWatch.raf = 1; perfWatch.stop(); } });
+    await slow(); const s1 = await snap();
+    ok(s1.tier === 1 && s1.refl === 'none' && s1.rot, `${tag}: Auto, frames over budget: tier 1 drops reflections first ${JSON.stringify(s1)}`);
+    await slow(); const s2 = await snap();
+    ok(s2.tier === 2 && s2.kL <= 5 && s2.kR <= 5 && s2.rot, `${tag}: tier 2 shows at most 5 side cards per side ${JSON.stringify(s2)}`);
+    await slow(); const s3 = await snap();
+    ok(s3.tier === 3 && !s3.rot && !s3.lite, `${tag}: tier 3 flattens the perspective ${JSON.stringify(s3)}`);
+    await p.reload(); await p.waitForTimeout(600);
+    ok(await ev(() => Q.tier === 3 && Q.mode === 'auto'), `${tag}: the stepped-down tier is remembered on this device`);
+    await slow();
+    ok(await ev(() => document.body.classList.contains('lite')), `${tag}: still over budget at tier 3: Smooth mode`);
+    // good frames never step down
+    await ev(() => setQuality('auto')); await ev(() => { for (let r = 0; r < 4; r++) { perfWatch.f = Array.from({ length: 30 }, () => 16.7); perfWatch.raf = 1; perfWatch.stop(); } });
+    ok(await ev(() => Q.tier === 0 && !document.body.classList.contains('lite')), `${tag}: frames within budget keep full quality`);
+    // High: never steps down
+    await ev(() => setQuality('high')); await slow(); await slow();
+    ok(await ev(() => Q.tier === 0 && !document.body.classList.contains('lite') && Q.mode === 'high'), `${tag}: High never steps down, even on slow frames`);
+    // Smooth: lite + flat from the start, remembered
+    await ev(() => setQuality('smooth')); await p.waitForTimeout(100);
+    const sm = await snap();
+    ok(sm.lite && !sm.rot && sm.refl === 'none', `${tag}: Smooth = lite, flat, no reflections ${JSON.stringify(sm)}`);
+    await p.reload(); await p.waitForTimeout(600);
+    ok(await ev(() => Q.mode === 'smooth' && document.body.classList.contains('lite') && document.getElementById('setQuality').value === 'smooth'), `${tag}: Smooth setting remembered`);
+    await ev(() => setQuality('auto'));
+    ok(await ev(() => Q.tier === 0 && !document.body.classList.contains('lite')), `${tag}: back to Auto restores full quality`);
+    // reflections only at rest; faded cards hidden at rest
+    await ev(() => jumpTo('b1')); await p.waitForTimeout(500);
+    const rr = await ev(() => { const r = document.querySelector('#seat-b3 .refl'), atRest = getComputedStyle(r).visibility; glide = { raf: 0 }; moving(); updateFlow(); const mv = getComputedStyle(r).visibility; glide = null; return { atRest, mv }; });
+    ok(rr.atRest === 'visible' && rr.mv === 'hidden', `${tag}: reflections show only at rest ${JSON.stringify(rr)}`);
+    await p.waitForTimeout(500);
+    ok(await ev(() => [...document.querySelectorAll('#seats .seat')].every(c => c.style.opacity !== '0.00' || c.style.visibility === 'hidden')), `${tag}: cards faded out at rest are visibility:hidden`);
+    ok(errs.length === 0, `${tag}: no page errors ${errs.join(' | ')}`);
+    await ctx.close();
+  }
+}
+
+// ---- 60 Hz tablet: drag + settle frame times under 4x CPU throttle (motion frames only)
+async function tabletPerfTests(browser) {
+  for (const [name, vp] of [['1024x768', { width: 1024, height: 768 }]]) {
+    const tag = 'tablet perf ' + name;
+    const ctx = await browser.newContext({ viewport: vp, hasTouch: true, isMobile: true, serviceWorkers: 'block', reducedMotion: 'no-preference' });
+    const p = await ctx.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message));
+    await p.addInitScript(() => { sessionStorage.setItem('bst.intro', '1'); window.__noLite = 1; });
+    await p.goto(BASE); await p.waitForTimeout(1000);
+    await p.evaluate(() => { setQuality('high'); ['b2', 'b3', 'b5', 'b6', 'b7'].forEach(id => startTimer(id, true)); seats.b7.startTime -= 61 * 60000; jumpTo('b1'); }); await p.waitForTimeout(800);
+    const cdp = await ctx.newCDPSession(p); await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
+    await p.evaluate(() => { const f = []; let last = 0, on = true; const loop = t => { if (last && inMotion()) f.push(t - last); last = t; if (on) requestAnimationFrame(loop); }; requestAnimationFrame(loop); window.__stopF = () => { on = false; return f; }; });
+    const box = await p.locator('#seats').boundingBox(), y = Math.round(box.y + box.height * .45);
+    for (let r = 0; r < 3; r++) { const dir = r % 2 ? -1 : 1, x0 = dir > 0 ? 200 : 820;
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x0, y }] });
+      for (let k = 1; k <= 40; k++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x0 + dir * k * 9, y }] }); await p.waitForTimeout(16); }
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await p.waitForFunction(() => !inMotion(), null, { timeout: 5000 }).catch(() => {}); await p.waitForTimeout(400); }
+    for (const id of ['b6', 'b2', 'b8']) { await p.evaluate(id => jumpTo(id, true), id); await p.waitForFunction(() => !inMotion(), null, { timeout: 5000 }).catch(() => {}); await p.waitForTimeout(400); }
+    const f = (await p.evaluate(() => window.__stopF())).sort((a, b) => a - b), q = k => f[Math.min(f.length - 1, Math.floor(k * f.length))];
+    console.log(`INFO ${tag}: 4x CPU throttle, ${f.length} motion frames: p50 ${q(.5).toFixed(1)}ms, p95 ${q(.95).toFixed(1)}ms, max ${f[f.length - 1].toFixed(1)}ms, ${f.filter(x => x > 17.5).length} missed one vsync`);
+    ok(q(.95) <= 17, `${tag}: drag + settle hold 60 fps (p95 ${q(.95).toFixed(1)}ms ≤ 17)`);
+    ok(f[f.length - 1] <= 34, `${tag}: no motion frame longer than two vsyncs (max ${f[f.length - 1].toFixed(1)}ms ≤ 34)`);
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
     ok(errs.length === 0, `${tag}: no page errors ${errs.join(' | ')}`);
     await ctx.close();
   }
@@ -1423,6 +1532,8 @@ let TAG;
   console.log(`Testing ${BASE}`);
   const browser = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
   if (!process.env.ONLY || process.env.ONLY.split(',').includes('coverflowTests')) await coverflowTests(browser);
+  if (!process.env.ONLY || process.env.ONLY.split(',').includes('qualityTests')) await qualityTests(browser);
+  if (!process.env.ONLY || process.env.ONLY.split(',').includes('tabletPerfTests')) await tabletPerfTests(browser);
   if (!process.env.ONLY || process.env.ONLY.split(',').includes('partyMigrationTests')) await partyMigrationTests(browser);
   for (const [name, opts] of [['desktop', { viewport: { width: 1366, height: 900 } }], ['pixel7', devices['Pixel 7']]]) {
     if (!process.env.ONLY || process.env.ONLY.split(',').includes('featureTests')) await featureTests(browser, name, opts);

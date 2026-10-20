@@ -173,12 +173,12 @@
   .seat.red    { border-left-color: var(--bar-danger); background: linear-gradient(var(--c-danger-bg), var(--c-danger-bg)), var(--c-surface); }
   .seat.paused { border-left-color: var(--c-paused); }
   /* time-up glow: opacity-only animation on a pseudo layer */
-  .seat::after { content: ""; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none; opacity: 0;
+  .seat::after { content: ""; position: absolute; inset: -1px; border-radius: var(--radius); pointer-events: none; opacity: 0;
     box-shadow: 0 0 0 2px var(--bar-danger), 0 0 28px 2px color-mix(in srgb, var(--bar-danger) 60%, transparent); }
   .seat.timeup::after { animation: alarm 1.2s ease-in-out infinite; will-change: opacity; }
   @keyframes alarm { 0%,100% { opacity: .25; } 50% { opacity: 1; } }
   /* ============ Motion: status (transform/opacity only) ============ */
-  .seat::before { content: ""; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none; opacity: 0;
+  .seat::before { content: ""; position: absolute; inset: -1px; border-radius: var(--radius); pointer-events: none; opacity: 0;
     box-shadow: 0 0 0 1px var(--bar-warn), 0 0 22px 1px color-mix(in srgb, var(--bar-warn) 55%, transparent); }
   .seat.yellow:not(.paused)::before { animation: breathe 3.2s ease-in-out infinite; will-change: opacity; }
   .seat.red:not(.timeup):not(.paused)::before { box-shadow: 0 0 0 1px var(--bar-danger), 0 0 22px 1px color-mix(in srgb, var(--bar-danger) 55%, transparent);
@@ -187,7 +187,7 @@
   .seat.timeup:not(.paused) { animation: shake 4s ease-in-out infinite; }
   @keyframes shake { 0%,86%,100% { rotate: 0deg; } 88% { rotate: -1.2deg; } 91% { rotate: 1.2deg; } 94% { rotate: -.8deg; } 97% { rotate: .5deg; } }
   .seat.paused::after { animation: none; opacity: 0; }
-  .seat .fx { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; pointer-events: none; z-index: 0; }
+  .seat .fx { position: absolute; inset: 0; border-radius: var(--radius); overflow: hidden; pointer-events: none; z-index: 0; }
   .seat > :not(.fx) { position: relative; z-index: 1; }
   .seat .sel-check { position: absolute; z-index: 2; }
   .seat .stripes { position: absolute; inset: -40px; opacity: 0; transition: opacity .3s ease;
@@ -465,12 +465,12 @@
   body.flow-anim .seats .seat { transition: transform .5s var(--spring), opacity .4s ease, scale .32s var(--spring); }
   .seats .seat.pressing { transition: transform .18s var(--ease); }
   .tint { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
-  .tint i { position: absolute; inset: 0; opacity: 0; transition: opacity .8s ease; will-change: opacity; }
+  .tint i { position: absolute; inset: 0; opacity: 0; visibility: hidden; transition: opacity .8s ease, visibility 0s linear .8s; }   /* inactive tints leave the compositor */
   .tint .t-green { background: radial-gradient(50vmax 40vmax at 50% 45%, rgba(34,197,94,.16), transparent 70%); }
   .tint .t-yellow { background: radial-gradient(50vmax 40vmax at 50% 45%, rgba(245,158,11,.18), transparent 70%); }
   .tint .t-red { background: radial-gradient(50vmax 40vmax at 50% 45%, rgba(239,68,68,.2), transparent 70%); }
   .tint .t-paused { background: radial-gradient(50vmax 40vmax at 50% 45%, rgba(139,92,246,.16), transparent 70%); }
-  body.c-green .tint .t-green, body.c-yellow .tint .t-yellow, body.c-red .tint .t-red, body.c-paused .tint .t-paused { opacity: 1; }
+  body.c-green .tint .t-green, body.c-yellow .tint .t-yellow, body.c-red .tint .t-red, body.c-paused .tint .t-paused { opacity: 1; visibility: visible; transition: opacity .8s ease, visibility 0s; }
   body.light .tint, body.high-contrast .tint, body.guest-on .tint { display: none; }
   .seat-nav button.centre { color: var(--c-text); border-color: var(--c-accent); box-shadow: 0 0 0 2px var(--c-accent); opacity: 1; }
   /* overlays the row's reserved top gutter: never pushes layout, never covers card controls */
@@ -631,7 +631,7 @@
   body.theme-premium.daytime:not(.high-contrast) .seats .seat { --c-surface: #fbfaf6; }
   body.high-contrast .seats .seat { --c-surface: #000; }
   .seats .seat .mini { position: absolute; top: 0; bottom: 0; width: var(--strip, 40px); display: none; flex-direction: column; align-items: center; justify-content: center;
-    gap: var(--s-2); background: var(--c-surface); z-index: 5; pointer-events: none; border-radius: inherit; overflow: hidden; }
+    gap: var(--s-2); background: var(--c-surface); z-index: 5; pointer-events: none; border-radius: var(--radius); overflow: hidden; }
   .seats .seat.sl .mini { left: 0; box-shadow: inset 4px 0 0 var(--glow); }
   .seats .seat.sr .mini { right: 0; box-shadow: inset -4px 0 0 var(--glow); }
   body:not(.select-mode) .seats .seat.side .mini { display: flex; }
@@ -640,7 +640,7 @@
   .mini .md { width: 10px; height: 10px; border-radius: 50%; background: var(--glow); box-shadow: 0 0 0 2px color-mix(in srgb, var(--glow) 35%, transparent); }
   .seat.free .mini .md { background: transparent; box-shadow: inset 0 0 0 2px var(--c-text-muted); }
   .mini .mm { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--c-text); line-height: 1; }
-  .seats .seat .dim { position: absolute; inset: -1px; border-radius: inherit; background: #000; opacity: 0; pointer-events: none; z-index: 7; }
+  .seats .seat .dim { position: absolute; inset: -1px; border-radius: var(--radius); background: #000; opacity: 0; pointer-events: none; z-index: 7; }
   body.theme-premium.daytime .seats .seat .dim { background: #e9e6de; }
   body.select-mode .seats .seat .dim { opacity: 0 !important; }
   /* each seat's status softly lights its neighbours */
@@ -694,7 +694,10 @@
   .seat, .guest-card { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
   body.theme-premium:not(.high-contrast) .guest-card { background-color: #171b26; }
   body.theme-premium.daytime:not(.high-contrast) .guest-card { background-color: #fbfaf6; }
-  .seats .seat { will-change: transform; contain: layout style; }
+  .seats .seat { will-change: auto; contain: layout style; }
+  body.moving .seats .seat, .seats.live .seat { will-change: transform, opacity; }   /* .live: promoted at finger-down, before anything moves */
+  body.moving .seats .seat::before, body.moving .seats .seat::after, body.moving .seats .seat .fx::after { visibility: hidden; }   /* status glows (their own big blurred layers) show at rest only */
+  body:not(.select-mode) .seats .seat.sl .dim { right: auto; } body:not(.select-mode) .seats .seat.sr .dim { left: auto; }   /* opacity too: fading a card in/out mid-motion never re-paints the board */   /* promoted only for a gesture/settle; freed at rest */
   body.select-mode .seats .seat { will-change: auto; }
   /* while moving: pause ambient loops (sheen, glows, nudges, grain) and drop reflections */
   body.moving .seats .seat, body.moving .seats .seat::before, body.moving .seats .seat::after, body.moving .seats .seat .fx::after,
@@ -758,9 +761,11 @@
   body:not(.select-mode) .seats .seat.sr .mini { transform-origin: 100% 50%; }
   body:not(.select-mode) .seats { padding-top: 40px; padding-bottom: 120px;
     background: linear-gradient(to bottom, transparent calc(100% - 120px), rgba(255,255,255,.035) calc(100% - 120px), transparent calc(100% - 30px)); }
-  .seats .seat .refl { position: absolute; left: 0; right: 0; top: 100%; height: 34%; margin-top: 6px; border-radius: inherit; pointer-events: none;
+  .seats .seat .refl { position: absolute; left: 0; right: 0; top: 100%; height: 34%; margin-top: 6px; border-radius: var(--radius); pointer-events: none;
     background: linear-gradient(to bottom, color-mix(in srgb, var(--glow, #888) 26%, var(--c-surface)) 0%, transparent 85%); opacity: .45; }
-  body.select-mode .seats .seat .refl, body.lite .seats .seat .refl, body.high-contrast .seats .seat .refl, body.light .seats .seat .refl { display: none; }
+  .seats .seat .refl { transition: opacity .35s ease .05s; }
+  body.moving .seats .seat .refl { opacity: 0 !important; visibility: hidden; transition: none; }   /* reflections only at rest */
+  body.q1 .seats .seat .refl, body.select-mode .seats .seat .refl, body.lite .seats .seat .refl, body.high-contrast .seats .seat .refl, body.light .seats .seat .refl { display: none; }
   .seats { --cw: min(52vw, 300px); }
   @media (min-width: 600px) { .seats { --cw: min(40vw, 320px); } }
   @media (min-width: 1000px) { .seats { --cw: 340px; } }
@@ -858,6 +863,7 @@
   <label><input type="checkbox" id="setDaytime" onchange="setDaytime(this.checked)"> Daytime (light Premium)</label>
   <label><input type="checkbox" id="setGyro" onchange="setGyro(this.checked)"> Gentle tilt with phone motion</label>
   <label><input type="checkbox" id="setPerf" onchange="setPerfMeter(this.checked)"> Show performance meter</label>
+  <label>Motion quality <select id="setQuality" onchange="setQuality(this.value)"><option value="auto">Auto</option><option value="high">High</option><option value="smooth">Smooth</option></select></label>
   <p class="hint" id="gyroMsg" role="status"></p>
   <label><input type="checkbox" id="setHighContrast"> High contrast</label>
   <label><input type="checkbox" id="setAutoEnd"> Auto-end a session when time is up</label>
@@ -890,6 +896,9 @@
 <footer>Saved only in this browser on this device · no personal data, please · Bar seats B1–B8</footer>
 
 <script>
+// Motion quality tier (see perfWatch): read first so every pose call can use it
+const Q = { mode: 'auto', tier: 0 };
+try { Q.mode = localStorage.getItem('bst.quality') || 'auto'; Q.tier = Q.mode === 'high' ? 0 : Q.mode === 'smooth' ? 3 : Math.max(0, Math.min(3, +localStorage.getItem('bst.qtier') || 0)); } catch (e) {}
 const SEAT_IDS = ['b1','b2','b3','b4','b5','b6','b7','b8'];
 // Physical bar order, left to right: B8 ... B1 (B1 is on the right). Used wherever seats are shown in a row or list.
 const DISPLAY_IDS = SEAT_IDS.slice().reverse();
@@ -1317,7 +1326,7 @@ function applyTheme() {
     f('setHighContrast').checked = !!settings.highContrast;
     f('setAutoEnd').checked = !!settings.autoEnd;
     f('setLook').value = isPremium() ? 'premium' : 'arcade';
-    f('setDaytime').checked = !!settings.daytime; f('setGyro').checked = !!settings.gyro; f('setPerf').checked = !!settings.perfMeter;
+    f('setDaytime').checked = !!settings.daytime; f('setGyro').checked = !!settings.gyro; f('setPerf').checked = !!settings.perfMeter; f('setQuality').value = Q.mode;
   }
 }
 
@@ -1400,18 +1409,27 @@ function seatVisible(id) {
 }
 let flowTarget = null, glide = null, userScroll = false;
 // Our own glide (rAF) so the settle is a soft spring and always lands exactly; a touch or wheel cancels it.
+const SPRING = { W: 20, maxDt: 1 / 30, maxT: 1.2 };
+function springAt(x0, v0, t) { const W = SPRING.W, A = v0 + W * x0, e = Math.exp(-W * t); return { x: (x0 + A * t) * e, v: (v0 - W * t * A) * e }; }
+function springDone(s, t) { return t > SPRING.maxT || (Math.abs(s.x) < .4 && Math.abs(s.v) < 25); }
+// Test hook: run the same spring at a fixed refresh rate; returns where it lands and how long it takes
+function springSim(x0, v0, hz) { let t = 0, s; for (;;) { t += Math.min(1 / hz, SPRING.maxDt); s = springAt(x0, v0, t); if (springDone(s, t)) return { x: 0, t, lastX: s.x }; } }
 function glideStop() { if (glide) { cancelAnimationFrame(glide.raf); glide = null; } }
 function glideTo(sc, to, v0) {
   glideStop();
   const from = sc.scrollLeft, x0 = from - to; v0 = Math.max(-6000, Math.min(6000, v0 || 0));
   if (Math.abs(x0) < .5 && Math.abs(v0) < 30) { sc.scrollLeft = to; updateFlow(); return; }
   // one critically damped spring for swipe release, tap-to-front and chips: x(t) = to + (x0 + (v0 + w x0) t) e^(-w t)
-  const W = 20, t0 = performance.now(), A = v0 + W * x0;
+  // Time advances by the real rAF timestamp delta (clamped to 1/30 s, so a stalled frame never jumps), and the
+  // pose is the spring's exact closed form at that time: 60, 90 and 120 Hz trace the same curve and land together.
+  let t = 0, last = performance.now();
   const step = now => {
-    const t = Math.max(0, (performance.now() - t0) / 1000), e = Math.exp(-W * t), x = to + (x0 + A * t) * e, v = (v0 - W * t * A) * e;
-    const done = t > 1.2 || (Math.abs(x - to) < .4 && Math.abs(v) < 25);
-    sc.scrollLeft = done ? to : x;
-    if (done) { glide = null; updateFlow(); updateNav(); sfx('settle'); moving(); fxSafe(FX.flushDrops); if (tick.owed) tick(); return; }
+    t += Math.min(Math.max(0, now - last) / 1000, SPRING.maxDt); last = Math.max(last, now);
+    const s = springAt(x0, v0, t), done = springDone(s, t);
+    sc.scrollLeft = done ? to : to + s.x;
+    if (done) { glide = null; updateFlow(); sfx('settle'); moving();
+      // the rest of the at-rest work (nav, drops, owed timer faces) runs a few frames later, not inside the last motion frame
+      clearTimeout(glideTo.rest); glideTo.rest = setTimeout(() => { if (inMotion()) return; updateNav(); fxSafe(FX.flushDrops); if (tick.owed) tick(); }, 90); return; }
     updateFlow(); moving(); glide.raf = requestAnimationFrame(step);
   };
   glide = { raf: requestAnimationFrame(step), max: FG ? FG.max : sc.scrollWidth - sc.clientWidth, to };
@@ -1551,20 +1569,24 @@ function fanGeom(sc, sl) {
   // classic Cover Flow: a tight stack with a small step; on narrow phones only as many side cards as stay readable
   const st = k => Math.max(Math.min(minStep, maxStep), Math.min(maxStep, room / Math.max(1, k)));
   const stepL = st(f), stepR = st(n - 1 - f);
-  return { W, cw, f, Lc, Rc: Lc + cw, stepL, stepR, kL: Math.max(1, Math.floor(room / stepL + 1e-6)), kR: Math.max(1, Math.floor(room / stepR + 1e-6)) };
+  const cap = Q.tier >= 2 ? 5 : 7;   // quality tier 2+: at most 5 side cards per side
+  return { W, cw, f, Lc, Rc: Lc + cw, stepL, stepR, kL: Math.min(cap, Math.max(1, Math.floor(room / stepL + .03))), kR: Math.min(cap, Math.max(1, Math.floor(room / stepR + .03))) };
 }
 function cardPose(d, w) {   // kept for reference by older code paths: scale/tilt/dim as a function of distance
   const a = Math.min(Math.abs(d), 1), far = Math.max(0, Math.abs(d) - 1);
   return { ry: (d < 0 ? 1 : -1) * a * FAN.ry, sc: Math.max(.7, 1 - a * .14 - far * .02), dim: Math.min(.5, a * .22 + far * .05), z: 100 - Math.round(Math.abs(d) * 10) };
 }
 function applyCard(c) {
-  const t = [c._flow, c._gyro, c._tilt].filter(Boolean).join(' ');
-  if (c.style.transform !== t) c.style.transform = t;
+  const t = c._gyro || c._tilt ? [c._flow, c._gyro, c._tilt].filter(Boolean).join(' ') : c._flow, cs = c._st || (c._st = c.style);
+  if (c._tf !== t) { c._tf = t; cs.transform = t; }
 }
 function updateFlow(slKnown) {
   const sc = document.getElementById('seats'); if (!sc) return;
-  const sl = slKnown != null ? slKnown : sc.scrollLeft, rs = selectMode ? sl : 0, mot = inMotion(), three = FX.on() && !selectMode, G = fanGeom(sc, sl);
+  const sl = slKnown != null ? slKnown : sc.scrollLeft, rs = selectMode ? sl : 0, mot = inMotion(), three = FX.on() && !selectMode && Q.tier < 3, G = fanGeom(sc, sl);
   let best = null, bestD = 1e9, ci = -1;
+  const rank = updateFlow.rank || (updateFlow.rank = []), ad = updateFlow.ad || (updateFlow.ad = []);
+  { let i = 0; for (const c of sc.children) { ad[i] = Math.abs((FG.lefts[i] + G.cw / 2 - (sl + G.W / 2)) / G.cw); rank[i] = i; i++; } rank.length = i; ad.length = i;
+    rank.sort((a, b) => ad[a] - ad[b] || a - b); for (let k = 0; k < i; k++) ad[rank[k]] = -1 - k; }   // ad[i] = -(1 + rank)
   for (const c of sc.children) {
     ci++; const w = G.cw, ol = FG.lefts[ci], d = (ol + w / 2 - (sl + G.W / 2)) / w;
     if (Math.abs(d) < Math.abs(bestD)) { bestD = d; best = c.dataset.seat; }
@@ -1584,8 +1606,8 @@ function updateFlow(slKnown) {
       // outer edge position on screen; origin is the outer edge so tilt and scale never move it
       // pivot on the outer edge (origin x = 0, y = middle): left cards hinge on their left edge, right cards on their right edge
       const sk = P.sc * (1 + .02 * (1 - Math.min(1, Math.abs(d)))), X = left ? (G.Lc - G.stepL * -d) - nl : (G.Rc + G.stepR * d) - nl;
-      flow = `translateX(${X.toFixed(1)}px)` + (three ? ` perspective(1000px) rotateY(${P.ry.toFixed(2)}deg)` : '') + ` scale(${sk.toFixed(3)})` + (left ? '' : ` translateX(${-w}px)`);
-      z = String(P.z); dim = P.dim.toFixed(2);
+      flow = `translateX(${mot ? X.toFixed(2) : Math.round(X)}px)` + (three ? ` perspective(1000px) rotateY(${P.ry.toFixed(2)}deg)` : '') + ` scale(${sk.toFixed(3)})` + (left ? '' : ` translateX(${-w}px)`);
+      z = String(100 + ad[ci]); dim = P.dim.toFixed(2);   // z by distance rank: only changes when two cards swap order
       const step = left ? G.stepL : G.stepR, cos = three ? Math.max(.2, Math.cos(P.ry * Math.PI / 180)) : 1;
       strip = Math.round(Math.max(24, Math.min(w * .45, (step + 2) / P.sc))) + 'px';
       // the label on the visible sliver faces outward: counter-stretch it so the rotation doesn't squash it
@@ -1595,10 +1617,13 @@ function updateFlow(slKnown) {
       if (!mot && (c.classList.contains('sl') !== left || c.classList.contains('sr') === left)) { c.classList.toggle('sl', left); c.classList.toggle('sr', !left); }
     } else if (c.classList.contains('sl') || c.classList.contains('sr')) c.classList.remove('sl', 'sr');
     c._flow = flow; applyCard(c);
-    if (op === '1.00') op = ''; if (c.style.opacity !== op) c.style.opacity = op;
-    if (c.style.zIndex !== z) c.style.zIndex = z;
+    const cs = c._st || (c._st = c.style);   // cached style object
+    if (op === '1.00') op = ''; if (cs.opacity !== op) cs.opacity = op;
+    const vis = op === '0.00' && !mot ? 'hidden' : ''; if (cs.visibility !== vis) cs.visibility = vis;   // fully faded cards leave the compositor at rest (toggling it mid-motion would repaint)
+    if (cs.zIndex !== z) cs.zIndex = z;
     if (c._refs && c._refs.dim.style.opacity !== dim) c._refs.dim.style.opacity = dim;
-    const mi = c._refs && c._refs.mini; if (mi && !mot && mi.style.width !== strip) mi.style.width = strip;   // plain property on one element: no inherited custom-property recalc
+    const mi = c._refs && c._refs.mini; if (mi && !mot && mi.style.width !== strip) mi.style.width = strip;
+    const dm = c._refs && c._refs.dim; if (dm && !mot && dm.style.width !== strip) dm.style.width = strip;   // the dim layer covers only the visible sliver, not the whole card (less overdraw)   // plain property on one element: no inherited custom-property recalc
   }
   if (best && best !== centreId) {
     const passed = Math.abs(DISPLAY_IDS.indexOf(best) - DISPLAY_IDS.indexOf(centreId));
@@ -2238,7 +2263,7 @@ document.addEventListener('keydown', e => {
 
 function tick() {
   updateWakeLock();
-  fxSafe(updateMood);
+  if (!inMotion()) fxSafe(updateMood);
   if (inMotion() && document.getElementById('guestView').style.display !== 'block') { SEAT_IDS.forEach(checkAlerts); tick.owed = 1; return; }   // gestures get the frame; faces catch up at rest
   tick.owed = 0;
   SEAT_IDS.forEach(id => { checkAlerts(id); updateSeat(id); });
@@ -2346,6 +2371,7 @@ function inMotion() { return !!(glide || (drag && drag.on)); }
   sc.addEventListener('pointerdown', e => {
     if (selectMode || e.button > 0 || !FG) return;
     drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, p0: vpos, on: false, s: [[e.timeStamp, e.clientX]], raf: 0 };
+    if (!sc.classList.contains('live')) sc.classList.add('live');   // layers are ready by the time the drag passes the slop
   });
   sc.addEventListener('pointermove', e => {
     if (!drag || e.pointerId !== drag.id || selectMode) return;
@@ -2357,13 +2383,15 @@ function inMotion() { return !!(glide || (drag && drag.on)); }
     }
     let p = drag.p0 - (e.clientX - drag.x0); const max = FG.max;
     if (p < 0) p = p * .35; else if (p > max) p = max + (p - max) * .35;   // soft edge
-    vpos = p; drag.s.push([e.timeStamp, e.clientX]); while (drag.s.length > 2 && e.timeStamp - drag.s[0][0] > 100) drag.s.shift();
+    vpos = p;   // record the latest position only; the pose is drawn once per rAF
+    const ce = e.getCoalescedEvents ? e.getCoalescedEvents() : []; for (const c of (ce.length ? ce : [e])) drag.s.push([c.timeStamp, c.clientX]);
+    while (drag.s.length > 2 && e.timeStamp - drag.s[0][0] > 100) drag.s.shift();   // ~100 ms velocity window
     moving(); if (!drag.raf) drag.raf = requestAnimationFrame(frame);
   });
   const end = e => {
     if (!drag || e.pointerId !== drag.id) return;
     const d = drag; drag = null; if (d.raf) cancelAnimationFrame(d.raf);
-    if (!d.on || selectMode) return;
+    if (!d.on || selectMode) { if (!inMotion()) { clearTimeout(end.t); end.t = setTimeout(() => { if (!drag && !inMotion() && !document.body.classList.contains('moving')) sc.classList.remove('live'); }, 400); } return; }
     dragEndAt = performance.now();
     const a = d.s[0], b = d.s[d.s.length - 1], dt = (b[0] - a[0]) / 1000, v = dt > .005 && e.timeStamp - b[0] < 80 ? -(b[1] - a[1]) / dt : 0;
     const to = target(vpos, v); flowTarget = null; window.__lastFlick = { v: Math.round(v), from: Math.round(vpos), to: Math.round(to) }; glideTo(sc, to, v);
@@ -2387,18 +2415,26 @@ function setPerfMeter(on) { settings.perfMeter = !!on; saveAll(); perfMeter.on(!
 let movingT = 0;
 function moving() {
   if (!document.body.classList.contains('moving')) { document.body.classList.add('moving'); perfWatch.start(); }
-  clearTimeout(movingT); movingT = setTimeout(() => { if (inMotion()) return moving(); document.body.classList.remove('moving'); perfWatch.stop(); }, 220);
+  clearTimeout(movingT); movingT = setTimeout(() => { if (inMotion()) return moving(); document.body.classList.remove('moving'); document.getElementById('seats').classList.remove('live'); perfWatch.stop(); }, 220);
 }
-// Smooth mode (automatic): if motion frames run well over budget on this device, drop the heavy decoration for good.
+// Motion quality. Auto: if motion frames run over the 60 Hz budget on this device, step down one tier at a time:
+// 1 = no reflections, 2 = at most 5 side cards per side, 3 = flat (no perspective), then Smooth mode (lite).
+// High: never step down. Smooth: lite + flat from the start.
 const perfWatch = { f: [], raf: 0, last: 0,
-  start() { if (this.raf || document.body.classList.contains('lite') || !FX.on()) return; this.last = performance.now();
+  start() { if (this.raf || document.body.classList.contains('lite') || !FX.on() || Q.mode !== 'auto') return; this.last = performance.now();
     const loop = t => { this.f.push(t - this.last); this.last = t; this.raf = requestAnimationFrame(loop); }; this.raf = requestAnimationFrame(loop); },
   stop() { cancelAnimationFrame(this.raf); this.raf = 0; const f = this.f.slice(1); this.f = [];
     if (f.length < 12) return; const s = f.sort((a, b) => a - b), p75 = s[Math.floor(s.length * .75)];
-    this.samples = (this.samples || 0) + 1; this.slow = (this.slow || 0) + (p75 > 26 ? 1 : 0);
-    if (this.slow >= 2 && !window.__noLite) setLite(true, 'auto'); } };
+    this.samples = (this.samples || 0) + 1; this.slow = (this.slow || 0) + (p75 > 20 ? 1 : 0);
+    if (this.slow >= 2 && !window.__noLite && Q.mode === 'auto') { this.slow = 0; if (Q.tier < 3) setTier(Q.tier + 1); else setLite(true, 'auto'); } } };
+function applyTier() { for (let k = 1; k <= 3; k++) document.body.classList.toggle('q' + k, Q.tier >= k); if (typeof FG !== 'undefined' && FG) fxSafe(updateFlow); }
+function setTier(n) { Q.tier = n; try { localStorage.setItem('bst.qtier', String(n)); } catch (e) {} applyTier(); }
+function setQuality(m) { Q.mode = m; perfWatch.slow = 0; try { localStorage.setItem('bst.quality', m); localStorage.removeItem('bst.qtier'); } catch (e) {}
+  if (m === 'smooth') { Q.tier = 3; setLite(true, 'manual'); } else { Q.tier = 0; setLite(false); }
+  applyTier(); const s = document.getElementById('setQuality'); if (s && s.value !== m) s.value = m; }
 function setLite(on, why) { document.body.classList.toggle('lite', !!on); try { if (on) localStorage.setItem('bst.lite', why || '1'); else localStorage.removeItem('bst.lite'); } catch (e) {} }
-try { if (localStorage.getItem('bst.lite')) document.body.classList.add('lite'); } catch (e) {}
+try { if (localStorage.getItem('bst.lite') && Q.mode !== 'high') document.body.classList.add('lite'); } catch (e) {}
+applyTier();
 document.getElementById('seats').addEventListener('pointerdown', e => { const c = e.target.closest && e.target.closest('.seat'); if (c && c.classList.contains('side') && !selectMode && isControl(e.target)) e.preventDefault(); }, true);
 function layoutFlow() {   // side gutters so the first and last seat can sit exactly in the centre
   const sc = document.getElementById('seats'), c = sc.firstElementChild; if (!c) return;

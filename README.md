@@ -160,3 +160,26 @@ Cover Flow is now the main board on phones, tablets and desktop. It replaces the
 - Tapping a side card glides it to the centre. Only the centre card's controls work.
 - Reflections are a static child gradient, with no `-webkit-box-reflect`. They are off in Smooth/lite, high-contrast and light modes. Reduced motion stays flat.
 - The `coverflowTests` suite covers poses, order, visibility and readability, alert placement, tap-to-centre, drag tracking and settling. It runs at Pixel 7, 915×412, 768×1024, 1024×768, 800×1280, 1280×800, 1366×1024, 1024×1366 and 1440×900.
+
+## 60 fps motion + quality tiers (v4.5)
+- **Frame-rate independent spring.** The settle advances by the real rAF timestamp delta, clamped to 1/30 s, and draws the spring's exact closed form at that time. So 60, 90 and 120 Hz follow the same curve and land at the same moment. Pointer moves only record the latest position, with coalesced events feeding a ~100 ms velocity window; drawing happens once per frame. Positions are sub-pixel while moving and whole pixels at rest.
+- **Style recalculation.** Children of each card used `border-radius: inherit`, so every pose write recalculated the card's whole subtree. They now use `var(--radius)`, which cut the per-frame style cost about 5×. Pose writes go through a cached style object.
+- **No repaints mid-motion.**
+  - z-index is set by distance rank, so it changes only when two cards swap order.
+  - Cards are promoted (`will-change: transform, opacity`) from finger-down or settle start until rest, so fading never repaints the board.
+  - Fully faded cards get `visibility: hidden` at rest.
+  - Timer faces, mood and nav updates wait until rest, and the at-rest work runs a few frames after the settle, not inside the last motion frame.
+- **Less overdraw.**
+  - Reflections show only at rest and fade back in after the settle.
+  - The status glows (large blurred layers) hide while moving.
+  - The dim layer covers only the visible sliver.
+  - Inactive tint layers are out of the compositor.
+- **Motion quality (Settings): Auto / High / Smooth.**
+  - Auto steps down when motion frames run over the 60 Hz budget: first no reflections, then at most 5 side cards per side, then flat (no perspective), then Smooth. The tier is remembered on the device.
+  - High never steps down.
+  - Smooth = lite and flat.
+- **Tests:**
+  - `qualityTests`: the spring at 30/60/90/120 Hz, the real glide driven at 60 vs 120 Hz, stall clamping, each tier and the setting.
+  - `smoothTests` (Pixel 7) and `tabletPerfTests` (1024×768): drag + settle under 4× CPU throttle, p95 ≤ 17 ms and no frame over two vsyncs.
+  - `tests/bench.js` reports drag/settle/rest frame times.
+- **Testing limits:** headless Chrome composites in software, so tablet-sized frames are limited by the compositor thread on the test box. Confirm on the real device with the performance meter.
