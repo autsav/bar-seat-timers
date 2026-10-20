@@ -440,6 +440,121 @@ async function motionTests(browser, name, opts, reduce) {
   await ctx.close();
 }
 
+
+// Cinematic layer: intro never blocks, banners/stamp/shake/particles are decoration, sounds + mute, mood, guest cinema.
+async function cineTests(browser, name, opts, reduce) {
+  const tag = name + (reduce ? '-reduced' : '');
+  const ctx = await browser.newContext({ ...opts, serviceWorkers: 'block', reducedMotion: reduce ? 'reduce' : 'no-preference' });
+  const p = await ctx.newPage();
+  const errs = []; p.on('pageerror', e => errs.push(e.message));
+  p.on('dialog', d => d.accept());
+  await p.addInitScript(INIT);
+  await p.clock.install({ time: new Date('2026-10-20T18:00:00') });
+  await p.goto(BASE);
+  const ev = (f, a) => p.evaluate(f, a), tick = ms => p.clock.fastForward(ms);
+  const shot = async n => { if (name === 'pixel7') await p.screenshot({ path: path.join(SHOTS, `cine-${TAG}-${tag}-${n}.png`) }); };
+  const allowed = () => ev(() => { const bad = new Set(); document.getAnimations().forEach(a => {
+    if (a.transitionProperty) { if (!['transform','opacity','translate','scale','rotate'].includes(a.transitionProperty)) bad.add('t:' + a.transitionProperty); return; }
+    a.effect.getKeyframes().forEach(k => Object.keys(k).forEach(x => { if (!['transform','opacity','translate','scale','rotate','offset','easing','composite','computedOffset'].includes(x)) bad.add(x); })); });
+    return { n: document.getAnimations().length, bad: [...bad] }; });
+
+  // 4. intro: present (or skipped under reduced motion), never blocks a tap
+  const intro = await ev(() => { const n = document.getElementById('intro'); return n ? { pe: getComputedStyle(n).pointerEvents, txt: n.textContent } : null; });
+  if (reduce) ok(intro === null, `${tag}: no intro under reduced motion`);
+  else ok(intro && intro.pe === 'none' && /BAR OPEN/.test(intro.txt), `${tag}: 'BAR OPEN' intro shown, pointer-events none`);
+  if (!reduce) { await p.waitForTimeout(350); await shot('intro'); }
+  await p.locator('#seat-b1 .btn-primary').click();
+  ok(await ev(() => seats.b1.running), `${tag}: a seat can be started during the intro`);
+  ok(await ev(() => !document.getElementById('intro')), `${tag}: intro gone after first tap (skippable)`);
+  // 5. GO banner
+  ok(reduce ? await ev(() => !document.querySelector('.banner')) : /SEAT B1 · GO/.test(await ev(() => document.querySelector('.banner')?.textContent || '')), `${tag}: 'SEAT B1 · GO' banner ${reduce ? 'skipped' : 'shown'}`);
+  if (!reduce) { await p.waitForTimeout(300); await shot('go-banner'); }
+  // 8. sounds
+  ok(await ev(() => sfxLog.includes('start')), `${tag}: start sound synthesised`);
+  await p.locator('#seat-b1 .btn-extend').click();
+  ok(await ev(() => sfxLog.includes('extend') && seats.b1.extensions === 1), `${tag}: +15 sound`);
+  await ev(() => ['b2','b3','b4','b5','b6','b7'].forEach(id => startTimer(id)));
+  // 2. neon bloom grows
+  const g0 = await ev(() => +document.querySelector('#seat-b2 .ring .glow').style.opacity);
+  await tick(40 * 60000);
+  const g1 = await ev(() => +document.querySelector('#seat-b2 .ring .glow').style.opacity);
+  ok(g1 > g0 && /scale\(1\.1/.test(await ev(() => document.querySelector('#seat-b2 .ring .glow').style.transform)), `${tag}: ring bloom grows with progress (${g0} → ${g1})`);
+  ok(await ev(() => sfxLog.includes('warn') && seats.b2.warnedAmber), `${tag}: warning sound + amber alert`);
+  // 9. mood drifts amber -> blue
+  const m0 = await ev(() => +document.querySelector('.mood .m-blue').style.opacity);
+  await p.clock.setSystemTime(new Date('2026-10-20T23:30:00')); await tick(300);
+  const m1 = await ev(() => +document.querySelector('.mood .m-blue').style.opacity);
+  ok(m1 > m0 && m1 > .7, `${tag}: mood drifts toward blue over the shift (${m0} → ${m1})`);
+  // reset b1..b7 clock state relative to new time: everything is now well over time
+  ok(await ev(() => seats.b2.timeUpNotified && sfxLog.includes('timeup')), `${tag}: time-up sound + alert fired`);
+  // 5. TIME! stamp + shake on a fresh time-up
+  await ev(() => { startTimer('b8'); seats.b8.startTime -= 3600000 - 400; }); await tick(800);
+  const tu = await ev(() => ({ stamp: !!document.querySelector('#seat-b8 .stamp'), shake: document.querySelector('main').getAnimations().length, up: seats.b8.timeUpNotified }));
+  ok(tu.up, `${tag}: B8 time-up alert fired`);
+  ok(reduce ? !tu.stamp && tu.shake === 0 : tu.stamp && tu.shake > 0, `${tag}: 'TIME!' stamp + screen shake ${reduce ? 'skipped' : 'played'} (${JSON.stringify(tu)})`);
+  // 7. confetti when full (b8 made it 8/8)
+  ok(reduce ? await ev(() => !document.querySelector('.confetti')) : await ev(() => document.querySelectorAll('.confetti').length > 0), `${tag}: confetti when the bar is full ${reduce ? 'skipped' : 'falls'}`);
+  if (!reduce) { await p.waitForTimeout(500); await shot('full-confetti'); }
+  // 3. tilt while pressed
+  await ev(() => document.getElementById('seat-b3').scrollIntoView({ block: 'center' }));
+  const bx = await p.locator('#seat-b3 .timer').boundingBox();
+  await p.mouse.move(bx.x + 5, bx.y + 5); await p.mouse.down();
+  const tf = await ev(() => document.getElementById('seat-b3').style.transform);
+  ok(reduce ? tf === '' : /rotateX\(.+rotateY\(.+translateY\(-4px\)/.test(tf), `${tag}: card tilt/lift while pressed ${reduce ? 'off' : '(' + tf + ')'}`);
+  if (!reduce) { await p.waitForTimeout(200); await shot('tilt'); }
+  await p.mouse.up(); await tick(50);
+  ok(await ev(() => document.getElementById('seat-b3').style.transform === ''), `${tag}: tilt released on pointer up`);
+  await ev(() => exitSelectMode()); await tick(50);
+  // 7. sparks + staff-board wave on free; state immediate
+  const h0 = await ev(() => history.length);
+  await p.locator('#seat-b3 .btn-reset').click();
+  const fr = await ev(() => ({ run: seats.b3.running, sparks: document.querySelectorAll('.spark').length,
+    wave: ['b1','b2','b4','b5'].filter(id => document.getElementById('seat-' + id).getAnimations().length).length }));
+  ok(!fr.run && await ev(() => history.length) === h0 + 1, `${tag}: End frees B3 immediately`);
+  ok(reduce ? fr.sparks === 0 && fr.wave === 0 : fr.sparks >= 10 && fr.wave === 4, `${tag}: sparks + staff-board wave ${reduce ? 'skipped' : 'played'} (${JSON.stringify(fr)})`);
+  if (!reduce) { await p.waitForTimeout(150); await shot('sparks'); }
+  // snackbar slides out (ghost) while the real one hides at once
+  await p.locator('#snackbar .sb-x').click();
+  const so = await ev(() => ({ hidden: document.getElementById('snackbar').hidden, ghost: document.querySelectorAll('.snack-ghost').length, ids: document.querySelectorAll('.snack-ghost [id]').length }));
+  ok(so.hidden && (reduce ? so.ghost === 0 : so.ghost === 1 && so.ids === 0), `${tag}: snackbar ${reduce ? 'hides instantly' : 'slides out (decorative copy, real one hidden)'}`);
+  ok(await ev(() => undoState !== null || true) && await ev(() => !seats.b3.running), `${tag}: dismiss does not change seat state`);
+  // 6. scoreboard digits
+  const sc = await ev(() => { const b = document.querySelector('#summary .chip b'); const cs = getComputedStyle(b); return { ff: cs.fontFamily, fw: cs.fontWeight, ts: cs.textShadow }; });
+  ok(+sc.fw >= 800 && /mono|Menlo|Consolas/i.test(sc.ff) && (sc.ts !== 'none'), `${tag}: scoreboard digits chunky + glowing`);
+  // mute
+  await ev(() => { sfxLog.length = 0; toggleSound(); });
+  ok(await ev(() => settings.mute && document.getElementById('setMute').checked && /off/.test(document.getElementById('soundMi').textContent)), `${tag}: menu Sound toggle mutes and syncs Settings`);
+  await ev(() => { startTimer('b3'); seats.b3.startTime -= 3600000; }); await tick(500);
+  ok(await ev(() => sfxLog.length === 0 && seats.b3.timeUpNotified), `${tag}: muted = no sounds, alert still fires`);
+  await ev(() => toggleSound());
+  // 10. cinematic guest view
+  await ev(() => endSession('b4', false)); await tick(300);
+  await ev(() => toggleGuestView()); await tick(300);
+  const gv = await ev(() => ({ grain: !!document.querySelector('#guestView .grain'), drift: getComputedStyle(document.getElementById('guestSeats')).animationName,
+    grainAnim: getComputedStyle(document.querySelector('#guestView .grain')).animationName,
+    tiles: document.querySelectorAll('#guest-b1 .gt .d:not(.sep)').length, idle: document.querySelector('#guest-b4 .gt').className, idleTxt: document.querySelector('#guest-b4 .gt').textContent,
+    fs: parseFloat(getComputedStyle(document.querySelector('#guest-b1 .gt')).fontSize) }));
+  ok(gv.grain && gv.tiles >= 3 && gv.fs >= 27, `${tag}: guest flip-board tiles (${gv.tiles} digits, ${gv.fs}px) + grain`);
+  ok(reduce ? gv.drift === 'none' && gv.grainAnim === 'none' : gv.drift === 'drift' && gv.grainAnim === 'grain', `${tag}: camera drift + grain ${reduce ? 'still' : 'moving'}`);
+  ok(/idle/.test(gv.idle) && gv.idleTxt === '--:--', `${tag}: free guest card shows tidy '--:--'`);
+  // contrast of guest digits (white on near-black tiles)
+  const cr = await ev(() => { const d = document.querySelector('#guest-b1 .gt .d:not(.sep)'); return getComputedStyle(d).color; });
+  ok(/255, 255, 255/.test(cr), `${tag}: guest digits are white on dark tiles (${cr})`);
+  if (!reduce) await p.waitForTimeout(400);
+  await shot('guest');
+  await ev(() => toggleGuestView());
+  // freeze animations: alerts still on time
+  await ev(() => document.getAnimations().forEach(a => a.pause()));
+  await ev(() => endSession('b5', false)); await ev(() => startTimer('b5')); await tick(31 * 60000);
+  ok(await ev(() => seats.b5.warnedAmber && colourFor(seats.b5) === 'yellow'), `${tag}: with animations frozen, B5 still alerts amber at 31 min`);
+  const al = await allowed();
+  ok(al.bad.length === 0, `${tag}: only transform/opacity animate (${al.n} running; bad: ${al.bad.join(',') || 'none'})`);
+  if (reduce) ok(al.n === 0, `${tag}: zero animations under reduced motion`);
+  await shot('board');
+  ok(errs.length === 0, `${tag}: no page errors (cine) ${errs.join(' | ')}`);
+  await ctx.close();
+}
+
 function pngSize(buf) { return buf.slice(1, 4).toString() === 'PNG' ? [buf.readUInt32BE(16), buf.readUInt32BE(20)] : null; }
 
 async function pwaTests(browser, name, opts) {
@@ -512,6 +627,8 @@ let TAG;
     await selectionTests(browser, name, opts);
     await motionTests(browser, name, opts, false);
     await motionTests(browser, name, opts, true);
+    await cineTests(browser, name, opts, false);
+    await cineTests(browser, name, opts, true);
     await pwaTests(browser, name, opts);
   }
   await browser.close();

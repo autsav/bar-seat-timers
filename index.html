@@ -392,6 +392,52 @@
   .settings-panel fieldset { border: 1px solid var(--c-border); border-radius: var(--radius-sm); padding: var(--s-3); margin: 0 0 var(--s-4); }
   .settings-panel legend { font-size: var(--fs-sm); font-weight: 700; padding: 0 var(--s-1); }
   #wakeState { font-size: var(--fs-xs); color: var(--c-text-muted); }
+
+  /* ============ Cinematic layer (v3.4) ============ */
+  body:not(.light):not(.high-contrast)::before {
+    background: radial-gradient(70vmax 46vmax at 50% -8%, rgba(255,196,120,.20), rgba(255,170,90,.06) 45%, transparent 70%), #121214; }
+  .mood { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+  .mood i { position: absolute; inset: 0; transition: opacity 4s linear; }
+  .mood .m-amber { background: radial-gradient(60vmax 50vmax at 20% 100%, rgba(217,119,6,.18), transparent 70%); }
+  .mood .m-blue { background: radial-gradient(60vmax 50vmax at 80% 100%, rgba(37,99,235,.20), transparent 70%); opacity: 0; }
+  .mood::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 40%, transparent 55%, rgba(0,0,0,.6) 100%); }
+  body.light .mood, body.high-contrast .mood { display: none; }
+  .seat { transition: scale .32s var(--spring), opacity var(--dur-lg) ease, transform .18s var(--ease); }
+  .ring .glow { position: absolute; inset: -3px; border-radius: 50%; pointer-events: none; opacity: 0;
+    box-shadow: 0 0 12px 2px var(--ring), inset 0 0 8px 1px var(--ring); transition: opacity .6s linear, transform .6s linear; }
+  body.high-contrast .ring .glow { display: none; }
+  .summary .chip b { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-weight: 900; font-size: 1.05rem; color: #ffd27a;
+    text-shadow: 0 0 8px rgba(255,180,60,.55); background: rgba(0,0,0,.45); padding: 0 6px; border-radius: 6px; overflow: hidden; }
+  body.light .summary .chip b { color: #7c2d12; text-shadow: none; background: rgba(15,23,42,.06); }
+  body.high-contrast .summary .chip b { color: #ffff00; text-shadow: none; background: #000; }
+  #fxLayer { position: fixed; inset: 0; z-index: 70; pointer-events: none; overflow: hidden; }
+  .spark { position: absolute; width: 6px; height: 6px; margin: -3px; border-radius: 50%; background: #ffd27a; box-shadow: 0 0 8px #ffb648; }
+  .confetti { position: absolute; top: -12px; width: 8px; height: 14px; border-radius: 2px; }
+  .banner { position: fixed; z-index: 72; left: 50%; top: 28%; translate: -50% 0; pointer-events: none; white-space: nowrap;
+    font: 900 clamp(1.6rem, 8vw, 3rem)/1 ui-monospace, Menlo, monospace; letter-spacing: .06em; color: #fff;
+    padding: .35em .7em; border-radius: 14px; background: rgba(10,10,12,.82); border: 2px solid var(--bar-ok);
+    text-shadow: 0 0 14px rgba(74,222,128,.8); box-shadow: 0 0 30px rgba(34,197,94,.35); }
+  .seat .stamp { position: absolute; z-index: 4; left: 50%; top: 42%; margin: -.6em 0 0 -1.6em; pointer-events: none;
+    font: 900 2rem/1 ui-monospace, Menlo, monospace; color: #fecaca; border: 4px solid #ef4444; border-radius: 10px; padding: .15em .4em;
+    background: rgba(40,0,0,.8); rotate: -12deg; opacity: 0; }
+  #intro { position: fixed; inset: 0; z-index: 90; pointer-events: none; display: grid; place-items: center; background: #050506; }
+  #intro b { font: 900 clamp(2.4rem, 12vw, 5rem)/1 ui-monospace, Menlo, monospace; letter-spacing: .12em; color: #ffd27a;
+    text-shadow: 0 0 24px rgba(255,170,60,.8), 0 0 60px rgba(255,140,40,.4); opacity: 0; }
+  #intro small { position: absolute; bottom: 12%; color: #cbd5e1; font-size: var(--fs-sm); opacity: .8; }
+  .guest-view { position: relative; overflow: hidden; }
+  .guest-view .grain { position: absolute; inset: -50%; pointer-events: none; opacity: .07; z-index: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    animation: grain 1s steps(4) infinite; }
+  @keyframes grain { 0% { transform: translate(0,0); } 25% { transform: translate(-3%,2%); } 50% { transform: translate(2%,-3%); } 75% { transform: translate(-2%,-1%); } }
+  .guest-view > :not(.grain) { position: relative; z-index: 1; }
+  #guestSeats { animation: drift 26s ease-in-out infinite alternate; }
+  @keyframes drift { from { transform: translate(-6px, -4px) scale(1.01); } to { transform: translate(6px, 4px) scale(1.025); } }
+  .guest-card .gt { font-size: clamp(1.7rem, 7.5vw, 3.6rem); }
+  .gt .d { padding: 0 .06em; margin: 0 1px; border-radius: 6px; background: linear-gradient(#1c1c22 0 49%, #000 49% 51%, #16161b 51%); color: #fff; }
+  .gt .d.sep { background: none; padding: 0; margin: 0; }
+  body.light .gt .d:not(.sep) { background: linear-gradient(#1e293b 0 49%, #000 49% 51%, #0f172a 51%); }
+  .gt.idle { font-variant-numeric: normal; letter-spacing: .04em; color: var(--c-text-muted); }
+  @media (prefers-reduced-motion: reduce) { .mood i { transition: none; } #intro, .banner, .spark, .confetti, .stamp { display: none !important; } }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
     .seat.timeup::after, .seat.yellow:not(.paused)::before, .seat.red:not(.timeup):not(.paused)::before { opacity: .7; }
@@ -402,6 +448,8 @@
 </style>
 </head>
 <body>
+<div class="mood" aria-hidden="true"><i class="m-amber"></i><i class="m-blue"></i></div>
+<div id="fxLayer" aria-hidden="true"></div>
 <header class="topbar">
   <div class="topbar-row">
     <h1><span aria-hidden="true">🍸</span> Seat Timers</h1>
@@ -428,6 +476,7 @@
     </div>
     <div class="menu-group"><div class="menu-title">System</div>
       <button class="mi" onclick="menuDo(toggleTheme)">🌓 Theme</button>
+      <button class="mi" id="soundMi" onclick="menuDo(toggleSound)">🔊 Sound: on</button>
       <button class="mi" onclick="menuDo(requestNotify)">🔔 Enable Alerts</button>
       <button class="mi" id="installMi" onclick="menuDo(promptInstall)" hidden>📲 Install app</button>
       <button class="mi danger" onclick="menuDo(resetAll)">⚠ Reset All</button>
@@ -500,6 +549,7 @@
 </section>
 
 <section class="guest-view" id="guestView" aria-labelledby="guestTitle">
+  <div class="grain" aria-hidden="true"></div>
   <h3 id="guestTitle" style="text-align:center">Time Remaining</h3>
   <div id="guestSeats"></div>
   <div style="text-align:center;margin-top:12px"><button onclick="toggleGuestView()" class="secondary">Back to staff view</button></div>
@@ -621,6 +671,34 @@ function playBeep(freq = 880, dur = 0.2) {
   } catch (e) {}
 }
 
+// Short game-style sound effects, synthesised with WebAudio (no assets). Respect the mute setting.
+const SFX = {
+  start:  [[523, 0, .09, 'triangle'], [784, .08, .16, 'triangle']],
+  extend: [[660, 0, .06, 'square'], [990, .06, .1, 'square']],
+  warn:   [[880, 0, .13, 'sine'], [660, .15, .18, 'sine']],
+  timeup: [[1046, 0, .14, 'sawtooth'], [784, .16, .14, 'sawtooth'], [523, .32, .34, 'sawtooth']]
+};
+const VIB = { start: 20, extend: [15, 40, 15] };
+const sfxLog = [];
+function sfx(kind) {
+  if (VIB[kind]) haptic(VIB[kind]);
+  if (settings.mute) return;
+  sfxLog.push(kind); if (sfxLog.length > 30) sfxLog.shift();
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const t0 = audioCtx.currentTime;
+    SFX[kind].forEach(([f, at, d, type]) => {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = type; o.frequency.setValueAtTime(f, t0 + at); o.connect(g); g.connect(audioCtx.destination);
+      const v = type === 'sine' || type === 'triangle' ? .22 : .08;
+      g.gain.setValueAtTime(0.0001, t0 + at); g.gain.exponentialRampToValueAtTime(v, t0 + at + .01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + at + d);
+      o.start(t0 + at); o.stop(t0 + at + d + .02);
+    });
+  } catch (e) {}
+}
+function toggleSound() { settings.mute = !settings.mute; saveAll(); applyTheme(); if (!settings.mute) sfx('extend'); }
+
 let missedAlerts = [];
 function showSystemNotification(msg, tag) {
   if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
@@ -655,7 +733,7 @@ function startTimer(id, silent) {
                      extraMs: 0, extensions: 0, limitMs: lim,
                      greenMs: lim * settings.greenPct / 100, amberMs: lim * settings.amberPct / 100,
                      warnedAmber: false, warnedRed: false, timeUpNotified: false, sessionStart: new Date().toISOString() });
-  if (!silent) { playBeep(660, 0.12); saveAll(); updateSeat(id); updateSummary(); }
+  if (!silent) { sfx('start'); fxSafe(() => FX.banner('SEAT ' + id.toUpperCase() + ' · GO')); saveAll(); updateSeat(id); updateSummary(); }
   fxSafe(() => FX.sweep(id));
 }
 
@@ -680,13 +758,13 @@ function extendTimer(id, silent) {
   const el = getElapsed(s), t = thresholds(s);
   if (el < t.amber) s.warnedRed = false;
   if (el < t.green) s.warnedAmber = false;
-  if (!silent) { playBeep(990, 0.08); saveAll(); updateSeat(id); updateSummary(); }
+  if (!silent) { sfx('extend'); saveAll(); updateSeat(id); updateSummary(); }
   fxSafe(() => FX.plus(id));
 }
 
 function endSession(id, auto) {
   const s = seats[id];
-  if (s.running) fxSafe(() => FX.fold(id));   // ghost copies the card as it was; state below changes regardless
+  if (s.running) fxSafe(() => { FX.sparks(id); FX.fold(id); FX.boardWave(SEAT_IDS.indexOf(id)); });   // ghost copies the card as it was; state below changes regardless
   if (s.running && s.startTime) {
     history.push({ seat: id, limitMin: Math.round((s.limitMs || 0) / 60000), notes: s.notes, durationMin: Math.round(getElapsed(s) / 60000),
                    extensions: s.extensions, start: s.sessionStart || new Date(s.startTime).toISOString(), end: new Date().toISOString(), autoEnd: !!auto });
@@ -724,9 +802,9 @@ function showSnack(text) {
   sb.hidden = false; sb.classList.remove('away');
   fxSafe(() => FX.snack(sb, false));
   clearTimeout(undoTimer);
-  undoTimer = setTimeout(() => { undoState = null; sb.hidden = true; }, UNDO_MS);
+  undoTimer = setTimeout(() => { undoState = null; fxSafe(() => FX.snackOut(sb)); sb.hidden = true; }, UNDO_MS);
 }
-function hideSnack() { clearTimeout(undoTimer); document.getElementById('snackbar').hidden = true; }
+function hideSnack() { clearTimeout(undoTimer); const sb = document.getElementById('snackbar'); fxSafe(() => FX.snackOut(sb)); sb.hidden = true; }
 function announce(msg) { const lr = document.getElementById('liveRegion'); if (lr) { lr.textContent = ''; setTimeout(() => { lr.textContent = msg; }, 50); } }
 function resetSeat(id) {
   if (!seats[id].running) return;
@@ -742,7 +820,8 @@ function startSelected() {
   if (!ids.length) { alert('Select one or more seats first'); return; }
   ids.forEach(id => startTimer(id, true));
   updateWakeLock();
-  playBeep(660, 0.12);
+  sfx('start');
+  fxSafe(() => FX.banner(ids.length === 1 ? 'SEAT ' + ids[0].toUpperCase() + ' · GO' : ids.length + ' SEATS · GO'));
   saveAll();
   ids.forEach(updateSeat);
   updateSummary();
@@ -755,7 +834,7 @@ function pauseSelected() {
 function extendSelected() {
   const ids = selectedIds().filter(id => seats[id].running);
   ids.forEach(id => extendTimer(id, true));
-  if (ids.length) playBeep(990, 0.08);
+  if (ids.length) sfx('extend');
   saveAll(); ids.forEach(updateSeat); updateSummary();
 }
 function resetSelected() {
@@ -823,13 +902,13 @@ function onSeatPointerDown(e) {
     e.preventDefault();
     const value = !seats[id].selected;
     setSelected(id, value);
-    fxSafe(() => FX.ripple(id, e.clientX, e.clientY));
+    fxSafe(() => { FX.ripple(id, e.clientX, e.clientY); FX.tilt(id, e.clientX, e.clientY); });
     press = { id, painting: true, value, pointerId: e.pointerId };
     suppressClick = true;
     return;
   }
   if (isControl(e.target) && !onLabel) return;
-  fxSafe(() => { FX.ripple(id, e.clientX, e.clientY); FX.pressStart(id, e.clientX, e.clientY, LONG_PRESS_MS); });
+  fxSafe(() => { FX.ripple(id, e.clientX, e.clientY); FX.pressStart(id, e.clientX, e.clientY, LONG_PRESS_MS); FX.tilt(id, e.clientX, e.clientY); });
   press = { id, x: e.clientX, y: e.clientY, painting: false, pointerId: e.pointerId,
     timer: setTimeout(() => {
       if (!press) return;
@@ -848,7 +927,7 @@ document.addEventListener('pointermove', e => {
   const id = seatAt(e.clientX, e.clientY);
   if (id) setSelected(id, press.value);
 }, { passive: false });
-function endPress() { if (press) clearTimeout(press.timer); press = null; fxSafe(FX.pressCancel); setTimeout(() => { suppressClick = false; }, 0); }
+function endPress() { if (press) clearTimeout(press.timer); press = null; fxSafe(FX.pressCancel); fxSafe(FX.untilt); setTimeout(() => { suppressClick = false; }, 0); }
 document.addEventListener('pointerup', endPress);
 document.addEventListener('pointercancel', endPress);
 function onSeatClick(e, id) {
@@ -875,6 +954,7 @@ function applyTheme() {
     f('setWakeLock').checked = !!settings.wakeLock;
     f('setPin').value = settings.pin;
     f('setMute').checked = !!settings.mute;
+    const sm = f('soundMi'); if (sm) sm.textContent = settings.mute ? '🔇 Sound: off' : '🔊 Sound: on';
     f('setHighContrast').checked = !!settings.highContrast;
     f('setAutoEnd').checked = !!settings.autoEnd;
   }
@@ -993,10 +1073,13 @@ const FX = {
                      : [{ transform: 'translate(-50%, 140%)', opacity: 0 }, { transform: 'translate(-50%, 0)', opacity: 1 }], { duration: away ? 520 : 300, easing: 'cubic-bezier(.2,.8,.2,1)' });
     sb._cd = FX.anim(bar, [{ transform: 'scaleX(1)' }, { transform: 'scaleX(0)' }], { duration: UNDO_MS, easing: 'linear', fill: 'forwards' });
   },
-  flip(node, str) {   // flip-clock digits; textContent always equals str
+  flip(node, str) {   // flip-board digits; textContent always equals str
+    const idle = !/\d/.test(str);
+    if (node.classList.contains('idle') !== idle) node.classList.toggle('idle', idle);
     if (node.textContent === str) return;
+    if (idle) { node.textContent = str; return; }
     if (node.children.length !== str.length || node.textContent.length !== str.length) {
-      node.innerHTML = ''; for (const ch of str) { const d = document.createElement('span'); d.className = 'd'; d.textContent = ch; node.appendChild(d); }
+      node.innerHTML = ''; for (const ch of str) { const d = document.createElement('span'); d.className = /\d/.test(ch) ? 'd' : 'd sep'; d.textContent = ch; node.appendChild(d); }
       return;
     }
     [...str].forEach((ch, i) => { const d = node.children[i]; if (d.textContent !== ch) { d.textContent = ch;
@@ -1008,6 +1091,97 @@ const FX = {
       { duration: 560, delay: Math.abs(i - fromIdx) * 70, easing: 'ease-in-out' }));
   }
 };
+Object.assign(FX, {
+  tilt(id, cx, cy) {
+    const c = FX.card(id); if (!c || !FX.on()) return;
+    const b = c.getBoundingClientRect(), dx = (cx - b.left) / b.width - .5, dy = (cy - b.top) / b.height - .5;
+    c.style.transform = `perspective(700px) rotateX(${(-dy * 10).toFixed(1)}deg) rotateY(${(dx * 10).toFixed(1)}deg) translateY(-4px)`;
+    c.dataset.tilt = '1';
+  },
+  untilt() { document.querySelectorAll('.seat[data-tilt]').forEach(c => { c.style.transform = ''; delete c.dataset.tilt; }); },
+  layer() { return document.getElementById('fxLayer'); },
+  burst(cls, n, at, build) {
+    const L = FX.layer(); if (!L || !FX.on()) return;
+    for (let i = 0; i < n; i++) {
+      const d = document.createElement('span'); d.className = cls; build(d, i);
+      L.appendChild(d);
+      const a = FX.anim(d, d._kf, d._o); if (a) a.onfinish = () => d.remove(); else d.remove();
+    }
+  },
+  sparks(id) {
+    const c = FX.card(id); if (!c || c.offsetParent === null || !FX.on()) return;
+    const b = c._refs.ring.getBoundingClientRect(), x = b.left + b.width / 2, y = b.top + b.height / 2;
+    FX.burst('spark', 14, null, (d, i) => {
+      const ang = (i / 14) * Math.PI * 2 + Math.random() * .4, r = 40 + Math.random() * 50;
+      d.style.left = x + 'px'; d.style.top = y + 'px';
+      d._kf = [{ transform: 'translate(0,0) scale(1)', opacity: 1 }, { transform: `translate(${Math.cos(ang) * r}px, ${Math.sin(ang) * r + 20}px) scale(.2)`, opacity: 0 }];
+      d._o = { duration: 600 + Math.random() * 300, easing: 'cubic-bezier(.1,.7,.3,1)' };
+    });
+  },
+  confetti() {
+    const W = innerWidth, H = innerHeight, cols = ['#f59e0b', '#22c55e', '#ef4444', '#a5b4fc', '#f472b6', '#fde047'];
+    FX.burst('confetti', 48, null, (d, i) => {
+      d.style.left = (Math.random() * W) + 'px'; d.style.background = cols[i % cols.length];
+      const drift = (Math.random() - .5) * 160;
+      d._kf = [{ transform: 'translate(0,0) rotate(0deg)', opacity: 1 }, { transform: `translate(${drift}px, ${H + 40}px) rotate(${Math.round(Math.random() * 720 - 360)}deg)`, opacity: .9 }];
+      d._o = { duration: 1600 + Math.random() * 1200, delay: Math.random() * 300, easing: 'cubic-bezier(.3,.1,.7,1)', fill: 'backwards' };
+    });
+  },
+  banner(text) {
+    if (!FX.on()) return;
+    document.querySelectorAll('.banner').forEach(n => n.remove());
+    const n = document.createElement('div'); n.className = 'banner'; n.setAttribute('aria-hidden', 'true'); n.textContent = text;
+    document.body.appendChild(n);
+    const a = FX.anim(n, [{ transform: 'scale(.4)', opacity: 0 }, { transform: 'scale(1.08)', opacity: 1, offset: .18 }, { transform: 'scale(1)', opacity: 1, offset: .3 },
+      { transform: 'scale(1)', opacity: 1, offset: .8 }, { transform: 'translateY(-20px) scale(.96)', opacity: 0 }], { duration: 1200, easing: 'ease-out' });
+    if (a) a.onfinish = () => n.remove(); else n.remove();
+  },
+  timeUp(id) {
+    const c = FX.card(id); if (!c || !FX.on() || document.hidden) return;
+    const n = FX.spawn(c, 'stamp', null, null, 'TIME!');
+    if (n) { const a = FX.anim(n, [{ transform: 'scale(2.6)', opacity: 0 }, { transform: 'scale(1)', opacity: 1, offset: .15 }, { transform: 'scale(1)', opacity: 1, offset: .85 }, { transform: 'scale(1)', opacity: 0 }], { duration: 1800, easing: 'ease-out' });
+      if (a) a.onfinish = () => n.remove(); else n.remove(); }
+    FX.anim(document.querySelector('main'), [{ transform: 'none' }, { transform: 'translate(-4px, 2px)' }, { transform: 'translate(4px, -2px)' }, { transform: 'translate(-3px, 1px)' }, { transform: 'translate(2px, 0)' }, { transform: 'none' }], { duration: 360, easing: 'linear' });
+  },
+  boardWave(from) {
+    SEAT_IDS.forEach((id, i) => { if (i === from) return; FX.anim(FX.card(id), [{ transform: 'none' }, { transform: 'translateY(-8px)', offset: .4 }, { transform: 'none' }],
+      { duration: 520, delay: Math.abs(i - from) * 60, easing: 'ease-in-out', composite: 'add' }); });
+  },
+  snackOut(sb) {
+    if (!sb || sb.hidden || !FX.on()) return;
+    const b = sb.getBoundingClientRect(); const g = sb.cloneNode(true);
+    g.removeAttribute('id'); g.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
+    g.setAttribute('aria-hidden', 'true'); g.removeAttribute('role'); g.removeAttribute('aria-live'); g.inert = true; g.classList.add('snack-ghost');
+    Object.assign(g.style, { pointerEvents: 'none', left: b.left + 'px', bottom: 'auto', top: b.top + 'px', transform: 'none', width: b.width + 'px' });
+    document.body.appendChild(g);
+    const a = FX.anim(g, [{ transform: 'none', opacity: 1 }, { transform: 'translateY(140%)', opacity: 0 }], { duration: 260, easing: 'cubic-bezier(.4,0,1,1)' });
+    if (a) a.onfinish = () => g.remove(); else g.remove();
+  },
+  intro() {
+    if (!FX.on()) return;
+    try { if (sessionStorage.getItem('bst.intro')) return; sessionStorage.setItem('bst.intro', '1'); } catch (e) {}
+    const n = document.createElement('div'); n.id = 'intro'; n.setAttribute('aria-hidden', 'true');
+    n.innerHTML = '<b>BAR OPEN</b><small>tap to skip</small>';
+    document.body.appendChild(n);
+    const bg = FX.anim(n, [{ opacity: 1 }, { opacity: 1, offset: .25 }, { opacity: 0 }], { duration: 1500, easing: 'ease-in', fill: 'forwards' });
+    const t = FX.anim(n.firstChild, [{ transform: 'scale(.6)', opacity: 0 }, { transform: 'scale(1)', opacity: 1, offset: .3 }, { transform: 'scale(1.05)', opacity: 1, offset: .7 }, { transform: 'scale(1.3)', opacity: 0 }], { duration: 1500, easing: 'ease-out', fill: 'forwards' });
+    const done = () => { n.remove(); document.removeEventListener('pointerdown', skip, true); document.removeEventListener('keydown', skip, true); };
+    const skip = () => { [bg, t].forEach(a => a && a.finish()); done(); };
+    document.addEventListener('pointerdown', skip, true); document.addEventListener('keydown', skip, true);
+    if (bg) bg.onfinish = done; else done();
+  }
+});
+// Background mood drifts from warm amber (early shift) to late-night blue. Shift window 17:00 -> 01:00, local time.
+function updateMood() {
+  const d = new Date(), h = d.getHours() + d.getMinutes() / 60;
+  const f = Math.min(1, Math.max(0, ((h < 12 ? h + 24 : h) - 17) / 8));
+  const a = document.querySelector('.mood .m-amber'), b = document.querySelector('.mood .m-blue');
+  if (!a) return f;
+  const av = (1 - f).toFixed(2), bv = f.toFixed(2);
+  if (a.style.opacity !== av) a.style.opacity = av;
+  if (b.style.opacity !== bv) b.style.opacity = bv;
+  return f;
+}
 function fxSafe(fn) { try { fn(); } catch (e) {} }
 
 // Updates a card in place: only writes to the DOM when a value actually changed (no re-render, no forced reflow).
@@ -1036,6 +1210,10 @@ function updateSeat(id) {
   if (r.rl.style.transform !== tl) r.rl.style.transform = tl;
   const rc = ringColour(s);
   if (r.ring.style.getPropertyValue('--ring') !== rc) r.ring.style.setProperty('--ring', rc);
+  // neon bloom grows with progress (opacity + scale only)
+  const go = s.running ? (s.paused ? .15 : (.3 + .65 * p).toFixed(2)) : '0', gs = 'scale(' + (1 + .18 * p).toFixed(3) + ')';
+  if (r.glow.style.opacity !== String(go)) r.glow.style.opacity = go;
+  if (r.glow.style.transform !== gs) r.glow.style.transform = gs;
   const pr = String(Math.round(pct));
   if (r.prog.getAttribute('aria-valuenow') !== pr) r.prog.setAttribute('aria-valuenow', pr);
   setText(r.left, s.running ? (remaining <= 0 ? 'over by ' + formatTime(-remaining) : 'remaining') : Math.round(getDurationMs(s) / 60000) + ' min session');
@@ -1059,17 +1237,18 @@ function checkAlerts(id, catchUp) {
   if (!s.timeUpNotified && el >= getDurationMs(s)) {
     s.timeUpNotified = s.warnedRed = s.warnedAmber = true;
     fired = U + ': time is up';
-    playBeep(1200, 0.4); notify(fired, 'seat-' + id);
+    sfx('timeup'); notify(fired, 'seat-' + id);
     saveAll();
+    fxSafe(() => FX.timeUp(id));
     if (settings.autoEnd) endSession(id, true);   // fires once, then the seat is free
   } else if (!s.warnedRed && el >= t.amber && el < getDurationMs(s)) {
     s.warnedRed = s.warnedAmber = true;
     fired = U + ' is red: ' + formatTime(getDurationMs(s) - el) + ' left';
-    playBeep(900, 0.25); notify(fired, 'seat-' + id); saveAll();
+    sfx('warn'); notify(fired, 'seat-' + id); saveAll();
   } else if (!s.warnedAmber && el >= t.green && el < t.amber) {
     s.warnedAmber = true;
     fired = U + ' is amber: ' + formatTime(getDurationMs(s) - el) + ' left';
-    playBeep(700, 0.2); notify(fired, 'seat-' + id); saveAll();
+    sfx('warn'); notify(fired, 'seat-' + id); saveAll();
   }
   return fired;
 }
@@ -1085,12 +1264,13 @@ function catchUp() {
     const sb = document.getElementById('snackbar');
     undoState = null; sb.hidden = false; sb.classList.add('away'); document.getElementById('snackUndo').hidden = true;
     fxSafe(() => FX.snack(sb, true));
-    clearTimeout(undoTimer); undoTimer = setTimeout(() => { sb.hidden = true; document.getElementById('snackUndo').hidden = false; }, UNDO_MS);
+    clearTimeout(undoTimer); undoTimer = setTimeout(() => { fxSafe(() => FX.snackOut(sb)); sb.hidden = true; document.getElementById('snackUndo').hidden = false; }, UNDO_MS);
     announce(msg);
   }
   return all;
 }
 
+let prevOcc = null;
 function updateSummary() {
   const occ = SEAT_IDS.filter(id => seats[id].running).length;
   const free = SEAT_IDS.length - occ;
@@ -1115,6 +1295,8 @@ function updateSummary() {
   bar.querySelectorAll('.ab-act').forEach(b => { if (b.disabled !== (sel === 0)) b.disabled = sel === 0; });
   const sb = document.getElementById('selectBtn');
   if (sb.getAttribute('aria-pressed') !== String(selectMode)) { sb.setAttribute('aria-pressed', String(selectMode)); sb.textContent = selectMode ? '✓ Done' : '☑ Select'; }
+  if (prevOcc !== null && occ === SEAT_IDS.length && prevOcc < occ) fxSafe(() => { FX.confetti(); FX.banner('BAR FULL!'); });
+  prevOcc = occ;
   const sm = document.getElementById('summary');
   if (!sm.firstChild) sm.innerHTML = `<span class="chip">Occupied <b><span class="roll" data-k="occ"></span>/8</b></span><span class="chip">Free <b class="roll" data-k="free"></b></span><span class="chip">Selected <b class="roll" data-k="sel"></b></span><span class="chip"><span class="dot" style="background:var(--yellow);margin-left:0"></span>Amber <b class="roll" data-k="yellow"></b></span><span class="chip"><span class="dot" style="background:var(--red);margin-left:0"></span>Red <b class="roll" data-k="red"></b></span><span class="chip next"></span>`;
   const vals = { occ, free, sel, yellow, red };
@@ -1191,6 +1373,7 @@ function toggleHistory() {
   if (p.style.display === 'block') renderHistory();
 }
 function toggleGuestView() {
+  document.getElementById('guestView').classList.add('cine');
   const p = document.getElementById('guestView');
   const seatsDiv = document.getElementById('seats');
   if (p.style.display === 'block') {
@@ -1257,7 +1440,7 @@ function renderSeats() {
       <div class="fx" aria-hidden="true"><div class="stripes"></div></div>
       <div class="timer-row">
         <div class="timer" aria-label="Time remaining for ${U}">--:--</div>
-        <div class="ring" role="progressbar" aria-label="${U} session progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="h r"><i></i></span><span class="h l"><i></i></span></div>
+        <div class="ring" role="progressbar" aria-label="${U} session progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="glow"></span><span class="h r"><i></i></span><span class="h l"><i></i></span></div>
       </div>
       <div class="meta"><span class="left"></span><span class="ext"></span></div>
       <label class="sr-only" for="notes-${id}">Notes for ${U}</label>
@@ -1269,7 +1452,7 @@ function renderSeats() {
       </div>`;
     const q = c => d.querySelector(c);
     d._refs = { label: q('.seat-label'), icon: q('.badge .ic'), stext: q('.stext'), timer: q('.timer'),
-      ring: q('.ring'), rr: q('.ring .h.r i'), rl: q('.ring .h.l i'), fx: q('.fx'), check: q('.sel-check'), prog: q('.ring'), left: q('.left'), ext: q('.ext'),
+      ring: q('.ring'), glow: q('.ring .glow'), rr: q('.ring .h.r i'), rl: q('.ring .h.l i'), fx: q('.fx'), check: q('.sel-check'), prog: q('.ring'), left: q('.left'), ext: q('.ext'),
       primary: q('.btn-primary'), extend: q('.btn-extend'), reset: q('.btn-reset'), notes: q('.notes-input'), };
     d._refs.label.addEventListener('click', e => { e.stopPropagation(); if (suppressClick) return; if (!selectMode) enterSelectMode(); toggleSelect(id); });
     d.dataset.seat = id;
@@ -1318,6 +1501,7 @@ document.addEventListener('keydown', e => {
 
 function tick() {
   updateWakeLock();
+  fxSafe(updateMood);
   SEAT_IDS.forEach(id => { checkAlerts(id); updateSeat(id); });
   updateSummary();
   if (document.getElementById('guestView').style.display === 'block') renderGuestView();
@@ -1379,6 +1563,8 @@ loadAll();
 renderSeats();
 SEAT_IDS.forEach(updateSeat);
 updateSummary();
+fxSafe(updateMood);
+fxSafe(FX.intro);
 fxSafe(FX.entrance);
 setInterval(tick, 250);
 updateWakeLock();

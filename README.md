@@ -42,3 +42,10 @@ End folds toward the menu (Undo unfolds), undo countdown bar, spring action bar 
 rolling summary numbers, sliding "While away" banner, guest-view flip digits and a wave when a seat frees.
 All motion is decorative (Web Animations / CSS on transform + opacity only), runs after state changes, and is fully disabled under
 `prefers-reduced-motion: reduce`. Timing and alerts never depend on it (tests pause every animation and check alerts still fire).
+
+## Cinematic layer (v3.4.0)
+Charcoal bar backdrop with warm overhead light + vignette, mood that drifts amber → blue across a 17:00–01:00 shift, neon ring bloom,
+3D press tilt, skippable 1.5 s "BAR OPEN" intro (never blocks taps), "SEAT N · GO" / "BAR FULL!" banners, "TIME!" stamp + subtle screen shake,
+scoreboard digits, sparks on free + confetti when full, staff-board wave, snackbar slide-out, WebAudio sound effects (start, +15, warning, time up)
+with vibration and a Menu → Sound toggle (synced with Settings → Mute), and a cinematic guest view (flip-board tiles, film grain, slow drift).
+All of it is skipped under prefers-reduced-motion, and none of it gates timers or alerts.
