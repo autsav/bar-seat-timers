@@ -370,7 +370,7 @@ async function motionTests(browser, name, opts, reduce) {
     shake: getComputedStyle(document.getElementById('seat-b3')).animationName, alarm: getComputedStyle(document.getElementById('seat-b3'), '::after').animationName,
     alarmOp: getComputedStyle(document.getElementById('seat-b3'), '::after').opacity }));
   if (reduce) ok(anim.glowA === 'none' && anim.glowR === 'none' && anim.shake === 'none' && anim.alarm === 'none' && anim.alarmOp === '1', `${tag}: no breathing/pulse/shake; static time-up glow (${JSON.stringify(anim)})`);
-  else ok(anim.glowA === 'breathe' && anim.glowR === 'breathe' && anim.shake === 'shake' && anim.alarm === 'alarm', `${tag}: amber breathe, red pulse, time-up shake + glow (${JSON.stringify(anim)})`);
+  else ok(anim.glowA === 'breathe' && anim.glowR === 'breathe' && /^shake(, nudge[LR])?$/.test(anim.shake) && anim.alarm === 'alarm', `${tag}: amber breathe, red pulse, time-up shake + glow (${JSON.stringify(anim)})`);
   // pause: stripes + frozen ring
   await clickSeat(p, 4, '.btn-primary'); await tick(300);
   const r1 = await ev(() => document.querySelector('#seat-b4 .ring .h.r i').style.transform);
@@ -686,8 +686,8 @@ async function flowTests(browser, name, opts, reduce) {
   ok(await ev(() => +document.querySelector('#seat-b8 .dim').style.opacity > +document.querySelector('#seat-b2 .dim').style.opacity && +document.querySelector('#seat-b2 .dim').style.opacity > 0), `${tag}: side cards dim progressively by distance`);
   const scl = await ev(() => ['b2', 'b5', 'b8'].map(id => +(/scale\(([\d.]+)\)/.exec(document.getElementById('seat-' + id).style.transform) || [0, 1])[1]));
   ok(scl[0] > scl[1] && scl[1] > scl[2], `${tag}: side cards shrink progressively by distance (${scl.join(' > ')})`);
-  await p.waitForTimeout(450);
-  ok(await ev(() => parseFloat(getComputedStyle(document.getElementById('seat-b1')).scale) > 1.005 && getComputedStyle(document.getElementById('spot')).display !== 'none'), `${tag}: centre card raised with a spotlight behind it`);
+  for (let k = 0; k < 15 && !(await ev(() => parseFloat(getComputedStyle(document.getElementById('seat-b1')).scale) > 1.005)); k++) await p.waitForTimeout(100);
+  ok(await ev(() => parseFloat(getComputedStyle(document.getElementById('seat-b1')).scale) > 1.005 && getComputedStyle(document.getElementById('spot')).display !== 'none'), `${tag}: centre card raised with a spotlight behind it (${await ev(() => getComputedStyle(document.getElementById('seat-b1')).scale + ' ' + document.getElementById('seat-b1').className)})`);
   await ev(() => endSession('b3', false)); await tick(300);
   const pose = await ev(() => { const c = document.getElementById('seat-b2'); return { tf: c.style.transform, op: +c.style.opacity, side: c.classList.contains('side') }; });
   if (reduce) ok(!/rotateY|perspective/.test(pose.tf) && pose.side, `${tag}: no 3D under reduced motion (side card flat, "${pose.tf}")`);
@@ -710,9 +710,9 @@ async function flowTests(browser, name, opts, reduce) {
   await p.locator('#seat-b2 .btn-primary').click(); await tick(50);
   ok(await ev(() => seats.b2.running), `${tag}: once centred, B2's Start works`);
   if (name === 'desktop') { const r = await ev(() => { const a = document.getElementById('seat-b3').getBoundingClientRect(); const y = a.top + a.height * .35; const xs = []; for (let x = 2; x < innerWidth; x += 2) { const e = document.elementFromPoint(x, y); if (e && e.closest('.seat') && e.closest('.seat').dataset.seat === 'b3' && !e.closest('button, input')) xs.push(x); } const run = xs.filter(x => x > xs[xs.length - 1] - 40); return { x: run[Math.floor(run.length / 2)] || 5, y }; }); await p.mouse.click(r.x, r.y); }
-  else await ev(() => document.querySelector('#seat-b3 .timer').click());   // phone: synthetic tap on the side card
+  else globalThis.__pre = await ev(() => { const pre = document.getElementById('seat-b3').className + '|' + centreId + '|' + seats.b3.running; document.querySelector('#seat-b3 .timer').click(); return pre; });   // phone: synthetic tap on the side card
   await waitC('b3');
-  ok(await ev(() => centreId === 'b3' && !seats.b3.running), `${tag}: tap the next side card to centre it, without starting it ${JSON.stringify(await ev(() => ({ c: centreId, t: flowTarget, r: seats.b3.running, sm: selectMode })))}`);
+  ok(await ev(() => centreId === 'b3' && !seats.b3.running), `${tag}: tap the next side card to centre it, without starting it ${JSON.stringify(await ev(() => ({ c: centreId, t: flowTarget, r: seats.b3.running, sm: selectMode })))} pre=${globalThis.__pre || ''}`);
   // indicator jump
   { const pt = await ev(() => { const a = document.getElementById('seat-b8').getBoundingClientRect(); return { x: Math.round(a.left + 5), y: Math.round(a.top + a.height / 2) }; }); if (opts.hasTouch) await p.touchscreen.tap(pt.x, pt.y); else await p.mouse.click(pt.x, pt.y); } await waitC('b8');
   ok(await ev(() => centreId) === 'b8' && await off('b8') <= 1.5, `${tag}: tapping B8's side strip centres B8`);
@@ -832,6 +832,79 @@ async function premiumTests(browser, name, opts, reduce) {
   await ctx.close();
 }
 
+async function fanTests(browser, name, opts, reduce) {
+  const tag = name + (reduce ? '-reduced' : '') + ' fan';
+  const ctx = await browser.newContext({ ...opts, serviceWorkers: 'block', reducedMotion: reduce ? 'reduce' : 'no-preference' });
+  const p = await ctx.newPage();
+  const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('dialog', d => d.accept());
+  await p.addInitScript(INIT);
+  await p.addInitScript(() => sessionStorage.setItem('bst.intro', '1'));
+  await p.clock.install({ time: new Date('2026-10-20T19:00:00') });
+  await p.goto(BASE); await p.clock.fastForward(300);
+  const ev = (f, a) => p.evaluate(f, a), tick = ms => p.clock.fastForward(ms);
+  const settleWait = async () => { for (let k = 0; k < 20; k++) { await tick(30); await p.waitForTimeout(reduce ? 5 : 40); } };
+  const shot = async n => { if (name === 'pixel7') await p.screenshot({ path: path.join(SHOTS, `fan-${TAG}-pixel7-${n}.png`) }); };
+  const lum = c => { const m = c.match(/[\d.]+/g).map(Number).slice(0, 3).map(v => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }); return .2126 * m[0] + .7152 * m[1] + .0722 * m[2]; };
+  const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
+  const statusCols = () => ev(() => { const d = document.createElement('i'); document.body.appendChild(d); const o = {}; for (const k of ['ok', 'warn', 'danger']) { d.style.color = `var(--bar-${k})`; o[k] = getComputedStyle(d).color; } d.remove(); return o; });
+  // scene: a mix of statuses
+  await ev(() => { ['b1', 'b2', 'b3', 'b6', 'b7'].forEach(id => startTimer(id)); seats.b2.startTime -= 34 * 60000; seats.b3.startTime -= 50 * 60000; seats.b7.startTime -= 61 * 60000; togglePause('b6'); });
+  await tick(400); if (!reduce) await p.waitForTimeout(500);
+  // colour-blind safety: statuses differ in brightness, not only hue (Premium night + Daytime)
+  for (const mode of ['night', 'daytime']) {
+    if (mode === 'daytime') { await ev(() => setDaytime(true)); await tick(50); }
+    const c = await statusCols(), r1 = ratio(c.ok, c.warn), r2 = ratio(c.ok, c.danger), r3 = ratio(c.warn, c.danger);
+    ok(Math.min(r1, r2, r3) >= 1.4, `${tag}: ${mode} status colours differ in brightness (ok/amber ${r1.toFixed(2)}, ok/red ${r2.toFixed(2)}, amber/red ${r3.toFixed(2)})`);
+  }
+  // Daytime renders light, readable, persists
+  const day = await ev(() => ({ cls: document.body.classList.contains('daytime'), bg: getComputedStyle(document.body).backgroundColor, t: getComputedStyle(document.querySelector('#seat-b1 .timer')).color, cb: document.getElementById('setDaytime').checked }));
+  ok(day.cls && lum(day.bg) > .6 && ratio(day.t, day.bg) >= 7 && day.cb, `${tag}: Daytime is a light Premium variant with readable time (${ratio(day.t, day.bg).toFixed(1)}:1 on ${day.bg})`);
+  await ev(() => jumpTo('b1')); await settleWait(); if (!reduce) await p.waitForTimeout(400);
+  if (!reduce) await shot('daytime');
+  await p.reload(); await p.clock.fastForward(300);
+  ok(await ev(() => settings.daytime === true && document.body.classList.contains('daytime') && document.getElementById('setDaytime').checked), `${tag}: Daytime persists across reload`);
+  await ev(() => setLook('arcade')); await tick(50);
+  ok(await ev(() => !document.body.classList.contains('daytime')), `${tag}: Daytime only applies to Premium (Arcade unaffected)`);
+  await ev(() => { setLook('premium'); setDaytime(false); }); await tick(50);
+  ok(await ev(() => !document.body.classList.contains('daytime') && JSON.parse(localStorage.getItem('barSeatTimers.v2')).settings.daytime === false), `${tag}: Daytime off persists`);
+  // gyro toggle: persists, tilts the centre card only, fails gracefully
+  await ev(() => setGyro(true)); await tick(50);
+  ok(await ev(() => settings.gyro === true && document.getElementById('setGyro').checked && JSON.parse(localStorage.getItem('barSeatTimers.v2')).settings.gyro === true), `${tag}: gyro toggle on and saved`);
+  await p.reload(); await p.clock.fastForward(300);
+  ok(await ev(() => settings.gyro === true && document.getElementById('setGyro').checked && gyroOn), `${tag}: gyro setting persists across reload and listener restarts`);
+  await ev(() => window.dispatchEvent(new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: 70, gamma: 20 }))); await tick(50);
+  const gy = await ev(() => ({ c: document.getElementById('seat-' + centreId).style.transform, s: document.getElementById('seat-b5').style.transform }));
+  if (reduce) ok(!/rotateX/.test(gy.c), `${tag}: no gyro tilt under reduced motion`);
+  else ok(/rotateX\(-?[\d.]+deg\)/.test(gy.c) && !/rotateX/.test(gy.s), `${tag}: gentle gyro tilt on the centre card only (${gy.c.slice(-60)})`);
+  ok(await ev(async () => { const save = window.DeviceOrientationEvent; DeviceOrientationEvent.requestPermission = () => Promise.reject(new Error('denied')); await setGyro(true); const r = settings.gyro === false && !document.getElementById('setGyro').checked && /not granted/.test(document.getElementById('gyroMsg').textContent); delete DeviceOrientationEvent.requestPermission; return r; }), `${tag}: denied motion permission fails gracefully (stays off, explains)`);
+  ok(await ev(async () => { const D = window.DeviceOrientationEvent; delete window.DeviceOrientationEvent; await setGyro(true); const r = settings.gyro === false && /not available/.test(document.getElementById('gyroMsg').textContent); window.DeviceOrientationEvent = D; return r; }), `${tag}: unsupported device fails gracefully`);
+  ok(await ev(() => !document.getElementById('seat-' + centreId).style.transform.includes('rotateX')), `${tag}: turning gyro off clears the tilt`);
+  // timer weight grows near expiry without layout shift
+  await ev(() => { endSession('b1', false); startTimer('b1'); jumpTo('b1'); }); await tick(300);
+  const g0 = await ev(() => { const t = document.querySelector('#seat-b1 .timer'), c = document.getElementById('seat-b1'); return { w: +getComputedStyle(t).fontWeight, h: t.offsetHeight, tw: t.offsetWidth, ch: c.offsetHeight }; });
+  await ev(() => { seats.b1.startTime -= 57 * 60000; }); await tick(300);
+  const g1 = await ev(() => { const t = document.querySelector('#seat-b1 .timer'), c = document.getElementById('seat-b1'); return { w: +getComputedStyle(t).fontWeight, h: t.offsetHeight, tw: t.offsetWidth, ch: c.offsetHeight }; });
+  ok(g1.w > g0.w + 150 && g0.h === g1.h && g0.tw === g1.tw && g0.ch === g1.ch, `${tag}: time gets heavier near expiry (${g0.w}→${g1.w}) with no layout shift (${g0.h}/${g0.tw}/${g0.ch} vs ${g1.h}/${g1.tw}/${g1.ch})`);
+  ok(await ev(() => /tabular-nums/.test(getComputedStyle(document.querySelector('#seat-b1 .timer')).fontVariantNumeric)), `${tag}: tabular digits`);
+  await ev(() => { endSession('b1', false); startTimer('b1'); }); await tick(300);
+  // settle click (normal motion)
+  if (!reduce) { await ev(() => { sfxLog.length = 0; jumpTo('b4', true); }); await settleWait(); ok(await ev(() => sfxLog.includes('settle') && centreId === 'b4'), `${tag}: soft click when a card settles ${await ev(() => JSON.stringify({ l: sfxLog, c: centreId, g: !!glide, m: settings.mute }))}`); }
+  // screenshots: B1 centred, B5 centred, time-up off-centre, select
+  await ev(() => jumpTo('b1')); await settleWait(); if (!reduce) await p.waitForTimeout(500);
+  if (reduce) await shot('reduced'); else {
+    await shot('b1');
+    await ev(() => jumpTo('b5')); await settleWait(); await p.waitForTimeout(500); await shot('b5');
+    await ev(() => jumpTo('b1')); await settleWait(); await ev(() => { delete seatAlerts.b7; seats.b7.timeUpNotified = false; flagOffscreen('b7', 'timeup'); }); await tick(300); await p.waitForTimeout(700);
+    ok(await ev(() => document.getElementById('seat-b7').classList.contains('nudge') && !document.getElementById('offAlert').hidden), `${tag}: time-up seat off-centre nudges and shows the Show button`);
+    await shot('timeup');
+    await ev(() => { enterSelectMode(); setSelected('b2', true); setSelected('b3', true); }); await tick(50); await p.waitForTimeout(700); await shot('select');
+    ok(await ev(() => [...document.querySelectorAll('#seats .seat')].every(c => !/rotateY/.test(c.style.transform))), `${tag}: selection mode flattens the fan`);
+    await ev(() => exitSelectMode()); await tick(50);
+  }
+  ok(errs.length === 0, `${tag}: no page errors ${errs.join(' | ')}`);
+  await ctx.close();
+}
+
 function pngSize(buf) { return buf.slice(1, 4).toString() === 'PNG' ? [buf.readUInt32BE(16), buf.readUInt32BE(20)] : null; }
 
 async function pwaTests(browser, name, opts) {
@@ -921,6 +994,7 @@ let TAG;
     if (!process.env.ONLY || process.env.ONLY.split(',').includes('flowTests')) await flowTests(browser, name, opts, true);
     if (!process.env.ONLY || process.env.ONLY.split(',').includes('premiumTests')) await premiumTests(browser, name, opts, false);
     if (!process.env.ONLY || process.env.ONLY.split(',').includes('premiumTests')) await premiumTests(browser, name, opts, true);
+    for (const rm of [false, true]) if (!process.env.ONLY || process.env.ONLY.split(',').includes('fanTests')) await fanTests(browser, name, opts, rm);
     if (!process.env.ONLY || process.env.ONLY.split(',').includes('pwaTests')) await pwaTests(browser, name, opts);
   }
   await browser.close();

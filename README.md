@@ -80,3 +80,19 @@ What Premium changes:
 - **Sheets and menus:** Settings and History open as glass bottom sheets with a scrim behind them.
 
 Cover Flow, alerts, selection, reduced motion, high contrast and the guest view all work in both looks.
+
+## Fan (v3.8): all eight seats on screen
+- **Layout:** the Cover Flow is now a compressed fan. The centre seat is large and raised, with a spotlight behind it. All other seats are visible at once as overlapping, steeply tilted (≈55°) side cards that scale down and dim by distance. Order is B8 (left) to B1 (right), with B1 centred on load.
+- **Side cards:** each shows a compact face (bold seat number, status dot and edge, minutes left).
+- **Strip widths:**
+  - When there is room (desktop) each side card shows about 30% of its width.
+  - On a 412 px phone the strips narrow to fit, so all eight stay on screen (about 10–25 px each, depending on which seat is centred).
+- **Navigation:** swipe, the settle (with a soft click) and tap-a-strip-to-centre all work. Only the centre card's controls act. The pill strip is gone.
+- **Off-centre alerts:**
+  - The Show button stays.
+  - The side card gets a stronger status ring.
+  - A time-up seat nudges toward the centre.
+- **Settings:** **Daytime** (a light Premium variant) and **Gentle tilt with phone motion** (DeviceOrientation). Permission is requested only where the browser requires it, and tilt fails quietly with a short note otherwise.
+- **Colour:** a navy-to-charcoal backdrop, and status colours that glow onto neighbouring cards. Statuses differ in brightness as well as hue.
+- **Time display:** huge, light time on the centre card that gets heavier near expiry, with no layout shift.
+- **Reduced motion:** a flat fan, with no tilt, gyro or nudge.
