@@ -34,3 +34,11 @@ node run.js https://autsav.github.io/bar-seat-timers/  # tests the live site
 node audit.js <url>                                  # quick smoke audit
 ```
 Set `CHROME_PATH` if Chrome isn't at `/usr/bin/google-chrome`. Bump `VERSION` in `sw.js` on each release.
+
+## Motion (v3.3.0)
+Progress rings (pure `transform` half-arcs), gradual green→amber→red ring colour, amber breathing glow, red pulse, time-up shake + glow,
+paused stripes/dim, tap ripple + ring sweep, long-press fill ring, selection shrink + tick pop + drag highlight, +15 float with ring wind-back,
+End folds toward the menu (Undo unfolds), undo countdown bar, spring action bar with rolling count, sliding sheets, staggered entrance,
+rolling summary numbers, sliding "While away" banner, guest-view flip digits and a wave when a seat frees.
+All motion is decorative (Web Animations / CSS on transform + opacity only), runs after state changes, and is fully disabled under
+`prefers-reduced-motion: reduce`. Timing and alerts never depend on it (tests pause every animation and check alerts still fire).

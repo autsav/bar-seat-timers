@@ -314,6 +314,132 @@ async function selectionTests(browser, name, opts) {
   await ctx.close();
 }
 
+
+// Motion layer: decorative only. Checks state is correct while animations run, only transform/opacity animate,
+// alerts fire with animations frozen, and prefers-reduced-motion removes all motion.
+const ALLOWED = new Set(['transform', 'opacity', 'translate', 'scale', 'rotate', 'offset', 'easing', 'composite', 'computedOffset']);
+async function motionTests(browser, name, opts, reduce) {
+  const tag = name + (reduce ? '-reduced' : '');
+  const ctx = await browser.newContext({ ...opts, serviceWorkers: 'block', reducedMotion: reduce ? 'reduce' : 'no-preference' });
+  const p = await ctx.newPage();
+  const errs = []; p.on('pageerror', e => errs.push(e.message));
+  p.on('dialog', d => d.accept());
+  await p.addInitScript(INIT);
+  await p.clock.install({ time: new Date('2026-10-20T19:00:00') });
+  await p.goto(BASE);
+  const ev = (f, a) => p.evaluate(f, a), tick = ms => p.clock.fastForward(ms);
+  const props = () => ev(() => { const bad = [];
+    document.getAnimations().forEach(a => {
+      if (a.transitionProperty) { if (!['transform','opacity','translate','scale','rotate'].includes(a.transitionProperty)) bad.push('transition:' + a.transitionProperty); return; }
+      (a.effect && a.effect.getKeyframes ? a.effect.getKeyframes() : []).forEach(k => Object.keys(k).forEach(x => bad.push(x)));
+    }); return { n: document.getAnimations().length, bad: [...new Set(bad)] }; });
+  const badProps = list => list.filter(k => !k.startsWith('transition:') ? !ALLOWED.has(k) : true);
+  const S = path.join(SHOTS, `${TAG}-${tag}`);
+  const shot = async (n, full) => { if (name === 'pixel7') await p.screenshot({ path: `${S}-${n}.png`, fullPage: !!full }); };
+
+  ok(await ev(() => SEAT_IDS.every(id => document.querySelector('#seat-' + id + ' .ring[role=progressbar]'))), `${tag}: every seat has a progress ring (role=progressbar)`);
+  const a0 = await props();
+  ok(reduce ? a0.n === 0 : a0.n >= 8, `${tag}: staggered entrance ${reduce ? 'skipped' : 'runs'} (${a0.n} animations)`);
+
+  // start: state is immediate, ripple/sweep are decoration
+  await p.locator('#seat-b1 .btn-primary').click();
+  ok(await ev(() => seats.b1.running && seats.b1.limitMs === 3600000), `${tag}: Start sets state immediately (animations not awaited)`);
+  ok(reduce ? (await props()).n === 0 : await ev(() => document.querySelector('#seat-b1 .ring').getAnimations().length > 0), `${tag}: ring sweep ${reduce ? 'off' : 'plays'} on start`);
+  await ev(() => ['b2','b3','b4'].forEach(id => startTimer(id)));
+  await tick(20 * 60000);
+  const c1 = await ev(() => document.querySelector('#seat-b1 .ring').style.getPropertyValue('--ring'));
+  await tick(5 * 60000);
+  const c2 = await ev(() => document.querySelector('#seat-b1 .ring').style.getPropertyValue('--ring'));
+  ok(/color-mix/.test(c1) && c1 !== c2, `${tag}: ring colour blends gradually (${c1.match(/\d+%/)} → ${c2.match(/\d+%/)})`);
+  const rot = await ev(() => document.querySelector('#seat-b1 .ring .h.r i').style.transform);
+  ok(/rotate\(/.test(rot), `${tag}: ring progress is a transform (${rot})`);
+  // amber glow, red pulse, time-up shake
+  await tick(6 * 60000);   // b1 at 31 min: amber
+  ok((await p.locator('#seat-b1').getAttribute('class')).includes('yellow'), `${tag}: B1 amber at 31 min`);
+  await ev(() => { seats.b2.startTime -= 16 * 60000; seats.b3.startTime -= 40 * 60000; });   // b2 red, b3 over time
+  await tick(500);
+  ok(await ev(() => seats.b3.timeUpNotified && seats.b2.warnedRed && seats.b1.warnedAmber), `${tag}: amber/red/time-up alerts fired`);
+  const anim = await ev(() => ({ glowA: getComputedStyle(document.getElementById('seat-b1'), '::before').animationName,
+    glowR: getComputedStyle(document.getElementById('seat-b2'), '::before').animationName,
+    shake: getComputedStyle(document.getElementById('seat-b3')).animationName, alarm: getComputedStyle(document.getElementById('seat-b3'), '::after').animationName,
+    alarmOp: getComputedStyle(document.getElementById('seat-b3'), '::after').opacity }));
+  if (reduce) ok(anim.glowA === 'none' && anim.glowR === 'none' && anim.shake === 'none' && anim.alarm === 'none' && anim.alarmOp === '1', `${tag}: no breathing/pulse/shake; static time-up glow (${JSON.stringify(anim)})`);
+  else ok(anim.glowA === 'breathe' && anim.glowR === 'breathe' && anim.shake === 'shake' && anim.alarm === 'alarm', `${tag}: amber breathe, red pulse, time-up shake + glow (${JSON.stringify(anim)})`);
+  // pause: stripes + frozen ring
+  await p.locator('#seat-b4 .btn-primary').click(); await tick(300);
+  const r1 = await ev(() => document.querySelector('#seat-b4 .ring .h.r i').style.transform);
+  await tick(60000); if (!reduce) await p.waitForTimeout(450);
+  ok(await ev(() => seats.b4.paused) && r1 === await ev(() => document.querySelector('#seat-b4 .ring .h.r i').style.transform), `${tag}: paused ring frozen`);
+  ok(await ev(() => getComputedStyle(document.querySelector('#seat-b4 .stripes')).opacity === '1' && getComputedStyle(document.querySelector('#seat-b4 .timer-row')).opacity === '0.5'), `${tag}: paused seat dims with stripe overlay`);
+  await shot('status');
+  // only transform/opacity animate
+  const pr = await props();
+  ok(badProps(pr.bad).length === 0, `${tag}: only transform/opacity animate (${pr.n} running; props ${pr.bad.join(',') || 'none'})`);
+  // +15: float + wind back, state immediate
+  await p.locator('#seat-b2 .btn-extend').click();
+  ok(await ev(() => seats.b2.extensions === 1), `${tag}: +15 applied immediately`);
+  ok(reduce ? await ev(() => !document.querySelector('.plus')) : await ev(() => !!document.querySelector('#seat-b2 .plus') && document.querySelector('#seat-b2 .ring').classList.contains('wind')), `${tag}: +15 float ${reduce ? 'not shown' : 'rises while ring winds back'}`);
+  // End mid-animation + Undo mid-animation
+  const h0 = await ev(() => history.length);
+  await p.locator('#seat-b3 .btn-reset').click();
+  const mid = await ev(() => ({ run: seats.b3.running, h: history.length, ghost: document.querySelectorAll('.fold-ghost').length, ids: document.querySelectorAll('.fold-ghost [id]').length,
+    hidden: [...document.querySelectorAll('.fold-ghost')].every(g => g.getAttribute('aria-hidden') === 'true') }));
+  ok(!mid.run && mid.h === h0 + 1, `${tag}: End frees B3 and logs history before any animation finishes`);
+  ok(reduce ? mid.ghost === 0 : (mid.ghost === 1 && mid.ids === 0 && mid.hidden), `${tag}: fold ghost ${reduce ? 'not created' : 'is decorative (aria-hidden, no duplicate ids)'}`);
+  ok(await ev(() => document.querySelectorAll('[id="seat-b3"]').length === 1 && document.querySelectorAll('[id="notes-b3"]').length === 1), `${tag}: no duplicate ids during fold`);
+  ok(reduce ? true : await ev(() => !!document.querySelector('#snackbar .sb-count').getAnimations().length), `${tag}: undo countdown bar ${reduce ? 'hidden' : 'animates'}`);
+  if (!reduce) await p.waitForTimeout(150);
+  await shot('fold-undo');
+  await p.locator('#snackUndo').click();
+  ok(await ev(() => seats.b3.running && seats.b3.timeUpNotified) && await ev(() => history.length) === h0, `${tag}: Undo mid-fold restores B3 + removes history`);
+  if (!reduce) { await p.waitForTimeout(700); ok(await ev(() => document.querySelectorAll('.fold-ghost').length === 0), `${tag}: fold ghost cleaned up`); }
+  // freeze every animation: timing + alerts unaffected
+  await ev(() => document.getAnimations().forEach(a => a.pause()));
+  await ev(() => startTimer('b5'));
+  await tick(31 * 60000);
+  ok(await ev(() => seats.b5.warnedAmber && colourFor(seats.b5) === 'yellow' && /^2[89]:\d\d$/.test(document.querySelector('#seat-b5 .timer').textContent)), `${tag}: with all animations paused, B5 still times + alerts (${await ev(() => document.querySelector('#seat-b5 .timer').textContent)})`);
+  // selection: long-press fill ring, tick pop, count roll, action bar
+  await ev(() => document.getElementById('seat-b6').scrollIntoView({ block: 'center' })); await tick(50);
+  const box = await p.locator('#seat-b6 .timer').boundingBox();
+  await p.mouse.move(box.x + 20, box.y + 10); await p.mouse.down(); await tick(200);
+  ok(reduce ? await ev(() => !document.querySelector('.lp')) : await ev(() => !!document.querySelector('#seat-b6 .lp')), `${tag}: long-press fill ring ${reduce ? 'not shown' : 'grows under the finger'}`);
+  if (!reduce) await p.waitForTimeout(120);
+  await shot('longpress');
+  await tick(400); await p.mouse.up(); await tick(50);
+  ok(await ev(() => selectMode && seats.b6.selected && !seats.b6.running), `${tag}: long-press still enters selection mode`);
+  const pop = await ev(() => { setSelected('b7', true); setSelected('b8', true); return document.querySelector('#seat-b7 .sel-check').getAnimations().length; });
+  ok(reduce ? pop === 0 : pop > 0, `${tag}: tick ${reduce ? 'appears without' : 'pops with'} animation on select (${pop})`);
+  if (!reduce) await p.waitForTimeout(450);
+  ok(/3 seats selected/.test(await p.locator('#actionCount').textContent()), `${tag}: rolling count reads "3 seats selected"`);
+  ok(await ev(() => getComputedStyle(document.getElementById('seat-b7')).scale) === (reduce ? '0.98' : '0.96'), `${tag}: selected seats shrink`);
+  if (!reduce) await p.waitForTimeout(500);
+  await shot('select');
+  await ev(() => exitSelectMode());
+  // summary numbers
+  ok(/Occupied 5\/8/.test((await p.locator('#summary').innerText()).replace(/\s+/g, ' ')), `${tag}: summary reads Occupied 5/8`);
+  // guest view: flip digits + wave
+  await ev(() => toggleGuestView()); await tick(300);
+  ok(await ev(() => { const g = document.querySelector('#guest-b5 .gt'); return g.children.length === g.textContent.length && g.textContent === formatTime(Math.max(0, getDurationMs(seats.b5) - getElapsed(seats.b5))); }), `${tag}: flip-clock digits show the exact remaining time`);
+  await ev(() => { endSession('b1', false); }); await tick(300);
+  const w = await ev(() => SEAT_IDS.filter(id => document.getElementById('guest-' + id).getAnimations().length).length);
+  ok(reduce ? w === 0 : w === 8, `${tag}: wave across the board when a seat frees (${w} cards)`);
+  ok(await ev(() => !seats.b1.running && document.querySelector('#guest-b1 .gt').textContent === '--:--'), `${tag}: guest card shows free immediately`);
+  if (!reduce) await p.waitForTimeout(250);
+  await shot('guest');
+  await ev(() => toggleGuestView());
+  // while-away banner
+  await ev(() => window.__setVis('hidden'));
+  const n0 = await ev(() => Date.now());
+  await p.clock.setSystemTime(new Date(n0 + 20 * 60000));
+  await ev(() => window.__setVis('visible')); await tick(200);
+  ok(await ev(() => document.getElementById('snackbar').classList.contains('away') && /While away/.test(document.getElementById('snackText').textContent)), `${tag}: "While away" banner shown`);
+  if (!reduce) await p.waitForTimeout(600);
+  await shot('away');
+  if (reduce) ok((await props()).n === 0, `${tag}: zero animations ran under reduced motion`);
+  ok(errs.length === 0, `${tag}: no page errors (motion) ${errs.join(' | ')}`);
+  await ctx.close();
+}
+
 function pngSize(buf) { return buf.slice(1, 4).toString() === 'PNG' ? [buf.readUInt32BE(16), buf.readUInt32BE(20)] : null; }
 
 async function pwaTests(browser, name, opts) {
@@ -384,6 +510,8 @@ let TAG;
     await featureTests(browser, name, opts);
     await migrationAndShot(browser, name, opts);
     await selectionTests(browser, name, opts);
+    await motionTests(browser, name, opts, false);
+    await motionTests(browser, name, opts, true);
     await pwaTests(browser, name, opts);
   }
   await browser.close();
