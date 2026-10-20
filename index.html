@@ -746,6 +746,12 @@
   .summary { flex-wrap: wrap; overflow: visible; row-gap: 6px; }
   body:not(.select-mode) .summary .chip:nth-child(3) { display: none; }
   .summary .off-alert { position: static; translate: none; margin: 0; min-height: 32px; padding: 4px 12px; border-radius: 999px; box-shadow: none; font-size: var(--fs-xs); white-space: nowrap; }
+  /* v4.2: the depth stack scales up on tablets and desktop */
+  @media (min-width: 600px) { body.depth .seats { --cw: min(56vw, 440px); } }
+  @media (min-width: 1000px) { body.depth .seats { --cw: 460px; } }
+  @media (max-height: 500px) { body.depth .seats .seat { min-height: 0; } }
+  body.depth:not(.select-mode) .seats .seat .mini { top: 0; bottom: 0; height: auto; }   /* the tile face covers the whole back card */
+  body.depth:not(.select-mode) .seats .seat.side .seat-head { visibility: hidden; }   /* Chrome painted a back card's head unscaled over the row */
 </style>
 </head>
 <body>
@@ -1504,16 +1510,21 @@ let FG = null;
 function measureFan() {
   const sc = document.getElementById('seats'); if (!sc) return null;
   const cards = [...sc.children];
-  const W = sc.clientWidth, depth = W >= 344 && innerWidth < 600 && innerWidth >= 360;
+  const W = sc.clientWidth, depth = W >= 344 && innerWidth >= 360;   // phones, tablets (both orientations) and desktop all use the depth stack
   if (document.body.classList.contains('depth') !== depth) document.body.classList.toggle('depth', depth);   // switching changes card width, so measure after
   FG = { max: Math.max(0, sc.scrollWidth - sc.clientWidth), W: sc.clientWidth, cw: cards[0] ? cards[0].offsetWidth || 1 : 300, lefts: cards.map(c => c.offsetLeft), n: cards.length, depth };
   if (depth) {   // back-card slots: 7 tiles in a shallow arc above the centre card
     // 7 even tiles in one flat row, fitted to the part of the stage that is actually on screen (with margins),
     // so none is ever clipped at the screen edge whatever the phone's frame/insets do
     const r = sc.getBoundingClientRect(), vw = document.documentElement.clientWidth || innerWidth;
-    const L = Math.max(r.left, 0), R = Math.min(r.right, vw), M = 10, g = 6, tw = (R - L - 2 * M - 6 * g) / 7, s = tw / FG.cw;
-    FG.slots = Array.from({ length: 7 }, (_, k) => ({ x: (L - r.left) + M + k * (tw + g), y: -92, s }));
-    const inv = (1 / s).toFixed(3); if (sc.style.getPropertyValue('--tinv') !== inv) sc.style.setProperty('--tinv', inv);
+    const L = Math.max(r.left, 0), R = Math.min(r.right, vw), M = vw >= 600 ? 24 : 10, g = vw >= 600 ? 12 : 6;
+    const tw = Math.min((R - L - 2 * M - 6 * g) / 7, 136), s = tw / FG.cw, x0 = (L - r.left) + (R - L - (7 * tw + 6 * g)) / 2;
+    const ch = Math.max(...cards.map(c => c.offsetHeight)) || FG.cw * 1.5, th = ch * s;
+    FG.slots = Array.from({ length: 7 }, (_, k) => ({ x: x0 + k * (tw + g), y: -(th + 12), s }));
+    const tz = Math.max(1, Math.min(1.7, tw / 52)), top = Math.round(th + 26) + 'px';   // bigger tiles get proportionally bigger text
+    if (sc.style.getPropertyValue('--depth-top') !== top) sc.style.setProperty('--depth-top', top);
+    sc.style.setProperty('--tz', tz.toFixed(3));
+    const inv = (Math.max(1, Math.min(1.7, s * FG.cw / 52)) / s).toFixed(3); if (sc.style.getPropertyValue('--tinv') !== inv) sc.style.setProperty('--tinv', inv);
   }
   return FG;
 }
@@ -2368,7 +2379,7 @@ try { if (localStorage.getItem('bst.lite')) document.body.classList.add('lite');
 document.getElementById('seats').addEventListener('pointerdown', e => { const c = e.target.closest && e.target.closest('.seat'); if (c && c.classList.contains('side') && !selectMode && isControl(e.target)) e.preventDefault(); }, true);
 function layoutFlow() {   // side gutters so the first and last seat can sit exactly in the centre
   const sc = document.getElementById('seats'), c = sc.firstElementChild; if (!c) return;
-  { const depth = sc.clientWidth >= 344 && innerWidth < 600 && innerWidth >= 360; if (document.body.classList.contains('depth') !== depth) document.body.classList.toggle('depth', depth); }
+  { const depth = sc.clientWidth >= 344 && innerWidth >= 360; if (document.body.classList.contains('depth') !== depth) document.body.classList.toggle('depth', depth); }
   const pad = Math.max(0, (sc.clientWidth - c.offsetWidth) / 2) + 'px';
   if (sc.style.paddingLeft !== pad) { sc.style.paddingLeft = pad; sc.style.paddingRight = pad; }
   measureFan();

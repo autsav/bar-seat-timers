@@ -141,3 +141,12 @@ Now there is no native scrolling outside selection mode:
 Back-card row polish: the 7 back cards are the seat buttons, laid out as one flat, even row fitted to the visible
 screen width with 10px margins (≥48px tiles on a 412px phone). The off-front alert ("Show") sits in the summary line,
 so it never covers a card, and the summary line wraps instead of being cut off. No extra chip row above 360px.
+
+## Depth stack everywhere (v4.2)
+
+Tablets (portrait and landscape), landscape phones and desktop now use the same depth stack as phones: the
+front card is capped (440px from 600px, 460px from 1000px) and centred. The 7 back-card seat buttons form one even
+row centred on screen, with 24px margins and 12px gaps on wide screens. Tiles are up to 136px wide and their text
+scales with them, up to 1.7×. The stack's top padding follows the measured tile height, and short landscape screens
+drop the card's minimum height. `tabletTests` checks 768×1024, 1024×768, 800×1280, 1280×800, 1366×1024, 1024×1366,
+915×412, 412×915 and 1440×900.

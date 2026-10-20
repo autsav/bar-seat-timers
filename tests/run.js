@@ -1102,6 +1102,53 @@ async function smoothTests(browser, name, opts) {
   await ctx.close();
 }
 
+
+// ---- Tablets / landscape / desktop: the depth stack with its row of 7 back-card seat buttons everywhere
+async function tabletTests(browser) {
+  const sizes = [[768, 1024], [1024, 768], [800, 1280], [1280, 800], [1366, 1024], [1024, 1366], [915, 412], [412, 915], [1440, 900]];
+  for (const [w, h] of sizes) {
+    const tag = `tablet ${w}x${h}`;
+    const ctx = await browser.newContext({ viewport: { width: w, height: h }, hasTouch: true, isMobile: w < 1400, serviceWorkers: 'block' });
+    const p = await ctx.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message));
+    await p.addInitScript(INIT); await p.addInitScript(() => sessionStorage.setItem('bst.intro', '1'));
+    await p.goto(BASE); await p.waitForTimeout(700);
+    const ev = (f, a) => p.evaluate(f, a);
+    await ev(() => { ['b2', 'b3', 'b6', 'b7', 'b8'].forEach(startTimer); seats.b3.startTime -= 34 * 60000; seats.b2.startTime -= 50 * 60000; seats.b7.startTime -= 61 * 60000; togglePause('b6'); });
+    await p.waitForTimeout(500);
+    ok(await ev(() => document.body.classList.contains('depth') && getComputedStyle(document.getElementById('seatNav')).display === 'none'), `${tag}: depth stack with back-card seat buttons (no fan, no chip row)`);
+    const bad = [];
+    for (const id of ['b8', 'b5', 'b1']) {
+      await ev(id => jumpTo(id), id); await p.waitForTimeout(120);
+      const g = await ev(() => { const vw = document.documentElement.clientWidth, cs = [...document.querySelectorAll('#seats .seat.side')].map(c => ({ r: c.getBoundingClientRect(), t: getComputedStyle(c).translate })).sort((a, b) => a.r.left - b.r.left);
+        const ws = cs.map(c => c.r.width), hs = cs.map(c => c.r.height), gaps = cs.slice(1).map((c, k) => c.r.left - cs[k].r.right), tops = cs.filter(c => c.t === 'none').map(c => c.r.top);
+        const a = document.getElementById('offAlert').getBoundingClientRect(), hit = cs.some(c => !document.getElementById('offAlert').hidden && c.r.left < a.right && c.r.right > a.left && c.r.top < a.bottom && c.r.bottom > a.top);
+        const font = Math.min(...[...document.querySelectorAll('#seats .seat.side .mini .mn b')].map(b => b.getBoundingClientRect().height));
+        return { n: cs.length, minL: Math.min(...cs.map(c => c.r.left)), maxR: Math.max(...cs.map(c => c.r.right)), vw, minTop: Math.min(...cs.map(c => c.r.top)), wMin: Math.min(...ws), hMin: Math.min(...hs), ws: Math.max(...ws) - Math.min(...ws), gs: Math.max(...gaps) - Math.min(...gaps), ts: Math.max(...tops) - Math.min(...tops), hit, font }; });
+      if (!(g.n === 7 && g.minL >= 8 && g.maxR <= g.vw - 8 && g.minTop >= 0 && g.wMin >= 48 && g.hMin >= 48 && g.ws < 1 && g.gs < 1.5 && g.ts < 1 && !g.hit)) bad.push(id + ':' + JSON.stringify(g));
+      if (id === 'b1') ok(w < 600 || g.wMin >= 80, `${tag}: larger screens get larger back cards (${g.wMin.toFixed(0)}px wide, ${g.font.toFixed(0)}px seat numbers)`);
+    }
+    ok(bad.length === 0, `${tag}: all 7 back cards fully visible with ≥8px margins, even, ≥48px, one row, clear of the Show alert ${bad.join(' ')}`);
+    ok(await ev(() => { const f = document.getElementById('seat-' + centreId).getBoundingClientRect(); return f.width <= 470 && Math.abs((f.left + f.right) / 2 - document.documentElement.clientWidth / 2) < 2; }), `${tag}: front card capped and centred`);
+    // tap a back card -> spring to front
+    await ev(() => window.scrollTo(0, 0)); await p.waitForTimeout(100);
+    const q = await ev(() => { const a = document.getElementById('seat-b4').getBoundingClientRect(); return [a.left + a.width / 2, a.top + Math.min(20, a.height / 3)]; });
+    await p.touchscreen.tap(q[0], q[1]); await p.waitForTimeout(900);
+    ok(await ev(() => centreId === 'b4' && !seats.b4.running && !glide), `${tag}: tapping B4's back card springs it to the front`);
+    // drag tracks the finger
+    const cdp = await ctx.newCDPSession(p);
+    const fb = await p.locator('#seat-b4').boundingBox(), fy = Math.round(fb.y + Math.min(fb.height * .6, (h - fb.y) - 20)), fx = Math.round(w / 2);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: fx, y: fy }] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: fx - 12, y: fy }] });
+    const base = await ev(() => document.getElementById('seats').scrollLeft); let err = 0;
+    for (let k = 1; k <= 6; k++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: fx - 12 - k * 15, y: fy }] }); const v = await ev(() => new Promise(r => requestAnimationFrame(() => r(document.getElementById('seats').scrollLeft)))); err = Math.max(err, Math.abs(v - (base + k * 15))); }
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await p.waitForTimeout(900);
+    ok(err <= .5 && await ev(() => !glide), `${tag}: drag tracks the finger 1:1 (max error ${err.toFixed(2)}px) and springs to a seat (${await ev(() => centreId)})`);
+    await ev(() => jumpTo('b1')); await p.waitForTimeout(400);
+    if ([[768, 1024], [1024, 768], [1280, 800], [800, 1280], [915, 412]].some(([a, b]) => a === w && b === h)) await p.screenshot({ path: path.join(SHOTS, `tablet-${TAG}-${w}x${h}.png`) });
+    ok(errs.length === 0, `${tag}: no page errors ${errs.join(' | ')}`);
+    await ctx.close();
+  }
+}
 async function depthTests(browser, name, opts, reduce) {
   if (name !== 'pixel7') return;
   const tag = 'pixel7' + (reduce ? '-reduced' : '') + ' depth';
@@ -1290,6 +1337,7 @@ let TAG;
   TAG = /github\.io/.test(BASE) ? 'live' : 'local';
   console.log(`Testing ${BASE}`);
   const browser = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
+  if (!process.env.ONLY || process.env.ONLY.split(',').includes('tabletTests')) await tabletTests(browser);
   for (const [name, opts] of [['desktop', { viewport: { width: 1366, height: 900 } }], ['pixel7', devices['Pixel 7']]]) {
     if (!process.env.ONLY || process.env.ONLY.split(',').includes('featureTests')) await featureTests(browser, name, opts);
     if (!process.env.ONLY || process.env.ONLY.split(',').includes('migrationAndShot')) await migrationAndShot(browser, name, opts);
