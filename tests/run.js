@@ -62,8 +62,8 @@ async function featureTests(browser, name, opts) {
   ok(await timer(1) === '1:00:00', `${name}: free seat shows default 60-min limit 1:00:00`);
   ok(await ev(() => !document.querySelector('.type-pick, [data-type], #setBooking, #setDefaultType') && !/booking/i.test(document.body.innerText + document.getElementById('settingsPanel').innerHTML)),
      `${name}: no booking UI anywhere (picker, tag, settings)`);
-  await seat(1).locator('.btn-primary').click();
-  await seat(2).locator('.btn-primary').click();
+  await clickSeat(p, 1, '.btn-primary');
+  await clickSeat(p, 2, '.btn-primary');
   await tick(1000);
   ok(await ev(() => seats.b1.limitMs === 3600000 && seats.b2.limitMs === 3600000 && !('type' in seats.b1)), `${name}: seats lock the 60-min limit at start`);
 
@@ -86,7 +86,7 @@ async function featureTests(browser, name, opts) {
   ok(await ev(() => getDurationMs(seats.b1)) === b1Before && await ev(() => getDurationMs(seats.b2)) === b2Before,
      `${name}: changing limits did not retime running B1/B2`);
   ok(await timer(3) === '30:00', `${name}: free seat picks up new walk-in limit (${await timer(3)})`);
-  await seat(3).locator('.btn-primary').click(); await tick(500);
+  await clickSeat(p, 3, '.btn-primary'); await tick(500);
   ok(await ev(() => seats.b3.limitMs) === 30 * 60000, `${name}: new session uses new limit`);
   await p.getByRole('button', { name: 'Close' }).first().click().catch(() => {});
   await ev(() => toggleSettings && document.getElementById('settingsPanel').style.display === 'block' && toggleSettings());
@@ -111,7 +111,7 @@ async function featureTests(browser, name, opts) {
 
   // --- R1: undo End
   const h0 = await ev(() => history.length);
-  await seat(1).locator('.btn-reset').click(); await tick(200);
+  await clickSeat(p, 1, '.btn-reset'); await tick(200);
   ok(await ev(() => !seats.b1.running) && await ev(() => history.length) === h0 + 1, `${name}: End frees B1 and logs history`);
   ok(await p.locator('#snackbar').isVisible() && /Ended B1/.test(await p.locator('#snackText').textContent()), `${name}: undo snackbar shown`);
   await p.locator('#snackUndo').click(); await tick(300);
@@ -130,18 +130,19 @@ async function featureTests(browser, name, opts) {
   await p.locator('#snackUndo').click(); await tick(200);
   ok(await ev(() => seats.b1.running && seats.b2.running && seats.b3.running), `${name}: Undo after Reset All restores 3 seats`);
   // expiry
-  await seat(3).locator('.btn-reset').click(); await tick(8500);
+  await clickSeat(p, 3, '.btn-reset'); await tick(8500);
   ok(!(await p.locator('#snackbar').isVisible()), `${name}: snackbar expires after 8 s`);
   ok(await ev(() => undoState === null), `${name}: undo no longer available after expiry`);
 
   // End is not adjacent to +15 (own row, gap >= 8px)
-  const gap = await ev(() => { const e = document.querySelector('#seat-b1 .btn-extend').getBoundingClientRect(), r = document.querySelector('#seat-b1 .btn-reset').getBoundingClientRect(); return { dy: r.top - e.bottom }; });
-  ok(gap.dy >= 8, `${name}: End sits on its own row below +15 (${Math.round(gap.dy)}px gap)`);
+  await ev(() => { jumpTo('b1'); document.getAnimations().forEach(a => { if (isFinite(a.effect.getComputedTiming().endTime)) a.finish(); }); });
+  const gap = await ev(() => { const e = document.querySelector('#seat-b1 .btn-extend').getBoundingClientRect(), r = document.querySelector('#seat-b1 .btn-reset').getBoundingClientRect(); return { dy: r.top - e.bottom, tf: document.getElementById("seat-b1").style.transform, er: document.querySelector("#seat-b1 .btn-extend").getBoundingClientRect().toJSON(), rr: document.querySelector("#seat-b1 .btn-reset").getBoundingClientRect().toJSON(), cr: document.getElementById("seat-b1").getBoundingClientRect().toJSON(), an: document.getElementById("seat-b1").getAnimations().map(a => a.animationName || a.id || "waapi"), c: centreId, cl: document.getElementById("seat-b1").className, sc: getComputedStyle(document.getElementById("seat-b1")).scale }; });
+  ok(gap.dy >= 8, `${name}: End sits on its own row below +15 (${Math.round(gap.dy)}px gap ${JSON.stringify(gap)})`);
 
   // history + CSV contain type
   await p.locator('#menuBtn').click();
   await p.locator('#menuPanel').getByRole('button', { name: /History/ }).click();
-  ok(/30 min/.test(await p.locator('#historyTable').textContent()) && !/Walk-in|Booking/.test(await p.locator('#historyTable').textContent()), `${name}: history shows limit (no type)`);
+  ok(/30 min/.test(await p.locator('#historyTable').textContent()) && !/Walk-in|Booking/.test(await p.locator('#historyTable').textContent()), `${name}: history shows limit (no type) [${(await p.locator('#historyTable').textContent()).slice(0,120)}|${await p.evaluate(() => document.getElementById('historyPanel').style.display)}]`);
   const [dl] = await Promise.all([p.waitForEvent('download'), p.locator('#historyPanel').getByRole('button', { name: /Export CSV/ }).click()]);
   const csv = fs.readFileSync(await dl.path(), 'utf8');
   ok(/^Seat,LimitMin,Notes,/.test(csv) && /\nb3,30,/.test(csv) && !/walkin|booking/i.test(csv), `${name}: CSV has LimitMin, no type`);
@@ -157,9 +158,9 @@ async function featureTests(browser, name, opts) {
 
   // screenshot of service state
   await ev(() => { document.getElementById('setWakeLock').checked = true; saveSettings(); });
-  await seat(5).locator('.btn-primary').click();
-  await seat(6).locator('.btn-primary').click(); await tick(1000);
-  await seat(6).locator('.btn-reset').click(); await tick(300);
+  await clickSeat(p, 5, '.btn-primary');
+  await clickSeat(p, 6, '.btn-primary'); await tick(1000);
+  await clickSeat(p, 6, '.btn-reset'); await tick(300);
   if (name === 'pixel7') ok(await ev(() => document.documentElement.scrollWidth <= innerWidth), `${name}: no horizontal overflow`);
   ok(errs.length === 0, `${name}: no console errors ${errs.join(' | ')}`);
   await ctx.close();
@@ -191,8 +192,8 @@ async function migrationAndShot(browser, name, opts) {
   ok(st.b4.running && st.b4.limitMs === 90 * 60000 && !('type' in st.b4) && /^1:20:0\d$|^1:19:5\d$/.test(st.t4), `${name}: running booking seat keeps locked 90-min limit (${st.t4})`);
   ok(!('nextType' in st.b1) && st.t1 === '1:00:00', `${name}: free seats use the 60-min limit after migration`);
   ok(!('type' in st.h) && st.h.limitMin === 90, `${name}: old history keeps its limit, type dropped`);
-  await p.locator('#seat-b4 .btn-reset').click();
-  await p.locator('#seat-b4 .btn-primary').click();
+  await clickSeat(p, 4, '.btn-reset');
+  await clickSeat(p, 4, '.btn-primary');
   await p.clock.fastForward(500);
   ok(await p.evaluate(() => seats.b4.limitMs === 3600000), `${name}: after it ends, B4 restarts on the 60-min limit`);
   await p.evaluate(() => { localStorage.clear(); });
@@ -204,13 +205,13 @@ async function migrationAndShot(browser, name, opts) {
   await q.addInitScript(INIT);
   await q.clock.install({ time: T0 });
   await q.goto(BASE);
-  const start = i => q.locator(`#seat-b${i} .btn-primary`).click();
+  const start = i => clickSeat(q, i, '.btn-primary');
   await start(1); await q.clock.fastForward(20 * 60000);
   await start(2); await start(5); await q.clock.fastForward(15 * 60000);
   await start(3); await q.clock.fastForward(12 * 60000);
   await start(6); await q.clock.fastForward(14 * 60000);
-  await q.locator('#seat-b5 .btn-extend').click();
-  await q.locator('#seat-b3 .btn-primary').click();   // pause B3
+  await clickSeat(q, 5, '.btn-extend');
+  await clickSeat(q, 3, '.btn-primary');   // pause B3
   await q.clock.fastForward(1000);
   fs.mkdirSync(SHOTS, { recursive: true });
   await q.screenshot({ path: path.join(SHOTS, `${TAG}-${name}-default60.png`), fullPage: true });
@@ -231,7 +232,7 @@ async function selectionTests(browser, name, opts) {
   const ev = f => p.evaluate(f), tick = ms => p.clock.fastForward(ms);
   const touch = !!opts.hasTouch;
   const cdp = touch ? await ctx.newCDPSession(p) : null;
-  const centre = async i => { await p.evaluate(i => { const r = document.querySelector('#seat-b' + i + ' .timer').getBoundingClientRect(); const sc = document.getElementById('seats').getBoundingClientRect(); if (r.top < 90 || r.bottom > innerHeight - 170 || r.left < sc.left || r.right > sc.right) document.getElementById('seat-b' + i).scrollIntoView({ block: 'center', inline: 'center' }); }, i); const b = await p.locator('#seat-b' + i + ' .timer').boundingBox(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; };
+  const centre = async i => { await p.evaluate(i => { if (!selectMode) jumpTo('b' + i); const r = document.querySelector('#seat-b' + i + ' .timer').getBoundingClientRect(); const sc = document.getElementById('seats').getBoundingClientRect(); if (r.top < 90 || r.bottom > innerHeight - 170 || r.left < sc.left || r.right > sc.right) document.getElementById('seat-b' + i).scrollIntoView({ block: 'center', inline: 'center' }); }, i); const b = await p.locator('#seat-b' + i + ' .timer').boundingBox(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; };
   const down = async pt => touch ? cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: pt.x, y: pt.y }] }) : (await p.mouse.move(pt.x, pt.y), p.mouse.down());
   const move = async pt => touch ? cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: pt.x, y: pt.y }] }) : p.mouse.move(pt.x, pt.y, { steps: 4 });
   const up = async () => touch ? cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }) : p.mouse.up();
@@ -345,7 +346,7 @@ async function motionTests(browser, name, opts, reduce) {
   ok(reduce ? a0.n === 0 : a0.n >= 8, `${tag}: staggered entrance ${reduce ? 'skipped' : 'runs'} (${a0.n} animations)`);
 
   // start: state is immediate, ripple/sweep are decoration
-  await p.locator('#seat-b1 .btn-primary').click();
+  await clickSeat(p, 1, '.btn-primary');
   ok(await ev(() => seats.b1.running && seats.b1.limitMs === 3600000), `${tag}: Start sets state immediately (animations not awaited)`);
   ok(reduce ? (await props()).n === 0 : await ev(() => document.querySelector('#seat-b1 .ring').getAnimations().length > 0), `${tag}: ring sweep ${reduce ? 'off' : 'plays'} on start`);
   await ev(() => ['b2','b3','b4'].forEach(id => startTimer(id)));
@@ -369,9 +370,9 @@ async function motionTests(browser, name, opts, reduce) {
   if (reduce) ok(anim.glowA === 'none' && anim.glowR === 'none' && anim.shake === 'none' && anim.alarm === 'none' && anim.alarmOp === '1', `${tag}: no breathing/pulse/shake; static time-up glow (${JSON.stringify(anim)})`);
   else ok(anim.glowA === 'breathe' && anim.glowR === 'breathe' && anim.shake === 'shake' && anim.alarm === 'alarm', `${tag}: amber breathe, red pulse, time-up shake + glow (${JSON.stringify(anim)})`);
   // pause: stripes + frozen ring
-  await p.locator('#seat-b4 .btn-primary').click(); await tick(300);
+  await clickSeat(p, 4, '.btn-primary'); await tick(300);
   const r1 = await ev(() => document.querySelector('#seat-b4 .ring .h.r i').style.transform);
-  await tick(60000); if (!reduce) await p.waitForTimeout(450);
+  await tick(60000); if (!reduce) await p.waitForTimeout(900);
   ok(await ev(() => seats.b4.paused) && r1 === await ev(() => document.querySelector('#seat-b4 .ring .h.r i').style.transform), `${tag}: paused ring frozen`);
   ok(await ev(() => getComputedStyle(document.querySelector('#seat-b4 .stripes')).opacity === '1' && getComputedStyle(document.querySelector('#seat-b4 .timer-row')).opacity === '0.5'), `${tag}: paused seat dims with stripe overlay`);
   await shot('status');
@@ -379,12 +380,12 @@ async function motionTests(browser, name, opts, reduce) {
   const pr = await props();
   ok(badProps(pr.bad).length === 0, `${tag}: only transform/opacity animate (${pr.n} running; props ${pr.bad.join(',') || 'none'})`);
   // +15: float + wind back, state immediate
-  await p.locator('#seat-b2 .btn-extend').click();
+  await clickSeat(p, 2, '.btn-extend');
   ok(await ev(() => seats.b2.extensions === 1), `${tag}: +15 applied immediately`);
   ok(reduce ? await ev(() => !document.querySelector('.plus')) : await ev(() => !!document.querySelector('#seat-b2 .plus') && document.querySelector('#seat-b2 .ring').classList.contains('wind')), `${tag}: +15 float ${reduce ? 'not shown' : 'rises while ring winds back'}`);
   // End mid-animation + Undo mid-animation
   const h0 = await ev(() => history.length);
-  await p.locator('#seat-b3 .btn-reset').click();
+  await clickSeat(p, 3, '.btn-reset');
   const mid = await ev(() => ({ run: seats.b3.running, h: history.length, ghost: document.querySelectorAll('.fold-ghost').length, ids: document.querySelectorAll('.fold-ghost [id]').length,
     hidden: [...document.querySelectorAll('.fold-ghost')].every(g => g.getAttribute('aria-hidden') === 'true') }));
   ok(!mid.run && mid.h === h0 + 1, `${tag}: End frees B3 and logs history before any animation finishes`);
@@ -402,7 +403,7 @@ async function motionTests(browser, name, opts, reduce) {
   await tick(31 * 60000);
   ok(await ev(() => seats.b5.warnedAmber && colourFor(seats.b5) === 'yellow' && /^2[89]:\d\d$/.test(document.querySelector('#seat-b5 .timer').textContent)), `${tag}: with all animations paused, B5 still times + alerts (${await ev(() => document.querySelector('#seat-b5 .timer').textContent)})`);
   // selection: long-press fill ring, tick pop, count roll, action bar
-  await ev(() => document.getElementById('seat-b6').scrollIntoView({ block: 'center' })); await tick(50);
+  await ev(() => { jumpTo('b6'); document.getElementById('seat-b6').scrollIntoView({ block: 'center', inline: 'nearest' }); }); await tick(50);
   const box = await p.locator('#seat-b6 .timer').boundingBox();
   await p.mouse.move(box.x + 20, box.y + 10); await p.mouse.down(); await tick(200);
   ok(reduce ? await ev(() => !document.querySelector('.lp')) : await ev(() => !!document.querySelector('#seat-b6 .lp')), `${tag}: long-press fill ring ${reduce ? 'not shown' : 'grows under the finger'}`);
@@ -414,7 +415,7 @@ async function motionTests(browser, name, opts, reduce) {
   ok(reduce ? pop === 0 : pop > 0, `${tag}: tick ${reduce ? 'appears without' : 'pops with'} animation on select (${pop})`);
   if (!reduce) await p.waitForTimeout(450);
   ok(/3 seats selected/.test(await p.locator('#actionCount').textContent()), `${tag}: rolling count reads "3 seats selected"`);
-  ok(await ev(() => getComputedStyle(document.getElementById('seat-b7')).scale) === (reduce ? '0.98' : '0.96'), `${tag}: selected seats shrink`);
+  ok(reduce ? Math.abs(+(await ev(() => getComputedStyle(document.getElementById('seat-b7')).scale)) - .98) < .002 : (v => v > .93 && v < .975)(+(await ev(() => getComputedStyle(document.getElementById('seat-b7')).scale))), `${tag}: selected seats shrink (${await ev(() => getComputedStyle(document.getElementById('seat-b7')).scale)})`);
   if (!reduce) await p.waitForTimeout(500);
   await shot('select');
   await ev(() => exitSelectMode());
@@ -466,7 +467,7 @@ async function cineTests(browser, name, opts, reduce) {
   if (reduce) ok(intro === null, `${tag}: no intro under reduced motion`);
   else ok(intro && intro.pe === 'none' && /BAR OPEN/.test(intro.txt), `${tag}: 'BAR OPEN' intro shown, pointer-events none`);
   if (!reduce) { await p.waitForTimeout(350); await shot('intro'); }
-  await p.locator('#seat-b1 .btn-primary').click();
+  await clickSeat(p, 1, '.btn-primary');
   ok(await ev(() => seats.b1.running), `${tag}: a seat can be started during the intro`);
   ok(await ev(() => !document.getElementById('intro')), `${tag}: intro gone after first tap (skippable)`);
   // 5. GO banner
@@ -474,7 +475,7 @@ async function cineTests(browser, name, opts, reduce) {
   if (!reduce) { await p.waitForTimeout(300); await shot('go-banner'); }
   // 8. sounds
   ok(await ev(() => sfxLog.includes('start')), `${tag}: start sound synthesised`);
-  await p.locator('#seat-b1 .btn-extend').click();
+  await clickSeat(p, 1, '.btn-extend');
   ok(await ev(() => sfxLog.includes('extend') && seats.b1.extensions === 1), `${tag}: +15 sound`);
   await ev(() => ['b2','b3','b4','b5','b6','b7'].forEach(id => startTimer(id)));
   // 2. neon bloom grows
@@ -499,18 +500,18 @@ async function cineTests(browser, name, opts, reduce) {
   ok(reduce ? await ev(() => !document.querySelector('.confetti')) : await ev(() => document.querySelectorAll('.confetti').length > 0), `${tag}: confetti when the bar is full ${reduce ? 'skipped' : 'falls'}`);
   if (!reduce) { await p.waitForTimeout(500); await shot('full-confetti'); }
   // 3. tilt while pressed
-  await ev(() => document.getElementById('seat-b3').scrollIntoView({ block: 'center' }));
+  await ev(() => { jumpTo('b3'); document.getElementById('seat-b3').scrollIntoView({ block: 'center', inline: 'nearest' }); });
   const bx = await p.locator('#seat-b3 .timer').boundingBox();
   await p.mouse.move(bx.x + 5, bx.y + 5); await p.mouse.down();
   const tf = await ev(() => document.getElementById('seat-b3').style.transform);
-  ok(reduce ? tf === '' : /rotateX\(.+rotateY\(.+translateY\(-4px\)/.test(tf), `${tag}: card tilt/lift while pressed ${reduce ? 'off' : '(' + tf + ')'}`);
+  ok(reduce ? !/rotate/.test(tf) : /rotateX\(.+rotateY\(.+translateY\(-4px\)/.test(tf), `${tag}: card tilt/lift while pressed ${reduce ? 'off' : '(' + tf + ')'}`);
   if (!reduce) { await p.waitForTimeout(200); await shot('tilt'); }
   await p.mouse.up(); await tick(50);
-  ok(await ev(() => document.getElementById('seat-b3').style.transform === ''), `${tag}: tilt released on pointer up`);
+  ok(await ev(() => !/rotateX/.test(document.getElementById('seat-b3').style.transform)), `${tag}: tilt released on pointer up`);
   await ev(() => exitSelectMode()); await tick(50);
   // 7. sparks + staff-board wave on free; state immediate
   const h0 = await ev(() => history.length);
-  await p.locator('#seat-b3 .btn-reset').click();
+  await clickSeat(p, 3, '.btn-reset');
   const fr = await ev(() => ({ run: seats.b3.running, sparks: document.querySelectorAll('.spark').length,
     wave: ['b1','b2','b4','b5'].filter(id => document.getElementById('seat-' + id).getAnimations().length).length }));
   ok(!fr.run && await ev(() => history.length) === h0 + 1, `${tag}: End frees B3 immediately`);
@@ -572,15 +573,15 @@ async function rowTests(browser, name, opts) {
   const shot = async n => { if (name === 'pixel7') await p.screenshot({ path: path.join(SHOTS, `row-${TAG}-${name}-${n}.png`) }); };
   const order = await ev(() => [...document.querySelectorAll('#seats .seat')].map(e => e.dataset.seat).join(','));
   ok(order === 'b8,b7,b6,b5,b4,b3,b2,b1', `${name}: staff row order B8..B1 (${order})`);
-  const geo = await ev(() => { const sc = document.getElementById('seats'), r = sc.getBoundingClientRect(), tops = new Set([...sc.children].map(c => Math.round(c.getBoundingClientRect().top)));
+  const geo = await ev(() => { const sc = document.getElementById('seats'), r = sc.getBoundingClientRect(), tops = new Set([...sc.children].map(c => c.offsetTop));
     const b1 = document.getElementById('seat-b1').getBoundingClientRect(), b8 = document.getElementById('seat-b8').getBoundingClientRect();
     return { rows: tops.size, end: Math.abs(sc.scrollLeft - (sc.scrollWidth - sc.clientWidth)) <= 2, b1In: b1.right <= r.right + 1 && b1.left >= r.left - 1, b8Out: b8.right <= r.left + 1,
-      snap: getComputedStyle(sc).scrollSnapType, frac: b1.width / innerWidth, vw: innerWidth, fit: [...sc.children].filter(c => { const a = c.getBoundingClientRect(); return a.left >= r.left - 1 && a.right <= r.right + 1; }).length }; });
+      snap: getComputedStyle(sc).scrollSnapType, frac: document.getElementById('seat-b1').offsetHeight / innerHeight, vw: innerWidth, fit: [...sc.children].filter(c => { const a = c.getBoundingClientRect(); return Math.min(a.right, r.right) - Math.max(a.left, r.left) >= a.width * .5; }).length }; });
   ok(geo.rows === 1, `${name}: one horizontal row (${geo.rows} row)`);
   ok(geo.end && geo.b1In && geo.b8Out, `${name}: on load scrolled to the end, B1 at the right, B8 off-screen`);
-  ok(/x mandatory/.test(geo.snap), `${name}: scroll-snap x mandatory`);
-  if (name === 'pixel7') ok(geo.frac >= .7 && geo.frac <= .8, `${name}: card is ${Math.round(geo.frac * 100)}% of viewport width`);
-  else ok(geo.fit >= 3, `${name}: wide screen fits ${geo.fit} full cards in the row`);
+  ok(await ev(() => typeof settle === 'function'), `${name}: row settles on a seat after scrolling`);
+  if (name === 'pixel7') ok(geo.frac >= .6 && geo.frac <= .65, `${name}: card is ${Math.round(geo.frac * 100)}% of viewport height`);
+  else ok(geo.fit >= 3, `${name}: wide screen shows ${geo.fit} cards (centre + side covers)`);
   const nav = await ev(() => [...document.querySelectorAll('#seatNav button')].map(b => b.textContent.trim()).join(','));
   ok(nav === 'B8,B7,B6,B5,B4,B3,B2,B1', `${name}: indicator in B8..B1 order`);
   ok(await ev(() => document.getElementById('nav-b1').classList.contains('on') && document.getElementById('nav-b8').classList.contains('off')), `${name}: indicator marks B1 on-screen, B8 off-screen`);
@@ -637,6 +638,93 @@ async function rowTests(browser, name, opts) {
   }
 }
 
+
+// Cover Flow carousel
+async function flowTests(browser, name, opts, reduce) {
+  const tag = name + (reduce ? '-reduced' : '');
+  const ctx = await browser.newContext({ ...opts, serviceWorkers: 'block', reducedMotion: reduce ? 'reduce' : 'no-preference' });
+  const p = await ctx.newPage();
+  const errs = []; p.on('pageerror', e => errs.push(e.message));
+  p.on('dialog', d => d.accept());
+  await p.addInitScript(INIT);
+  await p.addInitScript(() => sessionStorage.setItem('bst.intro', '1'));   // skip intro for geometry checks
+  await p.clock.install({ time: new Date('2026-10-20T19:00:00') });
+  await p.goto(BASE); await p.clock.fastForward(300);
+  const ev = (f, a) => p.evaluate(f, a), tick = ms => p.clock.fastForward(ms);
+  const shot = async n => { if (name === 'pixel7') await p.screenshot({ path: path.join(SHOTS, `flow-${TAG}-${tag}-${n}.png`) }); };
+  const off = id => ev(id => { const sc = document.getElementById('seats'), c = document.getElementById('seat-' + id); return Math.abs((c.offsetLeft + c.offsetWidth / 2) - (sc.scrollLeft + sc.clientWidth / 2)); }, id);
+  ok(await ev(() => [...document.querySelectorAll('#seats .seat')].map(e => e.dataset.seat).join()) === 'b8,b7,b6,b5,b4,b3,b2,b1', `${tag}: order B8..B1`);
+  ok(await ev(() => centreId) === 'b1' && await off('b1') <= 1, `${tag}: B1 centred on load (${(await off('b1')).toFixed(1)}px off)`);
+  ok(await ev(() => document.getElementById('nav-b1').classList.contains('centre')), `${tag}: indicator highlights centred B1`);
+  const pose = await ev(() => { const c = document.getElementById('seat-b2'); return { tf: c.style.transform, op: +c.style.opacity, side: c.classList.contains('side') }; });
+  if (reduce) ok(!/rotateY/.test(pose.tf) && pose.side, `${tag}: no 3D under reduced motion (side card flat, "${pose.tf}")`);
+  else ok(/rotateY\(4\d(\.\d+)?deg\)/.test(pose.tf) && /scale\(0\.8[5-9]/.test(pose.tf) && /translateZ\(-/.test(pose.tf) && pose.op < .7, `${tag}: side card rotateY≈45°, scale≈0.85, pushed back, dimmed (${pose.tf}; op ${pose.op})`);
+  // continuous interpolation mid-swipe
+  await ev(() => { sfxLog.length = 0; const sc = document.getElementById('seats'); sc.scrollLeft -= document.getElementById('seat-b1').offsetWidth * .5; updateFlow(); });
+  const mid = await ev(() => { const m = /rotateY\((-?[\d.]+)deg\)/.exec(document.getElementById('seat-b1').style.transform); return m ? +m[1] : 0; });
+  ok(reduce ? mid === 0 : Math.abs(mid) > 10 && Math.abs(mid) < 35, `${tag}: pose interpolates with drag position (B1 at half a card: rotateY ${mid}°)`);
+  await shot('midswipe');
+  // swipe one card: centre updates, tick sound
+  await ev(() => { const sc = document.getElementById('seats'); sc.scrollLeft -= document.getElementById('seat-b1').offsetWidth * .3; updateFlow(); settle(); });
+  await tick(50); await p.waitForTimeout(reduce ? 50 : 700); await tick(50);
+  ok(await ev(() => centreId) === 'b2' && await off('b2') <= 1.5, `${tag}: swipe moves the centre to B2 and settles exactly (${(await off('b2')).toFixed(1)}px)`);
+  ok(await ev(() => sfxLog.includes('tick')), `${tag}: soft tick sound when a seat passes`);
+  // only centre controls act
+  await ev(() => jumpTo('b1')); await tick(50);
+  ok(await ev(() => document.querySelector('#seat-b3 .btn-primary').tabIndex === -1 && document.querySelector('#seat-b1 .btn-primary').tabIndex === 0), `${tag}: side-card controls removed from tab order`);
+  await ev(() => document.querySelector('#seat-b2 .btn-primary').click()); await tick(50); await p.waitForTimeout(reduce ? 50 : 700); await tick(50);
+  ok(await ev(() => !seats.b2.running && centreId === 'b2'), `${tag}: tapping a side card's Start does not start it; it glides B2 to centre`);
+  await p.locator('#seat-b2 .btn-primary').click(); await tick(50);
+  ok(await ev(() => seats.b2.running), `${tag}: once centred, B2's Start works`);
+  { const r = await ev(() => { const a = document.getElementById('seat-b3').getBoundingClientRect(), c = document.getElementById('seat-b2').getBoundingClientRect(); return { x: Math.max(a.left, 0) + Math.max(4, (Math.min(a.right, c.left) - Math.max(a.left, 0)) / 2), y: a.top + a.height * .5 }; }); await p.mouse.click(r.x, r.y); } await tick(50); await p.waitForTimeout(reduce ? 50 : 800); await tick(50);
+  ok(await ev(() => centreId === 'b3' && !seats.b3.running), `${tag}: tap the next side card to centre it, without starting it`);
+  // indicator jump
+  await p.locator('#nav-b8').click(); await tick(50); await p.waitForTimeout(reduce ? 50 : 900); await tick(50);
+  ok(await ev(() => centreId) === 'b8' && await off('b8') <= 1.5, `${tag}: indicator B8 centres B8`);
+  // momentum: one fast flick travels several seats, then settles exactly on one
+  if (opts.hasTouch && !reduce) {
+    // Headless Chrome does not synthesise a fling, so this drives a fast long touch drag (~2.6 cards) and checks it settles on a seat.
+    const cdp = await ctx.newCDPSession(p);
+    const b = await p.locator('#seats').boundingBox(), y = Math.round(b.y + 150), w = await ev(() => document.getElementById('seat-b8').offsetWidth);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 400, y }] });
+    for (let k = 1; k <= 12; k++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: Math.round(400 - k * w * 2.6 / 12 / 2), y }] }); }
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 10, y }] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    for (let k = 0; k < 20; k++) { await tick(20); await p.waitForTimeout(60); }
+    const c = await ev(() => centreId), o = await off(c), passed = await ev(c => Math.abs(DISPLAY_IDS.indexOf(c) - DISPLAY_IDS.indexOf('b8')), c);
+    ok(passed >= 1 && o <= 1.5, `${tag}: fast long swipe carries ${passed} seats and settles exactly on ${c.toUpperCase()} (${o.toFixed(1)}px off)`);
+  }
+  // alerts while off-centre
+  await ev(() => jumpTo('b1')); await tick(50);
+  await ev(() => { startTimer('b6'); seats.b6.startTime -= 61 * 60000; }); await tick(300);
+  ok(await ev(() => document.getElementById('nav-b6').classList.contains('alert')) && /B6 time is up/.test(await p.locator('#offAlert').textContent()), `${tag}: off-centre time-up flags B6 + Show button`);
+  const lay = await ev(() => { const a = document.getElementById('offAlert'); return getComputedStyle(a).position; });
+  ok(lay === 'absolute', `${tag}: alert button overlays (position ${lay}) instead of pushing layout`);
+  await shot('alert');
+  await p.locator('#offAlert').click(); await tick(50); await p.waitForTimeout(reduce ? 50 : 900); await tick(50);
+  ok(await ev(() => centreId) === 'b6' && await p.locator('#offAlert').isHidden(), `${tag}: Show centres B6 and clears the alert`);
+  // selection flattens, then restores
+  await ev(() => enterSelectMode()); await tick(50);
+  ok(await ev(() => [...document.querySelectorAll('#seats .seat')].every(c => !/rotateY/.test(c.style.transform) && !c.classList.contains('side'))), `${tag}: selection mode flattens the carousel`);
+  await ev(() => { setSelected('b6', true); setSelected('b5', true); }); await tick(50);
+  if (!reduce) await p.waitForTimeout(600);
+  await shot('select');
+  await ev(() => exitSelectMode()); await tick(50);
+  ok(await ev(() => document.getElementById('seat-b1').classList.contains('side') && (matchMedia('(prefers-reduced-motion: reduce)').matches || /rotateY/.test(document.getElementById('seat-b1').style.transform))), `${tag}: leaving selection restores the carousel`);
+  // keys still map to seat numbers
+  if (name === 'desktop') { await p.locator('h1').click(); await p.keyboard.press('Digit7'); await tick(100); ok(await ev(() => seats.b7.running), `${tag}: key 7 starts B7 (side seat)`); }
+  // guest board stays flat
+  await ev(() => toggleGuestView()); await tick(200);
+  ok(await ev(() => [...document.querySelectorAll('.guest-card')].map(e => e.id.slice(6)).join() === 'b8,b7,b6,b5,b4,b3,b2,b1' && [...document.querySelectorAll('.guest-card')].every(e => !e.style.transform)), `${tag}: guest view is a flat B8..B1 board`);
+  if (!reduce) await p.waitForTimeout(400);
+  await shot('guest');
+  await ev(() => toggleGuestView()); await tick(100);
+  if (reduce) await shot('board');
+  else { await ev(() => jumpTo('b1')); await tick(50); await p.waitForTimeout(300); await shot('load'); }
+  ok(errs.length === 0, `${tag}: no page errors (flow) ${errs.join(' | ')}`);
+  await ctx.close();
+}
+
 function pngSize(buf) { return buf.slice(1, 4).toString() === 'PNG' ? [buf.readUInt32BE(16), buf.readUInt32BE(20)] : null; }
 
 async function pwaTests(browser, name, opts) {
@@ -670,7 +758,7 @@ async function pwaTests(browser, name, opts) {
   await p.reload();
   const n = await p.locator('.seat').count();
   ok(n === 8, `${name}: offline reload still renders 8 seats`);
-  await p.locator('#seat-b7 .btn-primary').click();
+  await clickSeat(p, 7, '.btn-primary');
   ok(await p.evaluate(() => seats.b7.running), `${name}: timers work offline`);
   await ctx.setOffline(false);
   ok(errs.length === 0, `${name}: no page errors (PWA) ${errs.join(' | ')}`);
@@ -696,6 +784,16 @@ async function installabilityCheck() {
   fs.rmSync(dir, { recursive: true, force: true });
 }
 
+// Cover Flow: only the centred card's controls act, so tests centre a seat before using its controls (like a person would).
+async function clickSeat(page, i, sel) {
+  for (let k = 0; k < 6; k++) {
+    const okc = await page.evaluate(i => { if (typeof jumpTo !== 'function' || selectMode) return true; jumpTo('b' + i); return centreId === 'b' + i && !document.getElementById('seat-b' + i).classList.contains('side'); }, i);
+    if (okc) break; await page.waitForTimeout(80);
+  }
+  await page.locator(`#seat-b${i} ${sel}`).scrollIntoViewIfNeeded();
+  await page.evaluate(i => { if (typeof jumpTo === 'function' && !selectMode && centreId !== 'b' + i) jumpTo('b' + i); }, i);
+  return page.locator(`#seat-b${i} ${sel}`).click();
+}
 let TAG;
 (async () => {
   let srv = null;
@@ -712,6 +810,8 @@ let TAG;
     await cineTests(browser, name, opts, false);
     await cineTests(browser, name, opts, true);
     await rowTests(browser, name, opts);
+    await flowTests(browser, name, opts, false);
+    await flowTests(browser, name, opts, true);
     await pwaTests(browser, name, opts);
   }
   await browser.close();

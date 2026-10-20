@@ -163,7 +163,7 @@
   body.high-contrast .mi.danger { color: var(--c-danger); }
 
   /* ============ Seat grid ============ */
-  main { max-width: 1320px; margin: 0 auto; }
+  main { max-width: 1320px; margin: 0 auto; position: relative; }
   .seats { display: grid; grid-template-columns: 1fr; gap: var(--s-3); margin: 0 0 var(--s-5); }
   .seat { position: relative; display: flex; flex-direction: column; gap: var(--s-2); min-width: 0;
     padding: var(--s-4); border-radius: var(--radius); border-left: 4px solid var(--c-border);
@@ -443,7 +443,38 @@
   .seats { display: flex !important; gap: var(--s-3); overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory;
     overscroll-behavior-x: contain; padding: 6px var(--s-3) var(--s-3); margin: 0 calc(-1 * var(--s-3)) var(--s-4); scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
   .seats .seat { flex: 0 0 min(76vw, 360px); scroll-snap-align: center; scroll-snap-stop: normal; }
-  @media (min-width: 720px) { .seats { margin: 0 calc(-1 * var(--s-5)) var(--s-4); padding: 6px var(--s-5) var(--s-3); } .seats .seat { flex-basis: 300px; scroll-snap-align: start; } }
+  @media (min-width: 720px) { .seats { margin: 0 calc(-1 * var(--s-5)) var(--s-4); padding: 6px var(--s-5) var(--s-3); } .seats .seat { flex-basis: 300px; } }
+  /* ============ Cover Flow (v3.6) ============ */
+  .seats { scroll-snap-type: none !important; position: relative; z-index: 0; isolation: isolate; --cw: min(66vw, 340px); padding-top: 52px; padding-bottom: 90px; gap: 0; }
+  .seats .seat { flex: 0 0 var(--cw) !important; min-height: 62vh; height: auto; scroll-snap-align: center; scroll-snap-stop: normal;
+    justify-content: flex-start; transform-origin: 50% 50%; backface-visibility: hidden; }
+  @media (min-width: 720px) { .seats { --cw: 300px; } }
+  .seats .seat .timer-row { order: -1; flex-direction: column; align-items: center; gap: var(--s-2); margin: var(--s-2) 0 var(--s-1); }
+  .seats .seat .seat-head { order: 0; justify-content: center; }
+  .seats .seat .fx { order: -2; }
+  .seats .seat .timer { font-size: clamp(2.2rem, 10vw, 3rem); text-align: center; }
+  .seats .seat .ring { width: min(36vw, 150px); height: min(36vw, 150px); box-shadow: inset 0 0 0 9px var(--c-track); }
+  .seats .seat .ring .h i { border-width: 9px; }
+  .seats .seat .meta { justify-content: center; gap: var(--s-3); }
+  .seats .seat .seat-actions { margin-top: auto; }
+  .seats .seat > * { flex-shrink: 0; }
+  body:not(.select-mode):not(.high-contrast) .seats .seat { -webkit-box-reflect: below 6px linear-gradient(transparent 72%, rgba(255,255,255,.16)); }
+  .seat.green { --glow: var(--bar-ok); } .seat.yellow { --glow: var(--bar-warn); } .seat.red { --glow: var(--bar-danger); } .seat.paused { --glow: var(--c-paused); }
+  .seat { --glow: var(--c-border); border: 1px solid color-mix(in srgb, var(--glow) 55%, var(--c-border)); }
+  body:not(.select-mode) .seats .seat.centre { box-shadow: inset 0 1px 0 var(--c-highlight), 0 0 0 1px var(--glow), 0 0 46px -4px color-mix(in srgb, var(--glow) 70%, transparent); }
+  body.flow-anim .seats .seat { transition: transform .5s var(--spring), opacity .4s ease, scale .32s var(--spring); }
+  .seats .seat.pressing { transition: transform .18s var(--ease); }
+  .tint { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+  .tint i { position: absolute; inset: 0; opacity: 0; transition: opacity .8s ease; }
+  .tint .t-green { background: radial-gradient(50vmax 40vmax at 50% 45%, rgba(34,197,94,.16), transparent 70%); }
+  .tint .t-yellow { background: radial-gradient(50vmax 40vmax at 50% 45%, rgba(245,158,11,.18), transparent 70%); }
+  .tint .t-red { background: radial-gradient(50vmax 40vmax at 50% 45%, rgba(239,68,68,.2), transparent 70%); }
+  .tint .t-paused { background: radial-gradient(50vmax 40vmax at 50% 45%, rgba(139,92,246,.16), transparent 70%); }
+  body.c-green .tint .t-green, body.c-yellow .tint .t-yellow, body.c-red .tint .t-red, body.c-paused .tint .t-paused { opacity: 1; }
+  body.light .tint, body.high-contrast .tint, body.guest-on .tint { display: none; }
+  .seat-nav button.centre { color: var(--c-text); border-color: var(--c-accent); box-shadow: 0 0 0 2px var(--c-accent); opacity: 1; }
+  /* overlays the row's reserved top gutter: never pushes layout, never covers card controls */
+  .off-alert { position: absolute; z-index: 20; left: 50%; translate: -50% 0; margin: 2px 0 0; min-height: 38px; box-shadow: var(--shadow-lg); }
   .seat-nav { display: flex; justify-content: center; gap: 6px; margin: 0 0 var(--s-2); flex-wrap: nowrap; }
   .seat-nav button { min-width: 0; min-height: 36px; padding: 2px 7px; font-size: var(--fs-xs); font-weight: 800; color: var(--c-text-muted);
     background: var(--c-surface-raised); border: 1px solid var(--c-border); border-radius: 999px; gap: 4px; position: relative; }
@@ -473,6 +504,7 @@
 </style>
 </head>
 <body>
+<div class="tint" aria-hidden="true"><i class="t-green"></i><i class="t-yellow"></i><i class="t-red"></i><i class="t-paused"></i></div>
 <div class="mood" aria-hidden="true"><i class="m-amber"></i><i class="m-blue"></i></div>
 <div id="fxLayer" aria-hidden="true"></div>
 <header class="topbar">
@@ -704,11 +736,12 @@ function playBeep(freq = 880, dur = 0.2) {
 // Short game-style sound effects, synthesised with WebAudio (no assets). Respect the mute setting.
 const SFX = {
   start:  [[523, 0, .09, 'triangle'], [784, .08, .16, 'triangle']],
+  tick:   [[2200, 0, .03, 'triangle', .05]],
   extend: [[660, 0, .06, 'square'], [990, .06, .1, 'square']],
   warn:   [[880, 0, .13, 'sine'], [660, .15, .18, 'sine']],
   timeup: [[1046, 0, .14, 'sawtooth'], [784, .16, .14, 'sawtooth'], [523, .32, .34, 'sawtooth']]
 };
-const VIB = { start: 20, extend: [15, 40, 15] };
+const VIB = { start: 20, extend: [15, 40, 15], tick: 6 };
 const sfxLog = [];
 function sfx(kind) {
   if (VIB[kind]) haptic(VIB[kind]);
@@ -717,10 +750,10 @@ function sfx(kind) {
   try {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const t0 = audioCtx.currentTime;
-    SFX[kind].forEach(([f, at, d, type]) => {
+    SFX[kind].forEach(([f, at, d, type, vol]) => {
       const o = audioCtx.createOscillator(), g = audioCtx.createGain();
       o.type = type; o.frequency.setValueAtTime(f, t0 + at); o.connect(g); g.connect(audioCtx.destination);
-      const v = type === 'sine' || type === 'triangle' ? .22 : .08;
+      const v = vol || (type === 'sine' || type === 'triangle' ? .22 : .08);
       g.gain.setValueAtTime(0.0001, t0 + at); g.gain.exponentialRampToValueAtTime(v, t0 + at + .01);
       g.gain.exponentialRampToValueAtTime(0.0001, t0 + at + d);
       o.start(t0 + at); o.stop(t0 + at + d + .02);
@@ -896,6 +929,7 @@ function haptic(ms) { if (navigator.vibrate) { try { navigator.vibrate(ms); } ca
 function enterSelectMode() {
   if (selectMode) return;
   selectMode = true;
+  fxSafe(flowSpring); document.body.classList.add('select-mode'); fxSafe(updateFlow);
   pushSelectEntry();
   haptic(30);
   updateSummary(); announce('Selection mode. Tap seats to select.');
@@ -904,6 +938,7 @@ function exitSelectMode(fromPop) {
   if (!selectMode) return;
   selectMode = false; press = null;
   clearSelection();
+  fxSafe(flowSpring); fxSafe(() => jumpTo(centreId)); fxSafe(updateFlow);
   if (fromPop) pushedEntry = false;
   else if (pushedEntry) { pushedEntry = false; pendingBack = true; try { window.history.back(); } catch (e) { pendingBack = false; } }
   announce('Selection mode off');
@@ -1016,9 +1051,11 @@ function ringColour(s) {
 
 // ============ Row navigation: indicator, jump, off-screen alerts ============
 const seatAlerts = {};   // id -> 'yellow' | 'red' | 'timeup' while that seat is off-screen
+// In Cover Flow only the centred seat counts as "in view"; in the flat selection strip it is geometric.
 function seatVisible(id) {
   const c = document.getElementById('seat-' + id), sc = document.getElementById('seats');
   if (!c || !sc || sc.offsetParent === null) return true;
+  if (!selectMode) return id === centreId;
   const a = c.getBoundingClientRect(), b = sc.getBoundingClientRect();
   const vis = Math.min(a.right, b.right) - Math.max(a.left, b.left);
   return vis >= a.width * .6;
@@ -1026,8 +1063,11 @@ function seatVisible(id) {
 function jumpTo(id, smooth) {
   const c = document.getElementById('seat-' + id); if (!c) return;
   const sc = document.getElementById('seats');
+  if (typeof layoutFlow === 'function') layoutFlow();
   const left = c.offsetLeft - (sc.clientWidth - c.offsetWidth) / 2;
-  sc.scrollTo({ left: Math.max(0, Math.min(left, sc.scrollWidth - sc.clientWidth)), behavior: smooth && FX.on() ? 'smooth' : 'auto' });
+  const behavior = smooth && FX.on() ? 'smooth' : 'auto';
+  sc.scrollTo({ left: Math.max(0, Math.min(left, sc.scrollWidth - sc.clientWidth)), behavior });
+  if (behavior === 'auto') updateFlow();
   delete seatAlerts[id]; updateNav();
 }
 function buildNav() {
@@ -1041,7 +1081,7 @@ function buildNav() {
   });
   document.getElementById('offAlert').addEventListener('click', () => { const id = document.getElementById('offAlert').dataset.seat; if (id) jumpTo(id, true); });
   let raf = 0;
-  document.getElementById('seats').addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; updateNav(); }); }, { passive: true });
+  document.getElementById('seats').addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; updateFlow(); updateNav(); }); }, { passive: true });
 }
 function navState(s) {
   if (!s.running) return 'free';
@@ -1057,7 +1097,7 @@ function updateNav() {
     const st = navState(seats[id]), vis = seatVisible(id);
     if (vis) delete seatAlerts[id];
     const al = seatAlerts[id];
-    const cls = 'secondary s-' + st + (vis ? ' on' : ' off') + (al ? ' alert' : '');
+    const cls = 'secondary s-' + st + (vis ? ' on' : ' off') + (al ? ' alert' : '') + (id === centreId && !selectMode ? ' centre' : '');
     if (b.className !== cls) b.className = cls;
     const lbl = `${id.toUpperCase()}: ${words[st]}${vis ? '' : ', off-screen'}${al ? ', needs attention' : ''}. Tap to show.`;
     if (b.getAttribute('aria-label') !== lbl) b.setAttribute('aria-label', lbl);
@@ -1088,6 +1128,65 @@ function autoScrollLoop() {
   const id = seatAt(Math.min(Math.max(lastPt.x, b.left + 2), b.right - 2), lastPt.y);
   if (id) setSelected(id, press.value);
   if (sc.scrollLeft !== before) autoRaf = requestAnimationFrame(autoScrollLoop);
+}
+
+
+// ============ Cover Flow ============
+// Every card's pose is a pure function of the row's scroll position (native scrolling gives momentum + snap).
+let centreId = 'b1', flowReady = false;
+function cardPose(d, w) {
+  const a = Math.min(Math.abs(d), 1), far = Math.max(0, Math.abs(d) - 1), sg = d < 0 ? -1 : 1;
+  return { tx: -sg * (a * .16 + far * .28) * w, tz: -(a * 140 + far * 40), ry: -sg * a * 45, sc: 1 - a * .15,
+           op: Math.max(.3, 1 - a * .4 - far * .12), z: 100 - Math.round(Math.abs(d) * 10) };
+}
+function applyCard(c) {
+  const t = (c._flow || '') + (c._tilt ? ' ' + c._tilt : '');
+  if (c.style.transform !== t) c.style.transform = t;
+}
+function updateFlow() {
+  const sc = document.getElementById('seats'); if (!sc) return;
+  const mid = sc.scrollLeft + sc.clientWidth / 2, three = FX.on() && !selectMode;
+  let best = null, bestD = 1e9;
+  for (const c of sc.children) {
+    const w = c.offsetWidth || 1, d = (c.offsetLeft + w / 2 - mid) / w;
+    if (Math.abs(d) < Math.abs(bestD)) { bestD = d; best = c.dataset.seat; }
+    let flow = '', op = '', z = '';
+    if (!selectMode) {
+      const P = cardPose(d, w);
+      if (three && Math.abs(d) > .002) flow = `perspective(1000px) translateX(${P.tx.toFixed(1)}px) translateZ(${P.tz.toFixed(1)}px) rotateY(${P.ry.toFixed(2)}deg) scale(${P.sc.toFixed(3)})`;
+      op = Math.abs(d) > .002 ? P.op.toFixed(3) : ''; z = String(P.z);
+    }
+    c._flow = flow; applyCard(c);
+    if (c.style.opacity !== op) c.style.opacity = op;
+    if (c.style.zIndex !== z) c.style.zIndex = z;
+  }
+  if (best && best !== centreId) {
+    const passed = Math.abs(DISPLAY_IDS.indexOf(best) - DISPLAY_IDS.indexOf(centreId));
+    centreId = best;
+    if (flowReady && passed) sfx('tick');
+    delete seatAlerts[best];
+  }
+  for (const c of sc.children) {
+    const side = !selectMode && c.dataset.seat !== centreId;
+    if (c.classList.contains('side') !== side) {
+      c.classList.toggle('side', side); c.classList.toggle('centre', !side && !selectMode);
+      c.querySelectorAll('button, input').forEach(b => { if (side) b.setAttribute('tabindex', '-1'); else b.removeAttribute('tabindex'); });
+      if (side) c.setAttribute('aria-description', 'Tap to bring to centre'); else c.removeAttribute('aria-description');
+    } else if (!side && !selectMode && !c.classList.contains('centre')) c.classList.add('centre');
+    if (selectMode && c.classList.contains('centre')) c.classList.remove('centre');
+  }
+  const st = navState(seats[centreId]);
+  ['green','yellow','red','paused'].forEach(k => document.body.classList.toggle('c-' + k, !selectMode && (st === k || (k === 'red' && st === 'timeup'))));
+}
+// Side cards are inert apart from tap-to-centre (capture phase, before any control or tap-to-start handler).
+function sideTap(e) {
+  const c = e.target.closest && e.target.closest('.seat'); if (!c || selectMode || !c.classList.contains('side')) return;
+  e.preventDefault(); e.stopPropagation(); jumpTo(c.dataset.seat, true);
+}
+function flowSpring() {   // selection flatten / restore glide
+  if (!FX.on()) return;
+  document.body.classList.add('flow-anim'); clearTimeout(flowSpring.t);
+  flowSpring.t = setTimeout(() => document.body.classList.remove('flow-anim'), 550);
 }
 
 // ============ Motion layer ============
@@ -1151,7 +1250,7 @@ const FX = {
     const b = c.getBoundingClientRect(), m = document.getElementById('menuBtn').getBoundingClientRect();
     const g = c.cloneNode(true);
     g.removeAttribute('id'); g.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
-    g.classList.add('fold-ghost'); g.classList.remove('selected'); g.setAttribute('aria-hidden', 'true'); g.inert = true;
+    g.classList.add('fold-ghost'); g.classList.remove('selected'); g.style.transform = ''; g.style.opacity = ''; g.style.zIndex = ''; g.setAttribute('aria-hidden', 'true'); g.inert = true;
     Object.assign(g.style, { left: b.left + 'px', top: b.top + 'px', width: b.width + 'px', height: b.height + 'px' });
     document.body.appendChild(g);
     const dx = m.right - b.right, dy = m.top - b.top;
@@ -1204,10 +1303,11 @@ Object.assign(FX, {
   tilt(id, cx, cy) {
     const c = FX.card(id); if (!c || !FX.on()) return;
     const b = c.getBoundingClientRect(), dx = (cx - b.left) / b.width - .5, dy = (cy - b.top) / b.height - .5;
-    c.style.transform = `perspective(700px) rotateX(${(-dy * 10).toFixed(1)}deg) rotateY(${(dx * 10).toFixed(1)}deg) translateY(-4px)`;
+    c._tilt = `perspective(700px) rotateX(${(-dy * 10).toFixed(1)}deg) rotateY(${(dx * 10).toFixed(1)}deg) translateY(-4px)`;
+    c.classList.add('pressing'); applyCard(c);
     c.dataset.tilt = '1';
   },
-  untilt() { document.querySelectorAll('.seat[data-tilt]').forEach(c => { c.style.transform = ''; delete c.dataset.tilt; }); },
+  untilt() { document.querySelectorAll('.seat[data-tilt]').forEach(c => { c._tilt = ''; applyCard(c); delete c.dataset.tilt; setTimeout(() => c.classList.remove('pressing'), 200); }); },
   layer() { return document.getElementById('fxLayer'); },
   burst(cls, n, at, build) {
     const L = FX.layer(); if (!L || !FX.on()) return;
@@ -1304,7 +1404,8 @@ function updateSeat(id) {
   const state = seatState(s);
   const remaining = getDurationMs(s) - getElapsed(s);
   const wasSel = el.classList.contains('selected');
-  const cls = 'seat ' + (colour || 'free') + (s.paused ? ' paused' : '') + (s.running && remaining <= 0 ? ' timeup' : '') + (s.selected ? ' selected' : '');
+  const cls = 'seat ' + (colour || 'free') + (s.paused ? ' paused' : '') + (s.running && remaining <= 0 ? ' timeup' : '') + (s.selected ? ' selected' : '')
+    + ['side', 'centre', 'pressing'].filter(k => el.classList.contains(k)).map(k => ' ' + k).join('');
   if (el.className !== cls) el.className = cls;
   r.label.setAttribute('aria-pressed', String(!!s.selected));
   if (s.selected && !wasSel) FX.pop(r.check);
@@ -1676,7 +1777,27 @@ renderSeats();
 SEAT_IDS.forEach(updateSeat);
 updateSummary();
 buildNav();
-{ const sc = document.getElementById('seats'); sc.scrollLeft = sc.scrollWidth; }   // B1 (rightmost) in view on load
+{ const sc = document.getElementById('seats'); sc.scrollLeft = sc.scrollWidth; }   // B1 (rightmost) centred on load
+document.getElementById('seats').addEventListener('click', sideTap, true);
+// Settle: native scrolling supplies drag + momentum; when it comes to rest we glide to the nearest seat.
+// (CSS scroll-snap is off because transformed cards would make the snap targets move.)
+let settleT = 0, userScroll = false;
+function settle() { if (selectMode || press) return; const sc = document.getElementById('seats'); updateFlow();
+  const c = document.getElementById('seat-' + centreId), want = c.offsetLeft - (sc.clientWidth - c.offsetWidth) / 2;
+  if (Math.abs(sc.scrollLeft - want) > 1) jumpTo(centreId, true); }
+{ const sc = document.getElementById('seats');
+  sc.addEventListener('scroll', () => { clearTimeout(settleT); if (!('onscrollend' in window)) settleT = setTimeout(settle, 140); }, { passive: true });
+  sc.addEventListener('scrollend', () => settle()); }
+document.getElementById('seats').addEventListener('pointerdown', e => { const c = e.target.closest && e.target.closest('.seat'); if (c && c.classList.contains('side') && !selectMode && isControl(e.target)) e.preventDefault(); }, true);
+function layoutFlow() {   // side gutters so the first and last seat can sit exactly in the centre
+  const sc = document.getElementById('seats'), c = sc.firstElementChild; if (!c) return;
+  const pad = Math.max(0, (sc.clientWidth - c.offsetWidth) / 2) + 'px';
+  if (sc.style.paddingLeft !== pad) { sc.style.paddingLeft = pad; sc.style.paddingRight = pad; }
+}
+layoutFlow(); jumpTo('b1');
+if (window.ResizeObserver) new ResizeObserver(() => fxSafe(() => { const id = centreId, sc = document.getElementById('seats'), w = sc.clientWidth; if (w !== layoutFlow.w) { layoutFlow.w = w; layoutFlow(); if (!selectMode) jumpTo(id); } })).observe(document.getElementById('seats'));
+updateFlow(); flowReady = true;
+window.addEventListener('resize', () => fxSafe(() => { const id = centreId; layoutFlow(); jumpTo(id); }));
 updateNav();
 fxSafe(updateMood);
 fxSafe(FX.intro);

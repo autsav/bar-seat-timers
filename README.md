@@ -55,3 +55,8 @@ The staff board is one horizontal, scroll-snapping row in physical bar order B8 
 A B8…B1 indicator above the row shows each seat's status (running / amber / red / time-up / paused) and which seats are off-screen; tap to jump.
 When a seat turns amber, red or time-up while off-screen, its indicator pulses and a "⚠ Bn … · Show ›" button scrolls to it.
 Outside selection mode swipes scroll; in selection mode a horizontal drag selects, auto-scrolling near the edges. Keys 1–8 still mean B1–B8.
+
+## Cover Flow (v3.6.0)
+The staff row is a Cover Flow carousel (B8 … B1, opens with B1 centred). Side covers rotate ~45°, scale ~0.85, sit back and dim,
+interpolated continuously from the scroll position; the row glides to the nearest seat when scrolling stops. Only the centred card's
+controls act; tapping a side card centres it. Selection mode flattens the strip; reduced motion keeps it flat (no 3D).
