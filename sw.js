@@ -1,5 +1,5 @@
 // Bar Seat Timers service worker. Bump VERSION on every release so old caches are dropped.
-const VERSION = 'bst-v4.0.0';
+const VERSION = 'bst-v4.1.0';
 const ASSETS = ['./', './index.html', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './fonts/Inter-latin-var.woff2'];
 

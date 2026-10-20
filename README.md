@@ -117,3 +117,27 @@ Cover Flow, alerts, selection, reduced motion, high contrast and the guest view 
 - **Swipe:** still steps through seats, with the same continuous pose blend.
 - **Alerts:** a time-up back card pulses and nudges down toward the front, and the Show button stays.
 - **Narrower screens:** below 360px, the chip row returns as a fallback. Wider screens keep the fan.
+
+## One motion source (v4.1)
+
+Real-device feedback on v4.0 was that the depth stack felt clunky. Root cause: the stack was a native horizontal
+scroller (compositor thread) while every card transform was written from scroll events on the main thread, so on
+Android the cards lagged the finger by a frame or more and the JS settle fought the native fling.
+
+Now there is no native scrolling outside selection mode:
+
+- `#seats` is `overflow: hidden; touch-action: pan-y` (vertical page scroll still works). Its `scrollLeft` is a
+  virtual float position; the real scroll position stays 0.
+- Pointer events drive that position 1:1 with the finger (8px slop, soft edges); one rAF per frame writes only
+  `transform` (cards) and `opacity` (dim/mini layers).
+- Release, tap-to-front and the Show alert all use the same critically damped spring, with the flick's velocity
+  projected to pick the target seat.
+- During motion: no layout reads, no class toggles (card roles, tint, spotlight change at rest), no timer DOM
+  updates (deferred until the spring settles), at most one tick sound per seat passed and none in a fast flick.
+- Moving cards have no transitions, box-shadow, filter, reflection, or `scale`/`rotate` properties (those would
+  multiply the JS transform); alert shake/nudge use `translate` only.
+- Settings → "Show performance meter" shows live fps and the worst frame of the last second.
+
+Back-card row polish: the 7 back cards are the seat buttons, laid out as one flat, even row fitted to the visible
+screen width with 10px margins (≥48px tiles on a 412px phone). The off-front alert ("Show") sits in the summary line,
+so it never covers a card, and the summary line wraps instead of being cut off. No extra chip row above 360px.

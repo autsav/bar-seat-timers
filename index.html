@@ -465,7 +465,7 @@
   body.flow-anim .seats .seat { transition: transform .5s var(--spring), opacity .4s ease, scale .32s var(--spring); }
   .seats .seat.pressing { transition: transform .18s var(--ease); }
   .tint { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
-  .tint i { position: absolute; inset: 0; opacity: 0; transition: opacity .8s ease; }
+  .tint i { position: absolute; inset: 0; opacity: 0; transition: opacity .8s ease; will-change: opacity; }
   .tint .t-green { background: radial-gradient(50vmax 40vmax at 50% 45%, rgba(34,197,94,.16), transparent 70%); }
   .tint .t-yellow { background: radial-gradient(50vmax 40vmax at 50% 45%, rgba(245,158,11,.18), transparent 70%); }
   .tint .t-red { background: radial-gradient(50vmax 40vmax at 50% 45%, rgba(239,68,68,.2), transparent 70%); }
@@ -586,7 +586,6 @@
   }
 
   /* ============ Fan (v3.8): all 8 seats on screen; centre large, side cards overlap as compact strips ============ */
-  @media (min-width: 360px) { .seat-nav { display: none !important; } }   /* every seat is readable in the fan / depth stack; chips only as a <360px fallback */
   /* ============ Chips (v3.9): narrow phones get a seat chip row under the fan; side strips become plain peeks ============ */
   @media (max-width: 359px) {
     body .seats .seat .timer { font-size: 9.2vw; }
@@ -595,23 +594,31 @@
     body:not(.select-mode) .seats .seat.side .dim { z-index: 31; }   /* the whole side card is a clean cover, so nothing reads as clipped */
     .seats { padding-bottom: var(--s-4); }
     body:not(.select-mode):not(.high-contrast) .seats .seat { -webkit-box-reflect: unset; }
-    .seat-nav.chips { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; margin: 0 0 var(--s-3); padding: 0; }
-    .seat-nav.chips button { min-height: 48px; min-width: 0; padding: 4px 0; flex-direction: column; justify-content: center; gap: 2px; border-radius: 12px;
-      font-size: 13px; font-weight: 800; line-height: 1; color: var(--c-text); opacity: 1; overflow: hidden;
-      border: 2px solid var(--chip, var(--c-border)); background: color-mix(in srgb, var(--chip, transparent) 18%, var(--c-surface-strong)); }
-    .seat-nav.chips button .dot { display: none; }
-    .seat-nav.chips button .cm { font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--c-text-muted); white-space: nowrap; }
-    .seat-nav.chips .s-green { --chip: var(--bar-ok); } .seat-nav.chips .s-yellow { --chip: var(--bar-warn); } .seat-nav.chips .s-red { --chip: var(--bar-danger); }
-    .seat-nav.chips .s-timeup { --chip: var(--bar-danger); background: var(--bar-danger); color: #fff; }
-    .seat-nav.chips .s-timeup .cm { color: #fff; }
-    .seat-nav.chips .s-paused { --chip: var(--c-paused); border-style: dashed; background: var(--c-paused-bg); }
-    .seat-nav.chips .s-free { color: var(--c-text-muted); }
-    .seat-nav.chips button.centre { box-shadow: 0 0 0 2px var(--c-bg), 0 0 0 4px var(--c-accent); translate: 0 -3px; }
-    .seat-nav.chips button.sel { outline: 2px dashed var(--c-select); outline-offset: 2px; }
-    body.select-mode .seat-nav.chips { position: fixed; z-index: 41; left: var(--s-2); right: var(--s-2); margin: 0; bottom: calc(var(--abh, 124px) + 20px); }   /* chips ride just above the action bar */
-    .seat-nav.chips button.alert::after { inset: -4px; border-radius: 14px; }
   }
-  @media (max-width: 359px) and (prefers-reduced-motion: reduce) { .seat-nav.chips button.alert::after { animation: none; opacity: 1; } }
+  /* ============ Seat buttons (v4.1): B8..B1 under the stack at every width ============ */
+  .seat-nav.chips { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; margin: 0 0 var(--s-3); padding: 0; }
+  .seat-nav.chips button { min-height: 48px; min-width: 0; padding: 4px 0; flex-direction: column; justify-content: center; gap: 2px; border-radius: 12px;
+    font-size: 13px; font-weight: 800; line-height: 1; color: var(--c-text); opacity: 1; overflow: hidden;
+    border: 2px solid var(--chip, var(--c-border)); background: color-mix(in srgb, var(--chip, transparent) 18%, var(--c-surface-strong)); }
+  .seat-nav.chips button .dot { display: none; }
+  .seat-nav.chips button .cm { font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--c-text-muted); white-space: nowrap; }
+  .seat-nav.chips .s-green { --chip: var(--bar-ok); } .seat-nav.chips .s-yellow { --chip: var(--bar-warn); } .seat-nav.chips .s-red { --chip: var(--bar-danger); }
+  .seat-nav.chips .s-timeup { --chip: var(--bar-danger); background: var(--bar-danger); color: #fff; }
+  .seat-nav.chips .s-timeup .cm { color: #fff; }
+  .seat-nav.chips .s-paused { --chip: var(--c-paused); border-style: dashed; background: var(--c-paused-bg); }
+  .seat-nav.chips .s-free { color: var(--c-text-muted); }
+  .seat-nav.chips button.centre { box-shadow: 0 0 0 2px var(--c-bg), 0 0 0 4px var(--c-accent); translate: 0 -3px; }
+  .seat-nav.chips button.sel { outline: 2px dashed var(--c-select); outline-offset: 2px; }
+  body.select-mode .seat-nav.chips { position: fixed; z-index: 41; left: var(--s-2); right: var(--s-2); margin: 0; bottom: calc(var(--abh, 124px) + 20px); }   /* chips ride just above the action bar */
+  .seat-nav.chips button.alert::after { inset: -4px; border-radius: 14px; }
+  .seat-nav.chips { max-width: 520px; margin-left: auto; margin-right: auto; contain: layout style; }
+  @media (min-width: 360px) { .seat-nav.chips { gap: 5px; } .seat-nav.chips button { min-height: 48px; } }
+  @media (prefers-reduced-motion: reduce) { .seat-nav.chips button.alert::after { animation: none; opacity: 1; } .seat-nav.chips button { transition: none !important; } }
+  /* ============ One motion source (v4.1): no native scroll, no transitions or shadows on moving cards ============ */
+  body:not(.select-mode) #seats { overflow: hidden !important; touch-action: pan-y; overscroll-behavior-x: contain; scroll-behavior: auto; }
+  body:not(.select-mode) .seats .seat { -webkit-box-reflect: unset !important; box-shadow: none !important; transition: none !important; scale: none !important; }   /* scale/translate props would multiply the JS transform */
+  body:not(.select-mode) .seats .seat .dim, body:not(.select-mode) .seats .seat .mini { will-change: opacity; transition: none !important; }
+  .perf-meter { position: fixed; z-index: 90; top: 6px; left: 6px; padding: 3px 8px; border-radius: 8px; background: rgba(0,0,0,.72); color: #9f9; font: 600 12px/1.3 ui-monospace, monospace; pointer-events: none; contain: strict; width: 150px; height: 22px; }
   .seats { --cw: min(52vw, 340px); }
   @media (min-width: 720px) { .seats { --cw: 300px; } }
   .seats .seat { padding: var(--s-5) var(--s-4); }
@@ -705,7 +712,7 @@
   /* ============ Depth (v4.0): phone portrait 360–599px. Centre card in front; the other 7 are smaller cards behind it,
      raised in a shallow arc so each one's top (number, minutes, status) peeks out above. No blur. ============ */
   .mini .mn { display: flex; align-items: baseline; gap: 1px; } .mini .mp { display: none; }
-  body.depth .seats { --cw: min(84vw, 360px); padding-top: var(--depth-top, 150px); }
+  body.depth .seats { --cw: min(84vw, 360px); padding-top: var(--depth-top, 104px); }
   body.depth .seats .seat { min-height: 54vh; }
   body.depth:not(.select-mode) .seats .seat { transform-origin: 0 0 !important; -webkit-box-reflect: unset !important; }
   body.depth:not(.select-mode) .seats .seat.side .mini { display: flex; width: 100% !important; z-index: 30; justify-content: flex-start;
@@ -725,6 +732,20 @@
   @keyframes depthNudge { 0%, 60%, 100% { translate: 0 0; } 75% { translate: 0 calc(10px * var(--tinv, 6)); } 88% { translate: 0 calc(3px * var(--tinv, 6)); } }
   body.depth:not(.select-mode) .seats .seat.side.nudge:not(.paused) { animation: shake 4s ease-in-out infinite, depthNudge 2.4s var(--ease) infinite; }
   @media (prefers-reduced-motion: reduce) { body.depth .seats .seat.side.nudge { animation: none !important; } }
+  /* rotate/scale properties would multiply the JS transform (which carries the whole stack offset), so moving cards only use translate */
+  @keyframes shakeX { 0%, 86%, 100% { translate: 0 0; } 88% { translate: -3px 0; } 91% { translate: 3px 0; } 94% { translate: -2px 0; } 97% { translate: 1px 0; } }
+  body:not(.select-mode) .seats .seat.timeup:not(.paused) { animation-name: shakeX; }
+  body:not(.select-mode) .seats .seat.side.nudge.sl:not(.paused) { animation: nudgeL 2.4s var(--ease) infinite; }
+  body:not(.select-mode) .seats .seat.side.nudge.sr:not(.paused) { animation: nudgeR 2.4s var(--ease) infinite; }
+  body.depth:not(.select-mode) .seats .seat.side.nudge:not(.paused) { animation: depthNudgeT 2.4s var(--ease) infinite; }
+  @keyframes depthNudgeT { 0%, 60%, 100% { translate: 0 0; } 75% { translate: 0 8px; } 88% { translate: 0 3px; } }
+  @media (prefers-reduced-motion: reduce) { body .seats .seat.nudge, body .seats .seat.timeup { animation: none !important; } }
+  body.lite .seats .seat.nudge { animation: none !important; }
+  /* v4.1 polish: back cards are the seat buttons; no extra chip row on phones; alert lives in the summary line */
+  @media (min-width: 360px) { .seat-nav { display: none !important; } }
+  .summary { flex-wrap: wrap; overflow: visible; row-gap: 6px; }
+  body:not(.select-mode) .summary .chip:nth-child(3) { display: none; }
+  .summary .off-alert { position: static; translate: none; margin: 0; min-height: 32px; padding: 4px 12px; border-radius: 999px; box-shadow: none; font-size: var(--fs-xs); white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -787,6 +808,7 @@
   <span><button type="button" onclick="promptInstall()">Install</button> <button type="button" class="secondary" onclick="dismissInstall()" aria-label="Not now">✕</button></span>
 </div>
 <h2 class="sr-only">Seats</h2>
+<div id="perfMeter" class="perf-meter" hidden aria-live="off"></div>
 <nav class="seat-nav" id="seatNav" aria-label="Seat positions, B8 to B1"></nav>
 <button type="button" id="offAlert" class="off-alert" hidden></button>
 <div class="seats" id="seats" tabindex="-1"></div>
@@ -815,6 +837,7 @@
   <label>Look <select id="setLook" onchange="setLook(this.value)"><option value="premium">Premium</option><option value="arcade">Arcade (game look)</option></select></label>
   <label><input type="checkbox" id="setDaytime" onchange="setDaytime(this.checked)"> Daytime (light Premium)</label>
   <label><input type="checkbox" id="setGyro" onchange="setGyro(this.checked)"> Gentle tilt with phone motion</label>
+  <label><input type="checkbox" id="setPerf" onchange="setPerfMeter(this.checked)"> Show performance meter</label>
   <p class="hint" id="gyroMsg" role="status"></p>
   <label><input type="checkbox" id="setHighContrast"> High contrast</label>
   <label><input type="checkbox" id="setAutoEnd"> Auto-end a session when time is up</label>
@@ -1273,7 +1296,7 @@ function applyTheme() {
     f('setHighContrast').checked = !!settings.highContrast;
     f('setAutoEnd').checked = !!settings.autoEnd;
     f('setLook').value = isPremium() ? 'premium' : 'arcade';
-    f('setDaytime').checked = !!settings.daytime; f('setGyro').checked = !!settings.gyro;
+    f('setDaytime').checked = !!settings.daytime; f('setGyro').checked = !!settings.gyro; f('setPerf').checked = !!settings.perfMeter;
   }
 }
 
@@ -1357,19 +1380,21 @@ function seatVisible(id) {
 let flowTarget = null, glide = null, userScroll = false;
 // Our own glide (rAF) so the settle is a soft spring and always lands exactly; a touch or wheel cancels it.
 function glideStop() { if (glide) { cancelAnimationFrame(glide.raf); glide = null; } }
-function glideTo(sc, to) {
+function glideTo(sc, to, v0) {
   glideStop();
-  const from = sc.scrollLeft, dist = to - from; if (Math.abs(dist) < 1) { sc.scrollLeft = to; updateFlow(); return; }
-  // critically damped spring (Premium) settles in ~380ms with no overshoot; Arcade keeps a small overshoot
-  const dur = Math.min(520, 340 + Math.abs(dist) * .06), t0 = performance.now(), W = 7.4;
-  const ease = isPremium() ? (t => 1 - (1 + W * t) * Math.exp(-W * t)) : (t => { const c = 1.15; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); });
-  const step = () => {
-    const t = Math.min(1, Math.max(0, (performance.now() - t0) / dur));
-    const x = from + dist * (t < 1 ? ease(t) : 1); sc.scrollLeft = x; updateFlow(Math.max(0, Math.min(x, glide.max))); if (t >= 1 || !(glide.n = (glide.n || 0) + 1) || glide.n % 4 === 0) updateNav();   // nav classes need not change every frame
-    if (t < 1) glide.raf = requestAnimationFrame(step); else { glide = null; sfx('settle'); }
-    moving();
+  const from = sc.scrollLeft, x0 = from - to; v0 = Math.max(-6000, Math.min(6000, v0 || 0));
+  if (Math.abs(x0) < .5 && Math.abs(v0) < 30) { sc.scrollLeft = to; updateFlow(); return; }
+  // one critically damped spring for swipe release, tap-to-front and chips: x(t) = to + (x0 + (v0 + w x0) t) e^(-w t)
+  const W = 20, t0 = performance.now(), A = v0 + W * x0;
+  const step = now => {
+    const t = Math.max(0, (performance.now() - t0) / 1000), e = Math.exp(-W * t), x = to + (x0 + A * t) * e, v = (v0 - W * t * A) * e;
+    const done = t > 1.2 || (Math.abs(x - to) < .4 && Math.abs(v) < 25);
+    sc.scrollLeft = done ? to : x;
+    if (done) { glide = null; updateFlow(); updateNav(); sfx('settle'); moving(); fxSafe(FX.flushDrops); if (tick.owed) tick(); return; }
+    updateFlow(); moving(); glide.raf = requestAnimationFrame(step);
   };
-  glide = { raf: requestAnimationFrame(step), max: sc.scrollWidth - sc.clientWidth };
+  glide = { raf: requestAnimationFrame(step), max: FG ? FG.max : sc.scrollWidth - sc.clientWidth, to };
+  moving();
 }
 // Depth swap (FLIP): jump the layout to the new seat at once, then animate every card from its old pose to its new one
 // on the compositor (transform + opacity only). The tapped card comes forward and grows; the old front recedes into its slot.
@@ -1396,10 +1421,9 @@ function jumpTo(id, smooth) {
   if (typeof layoutFlow === 'function') layoutFlow();
   const left = c.offsetLeft - (sc.clientWidth - c.offsetWidth) / 2;
   const to = Math.max(0, Math.min(left, sc.scrollWidth - sc.clientWidth));
-  if (smooth && FX.on() && FG && FG.depth && !selectMode && Math.abs(sc.scrollLeft - to) > 1) depthSwap(sc, to);
-  else if (smooth && FX.on()) glideTo(sc, to);
+  if (smooth && FX.on()) glideTo(sc, to);
   else { glideStop(); sc.scrollLeft = to; updateFlow(); }
-  delete seatAlerts[id]; updateNav();
+  delete seatAlerts[id]; updateNav();   // once, at the start of a tap's motion; never per frame
 }
 function buildNav() {
   const n = document.getElementById('seatNav');
@@ -1411,6 +1435,7 @@ function buildNav() {
     b.addEventListener('click', () => { if (selectMode) { toggleSelect(id); updateNav(); } else jumpTo(id, true); });
     n.appendChild(b);
   });
+  { const sm = document.getElementById('summary'), oa = document.getElementById('offAlert'); if (sm && oa && oa.parentElement !== sm) sm.appendChild(oa); }   // the alert sits in the summary line, never over the cards
   document.getElementById('offAlert').addEventListener('click', () => { const id = document.getElementById('offAlert').dataset.seat; if (id) jumpTo(id, true); });
   let raf = 0;
   document.getElementById('seats').addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; const c0 = centreId; updateFlow(); if (centreId !== c0) updateNav(); }); }, { passive: true });   // nav only when the centre changes
@@ -1449,7 +1474,7 @@ function updateNav() {
     oa.dataset.seat = top; oa.classList.toggle('red', seatAlerts[top] !== 'yellow'); oa.hidden = false;
   } else if (!oa.hidden) { oa.hidden = true; delete oa.dataset.seat; }
 }
-function flagOffscreen(id, level) { if (!seatVisible(id)) { seatAlerts[id] = level; updateNav(); } }
+function flagOffscreen(id, level) { if (!seatVisible(id)) { seatAlerts[id] = level; if (!inMotion()) updateNav(); } }
 // Selection drag: auto-scroll the row when the finger nears its left/right edge.
 let autoRaf = 0, lastPt = null;
 function autoScrollLoop() {
@@ -1481,10 +1506,13 @@ function measureFan() {
   const cards = [...sc.children];
   const W = sc.clientWidth, depth = W >= 344 && innerWidth < 600 && innerWidth >= 360;
   if (document.body.classList.contains('depth') !== depth) document.body.classList.toggle('depth', depth);   // switching changes card width, so measure after
-  FG = { W: sc.clientWidth, cw: cards[0] ? cards[0].offsetWidth || 1 : 300, lefts: cards.map(c => c.offsetLeft), n: cards.length, depth };
+  FG = { max: Math.max(0, sc.scrollWidth - sc.clientWidth), W: sc.clientWidth, cw: cards[0] ? cards[0].offsetWidth || 1 : 300, lefts: cards.map(c => c.offsetLeft), n: cards.length, depth };
   if (depth) {   // back-card slots: 7 tiles in a shallow arc above the centre card
-    const M = 8, g = 5, tw = (FG.W - 2 * M - 6 * g) / 7, s = tw / FG.cw;
-    FG.slots = Array.from({ length: 7 }, (_, k) => { const u = (k - 3) / 3; return { x: M + k * (tw + g), y: -(72 + 16 * (1 - u * u)), s }; });
+    // 7 even tiles in one flat row, fitted to the part of the stage that is actually on screen (with margins),
+    // so none is ever clipped at the screen edge whatever the phone's frame/insets do
+    const r = sc.getBoundingClientRect(), vw = document.documentElement.clientWidth || innerWidth;
+    const L = Math.max(r.left, 0), R = Math.min(r.right, vw), M = 10, g = 6, tw = (R - L - 2 * M - 6 * g) / 7, s = tw / FG.cw;
+    FG.slots = Array.from({ length: 7 }, (_, k) => ({ x: (L - r.left) + M + k * (tw + g), y: -92, s }));
     const inv = (1 / s).toFixed(3); if (sc.style.getPropertyValue('--tinv') !== inv) sc.style.setProperty('--tinv', inv);
   }
   return FG;
@@ -1506,7 +1534,7 @@ function applyCard(c) {
 }
 function updateFlow(slKnown) {
   const sc = document.getElementById('seats'); if (!sc) return;
-  const sl = slKnown != null ? slKnown : sc.scrollLeft, three = FX.on() && !selectMode, G = fanGeom(sc, sl);
+  const sl = slKnown != null ? slKnown : sc.scrollLeft, rs = selectMode ? sl : 0, mot = inMotion(), three = FX.on() && !selectMode, G = fanGeom(sc, sl);
   let best = null, bestD = 1e9, ci = -1;
   for (const c of sc.children) {
     ci++; const w = G.cw, ol = FG.lefts[ci], d = (ol + w / 2 - (sl + G.W / 2)) / w;
@@ -1514,36 +1542,37 @@ function updateFlow(slKnown) {
     let flow = '', z = '', dim = '0', strip = '';
     if (!selectMode && FG.depth) {
       // depth pose: blend between the front pose (a = 0) and this card's back slot (a = 1); transform + opacity only
-      const a = Math.min(1, Math.abs(d)), slot = FG.slots[Math.max(0, Math.min(6, d < 0 ? ci : ci - 1))], nl = ol - sl;
-      const fx = G.Lc, x = fx + (slot.x - fx) * a, y = slot.y * a, sk = 1 + (slot.s - 1) * a;
+      const a = Math.min(1, Math.abs(d)), slot = FG.slots[Math.max(0, Math.min(6, d < 0 ? ci : ci - 1))], nl = ol - rs;
+      const up = .02 * (1 - a), fx = G.Lc - w * up / 2, x = fx + (slot.x - fx) * a, y = slot.y * a, sk = (1 + (slot.s - 1) * a) * (1 + up);   // front card raised 2% (in the transform, not the scale property)
       flow = `translate(${(x - nl).toFixed(1)}px, ${y.toFixed(1)}px) scale(${sk.toFixed(4)})`;
       z = String(a < .5 ? 100 : 60 - Math.round(Math.abs(d))); dim = (.12 * a).toFixed(2);
       if (c._refs) { const mo = Math.max(0, Math.min(1, (a - .6) / .4)).toFixed(2); if (c._refs.mini.style.opacity !== mo) c._refs.mini.style.opacity = mo; }
       strip = '';
-      if (c.classList.contains('sl') || c.classList.contains('sr')) c.classList.remove('sl', 'sr');
+      if (!mot && (c.classList.contains('sl') || c.classList.contains('sr'))) c.classList.remove('sl', 'sr');
     } else if (!selectMode) {
-      if (c._refs && c._refs.mini.style.opacity !== '') c._refs.mini.style.opacity = '';
-      const P = cardPose(d, w), left = d < 0, nl = ol - sl;
+      if (c._refs) { const mo = mot ? Math.max(0, Math.min(1, (Math.abs(d) - .6) / .4)).toFixed(2) : ''; if (c._refs.mini.style.opacity !== mo) c._refs.mini.style.opacity = mo; }
+      const P = cardPose(d, w), left = d < 0, nl = ol - rs;
       // outer edge position on screen; origin is the outer edge so tilt and scale never move it
       const tx = left ? (G.Lc - G.stepL * -d) - nl : (G.Rc + G.stepR * d) - (nl + w);
-      flow = `translateX(${tx.toFixed(1)}px)` + (three ? ` perspective(900px) rotateY(${P.ry.toFixed(2)}deg)` : '') + ` scale(${P.sc.toFixed(3)})`;
+      flow = `translateX(${tx.toFixed(1)}px)` + (three ? ` perspective(900px) rotateY(${P.ry.toFixed(2)}deg)` : '') + ` scale(${(P.sc * (1 + .02 * (1 - Math.min(1, Math.abs(d))))).toFixed(3)})`;
       z = String(P.z); dim = P.dim.toFixed(2);
       const step = left ? G.stepL : G.stepR, cos = three ? Math.cos(P.ry * Math.PI / 180) : 1;
       strip = Math.round(Math.max(24, Math.min(w * .45, (step + 2) / (P.sc * cos)))) + 'px';
-      if (c.classList.contains('sl') !== left || c.classList.contains('sr') === left) { c.classList.toggle('sl', left); c.classList.toggle('sr', !left); }
+      if (!mot && (c.classList.contains('sl') !== left || c.classList.contains('sr') === left)) { c.classList.toggle('sl', left); c.classList.toggle('sr', !left); }
     } else if (c.classList.contains('sl') || c.classList.contains('sr')) c.classList.remove('sl', 'sr');
     c._flow = flow; applyCard(c);
     if (c.style.opacity !== '') c.style.opacity = '';
     if (c.style.zIndex !== z) c.style.zIndex = z;
     if (c._refs && c._refs.dim.style.opacity !== dim) c._refs.dim.style.opacity = dim;
-    const mi = c._refs && c._refs.mini; if (mi && mi.style.width !== strip) mi.style.width = strip;   // plain property on one element: no inherited custom-property recalc
+    const mi = c._refs && c._refs.mini; if (mi && !mot && mi.style.width !== strip) mi.style.width = strip;   // plain property on one element: no inherited custom-property recalc
   }
   if (best && best !== centreId) {
     const passed = Math.abs(DISPLAY_IDS.indexOf(best) - DISPLAY_IDS.indexOf(centreId));
     centreId = best;
-    if (flowReady && passed) sfx('tick');
+    const now = performance.now(); if (flowReady && passed && now - (updateFlow.tk || 0) > 90) { updateFlow.tk = now; sfx('tick'); }   // at most one tick per seat; none in a fast flick
     delete seatAlerts[best];
   }
+  if (mot) return;   // roles, classes, tint and spotlight change only at rest: motion frames write transform/opacity only
   for (const c of sc.children) {
     const side = !selectMode && c.dataset.seat !== centreId;
     if (c.classList.contains('side') !== side) {
@@ -1625,8 +1654,10 @@ const FX = {
     const b = c.getBoundingClientRect();
     const n = FX.spawn(c._refs.fx, 'ripple', cx - b.left, cy - b.top); if (!n) return;
     const a = FX.anim(n, [{ transform: 'scale(.1)', opacity: .9 }, { transform: 'scale(2.6)', opacity: 0 }], { duration: 560, easing: 'cubic-bezier(.2,.8,.2,1)' });
-    if (a) a.onfinish = () => n.remove(); else n.remove();
+    if (a) a.onfinish = () => FX.drop(n); else FX.drop(n);
   },
+  // removing a node mid-gesture would cost a layout, so effect nodes left over from a press go at rest
+  dropped: [], drop(n) { if (inMotion()) FX.dropped.push(n); else n.remove(); }, flushDrops() { FX.dropped.splice(0).forEach(n => n.remove()); },
   sweep(id) {
     const c = FX.card(id); if (!c) return;
     FX.anim(c._refs.ring, [{ transform: 'rotate(-360deg) scale(.6)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: isPremium() ? 900 : 650, easing: FX.spring() });
@@ -1643,8 +1674,8 @@ const FX = {
   },
   pressCancel() {
     const n = FX.press; FX.press = null; if (!n) return;
-    const a = FX.anim(n, [{ opacity: 1 }, { transform: 'scale(1.4)', opacity: 0 }], { duration: 200 });
-    if (a) a.onfinish = () => n.remove(); else n.remove();
+    const a = FX.anim(n, [{ opacity: 1 }, { transform: 'scale(1.4)', opacity: 0 }], { duration: 200, fill: 'forwards' });
+    if (a) a.onfinish = () => FX.drop(n); else FX.drop(n);
   },
   pop(check) { FX.anim(check, [{ transform: 'scale(0)', opacity: 0 }, { transform: 'scale(1.25)', opacity: 1, offset: .6 }, { transform: 'scale(1)', opacity: 1 }], { duration: 320, easing: 'ease-out' }); },
   flash(id) {
@@ -2174,6 +2205,8 @@ document.addEventListener('keydown', e => {
 function tick() {
   updateWakeLock();
   fxSafe(updateMood);
+  if (inMotion() && document.getElementById('guestView').style.display !== 'block') { SEAT_IDS.forEach(checkAlerts); tick.owed = 1; return; }   // gestures get the frame; faces catch up at rest
+  tick.owed = 0;
   SEAT_IDS.forEach(id => { checkAlerts(id); updateSeat(id); });
   updateSummary();
   fxSafe(updateNav);
@@ -2252,11 +2285,75 @@ function settle() { if (selectMode || press || !userScroll || glide) return; use
   // only a person's swipe/wheel needs settling; programmatic glides already land on a seat
   ['pointerdown', 'touchstart', 'wheel'].forEach(t => sc.addEventListener(t, () => { userScroll = true; glideStop(); moving(); }, { passive: true }));
   sc.addEventListener('scroll', moving, { passive: true }); }
+
+// ============ One motion source (v4.1) ============
+// Outside selection the stack has no native scrolling at all. A single float position (in px, exposed through the
+// row's scrollLeft so every caller keeps one model) is driven by our own pointer gesture and spring, and each frame
+// writes only transform/opacity. The real scrollLeft stays 0, so the compositor never moves anything behind our back.
+let drag = null, dragEndAt = -1e9;
+function inMotion() { return !!(glide || (drag && drag.on)); }
+{ const sc = document.getElementById('seats'), D = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollLeft');
+  let vpos = 0;
+  Object.defineProperty(sc, 'scrollLeft', { configurable: true,
+    get() { return selectMode ? D.get.call(this) : vpos; },
+    set(v) { if (selectMode) D.set.call(this, v); else { vpos = +v || 0; if (!drag || !drag.on) vpos = Math.max(0, Math.min(vpos, FG ? FG.max : vpos)); } } });
+  sc._native = D;
+  // entering/leaving selection hands the position to / back from the native flat strip
+  const _e = enterSelectMode, _x = exitSelectMode;
+  enterSelectMode = function () { const p = vpos; glideStop(); _e.apply(this, arguments); D.set.call(sc, p); fxSafe(updateFlow); };
+  exitSelectMode = function () { if (selectMode) { vpos = D.get.call(sc); } _x.apply(this, arguments); D.set.call(sc, 0); };
+  sc.addEventListener('scroll', () => { if (!selectMode && D.get.call(sc)) D.set.call(sc, 0); }, { passive: true });   // focus can't drift it either
+  const target = (p, v) => {   // nearest seat to where the flick would coast to
+    const proj = p + v * .28, half = (FG.W - FG.cw) / 2; let bi = 0, bd = 1e9;
+    FG.lefts.forEach((l, i) => { const d = Math.abs(Math.max(0, Math.min(FG.max, l - half)) - proj); if (d < bd) { bd = d; bi = i; } });
+    return Math.max(0, Math.min(FG.max, FG.lefts[bi] - half));
+  };
+  const frame = () => { drag.raf = 0; updateFlow(); };
+  sc.addEventListener('pointerdown', e => {
+    if (selectMode || e.button > 0 || !FG) return;
+    drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, p0: vpos, on: false, s: [[e.timeStamp, e.clientX]], raf: 0 };
+  });
+  sc.addEventListener('pointermove', e => {
+    if (!drag || e.pointerId !== drag.id || selectMode) return;
+    const dx = e.clientX - drag.x0, dy = e.clientY - drag.y0;
+    if (!drag.on) {
+      if (Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(dy)) return;
+      drag.on = true; drag.x0 = e.clientX; drag.p0 = vpos; glideStop(); fxSafe(FX.untilt); fxSafe(FX.pressCancel); moving();
+      try { sc.setPointerCapture(e.pointerId); } catch (er) {}
+    }
+    let p = drag.p0 - (e.clientX - drag.x0); const max = FG.max;
+    if (p < 0) p = p * .35; else if (p > max) p = max + (p - max) * .35;   // soft edge
+    vpos = p; drag.s.push([e.timeStamp, e.clientX]); while (drag.s.length > 2 && e.timeStamp - drag.s[0][0] > 100) drag.s.shift();
+    moving(); if (!drag.raf) drag.raf = requestAnimationFrame(frame);
+  });
+  const end = e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const d = drag; drag = null; if (d.raf) cancelAnimationFrame(d.raf);
+    if (!d.on || selectMode) return;
+    dragEndAt = performance.now();
+    const a = d.s[0], b = d.s[d.s.length - 1], dt = (b[0] - a[0]) / 1000, v = dt > .005 && e.timeStamp - b[0] < 80 ? -(b[1] - a[1]) / dt : 0;
+    const to = target(vpos, v); flowTarget = null; window.__lastFlick = { v: Math.round(v), from: Math.round(vpos), to: Math.round(to) }; glideTo(sc, to, v);
+  };
+  sc.addEventListener('pointerup', end); sc.addEventListener('pointercancel', end);
+  sc.addEventListener('click', e => { if (performance.now() - dragEndAt < 400) { e.preventDefault(); e.stopPropagation(); } }, true);   // a swipe is never a tap
+  let wheelT = 0;
+  sc.addEventListener('wheel', e => {
+    if (selectMode || !FG) return; const dx = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : (e.shiftKey ? e.deltaY : 0); if (!dx) return;
+    e.preventDefault(); glideStop(); vpos = Math.max(0, Math.min(FG.max, vpos + dx)); moving(); updateFlow();
+    clearTimeout(wheelT); wheelT = setTimeout(() => glideTo(sc, target(vpos, 0), 0), 120);
+  }, { passive: false });
+}
+// ---- Optional on-screen performance meter (Settings): frame rate + worst frame of the last second
+const perfMeter = { raf: 0, on(v) { const m = document.getElementById('perfMeter'); m.hidden = !v; cancelAnimationFrame(this.raf); this.raf = 0; if (!v) return;
+  let n = 0, t0 = performance.now(), last = t0, worst = 0;
+  const loop = t => { n++; worst = Math.max(worst, t - last); last = t; if (t - t0 >= 1000) { m.textContent = `${Math.round(n * 1000 / (t - t0))} fps · worst ${Math.round(worst)} ms`; n = 0; worst = 0; t0 = t; } this.raf = requestAnimationFrame(loop); };
+  this.raf = requestAnimationFrame(loop); } };
+function setPerfMeter(on) { settings.perfMeter = !!on; saveAll(); perfMeter.on(!!on); }
 // While the fan moves, ambient effects pause (one class flip at start and one at rest, not per frame).
 let movingT = 0;
 function moving() {
   if (!document.body.classList.contains('moving')) { document.body.classList.add('moving'); perfWatch.start(); }
-  clearTimeout(movingT); movingT = setTimeout(() => { if (glide) return moving(); document.body.classList.remove('moving'); perfWatch.stop(); }, 220);
+  clearTimeout(movingT); movingT = setTimeout(() => { if (inMotion()) return moving(); document.body.classList.remove('moving'); perfWatch.stop(); }, 220);
 }
 // Smooth mode (automatic): if motion frames run well over budget on this device, drop the heavy decoration for good.
 const perfWatch = { f: [], raf: 0, last: 0,
@@ -2280,6 +2377,7 @@ layoutFlow(); jumpTo('b1');
 if (window.ResizeObserver) new ResizeObserver(() => fxSafe(() => { const id = centreId, sc = document.getElementById('seats'), w = sc.clientWidth; if (w !== layoutFlow.w) { layoutFlow.w = w; layoutFlow(); if (!selectMode) jumpTo(flowTarget || id, !!glide); } })).observe(document.getElementById('seats'));
 updateFlow(); flowReady = true;
 if (settings.gyro) startGyro();
+if (settings.perfMeter) perfMeter.on(true);
 window.addEventListener('resize', () => fxSafe(() => { const id = glide ? (flowTarget || centreId) : centreId; layoutFlow(); jumpTo(id, !!glide); }));   // a resize mid-glide (e.g. mobile URL bar) keeps gliding to the same seat
 updateNav();
 fxSafe(updateMood);
