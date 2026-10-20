@@ -586,9 +586,9 @@
   }
 
   /* ============ Fan (v3.8): all 8 seats on screen; centre large, side cards overlap as compact strips ============ */
-  @media (min-width: 600px) { .seat-nav { display: none !important; } }   /* wide: every seat readable in the fan */
+  @media (min-width: 360px) { .seat-nav { display: none !important; } }   /* every seat is readable in the fan / depth stack; chips only as a <360px fallback */
   /* ============ Chips (v3.9): narrow phones get a seat chip row under the fan; side strips become plain peeks ============ */
-  @media (max-width: 599px) {
+  @media (max-width: 359px) {
     body:not(.select-mode) .seats .seat.side .mini > * { display: none; }   /* decorative peek: status edge only, no squeezed text */
     body:not(.select-mode) .seats .seat.side .mini { width: 100% !important; z-index: 30; }
     body:not(.select-mode) .seats .seat.side .dim { z-index: 31; }   /* the whole side card is a clean cover, so nothing reads as clipped */
@@ -610,7 +610,7 @@
     body.select-mode .seat-nav.chips { position: fixed; z-index: 41; left: var(--s-2); right: var(--s-2); margin: 0; bottom: calc(var(--abh, 124px) + 20px); }   /* chips ride just above the action bar */
     .seat-nav.chips button.alert::after { inset: -4px; border-radius: 14px; }
   }
-  @media (max-width: 599px) and (prefers-reduced-motion: reduce) { .seat-nav.chips button.alert::after { animation: none; opacity: 1; } }
+  @media (max-width: 359px) and (prefers-reduced-motion: reduce) { .seat-nav.chips button.alert::after { animation: none; opacity: 1; } }
   .seats { --cw: min(52vw, 340px); }
   @media (min-width: 720px) { .seats { --cw: 300px; } }
   .seats .seat { padding: var(--s-5) var(--s-4); }
@@ -700,6 +700,30 @@
   body.lite #spot, body.lite .mood, body.lite .grain { display: none !important; }
   body.lite::before { background: var(--c-bg) !important; }
   body.lite .menu-panel, body.lite .settings-panel, body.lite .history, body.lite .action-bar, body.lite .glass { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background-color: var(--c-surface-strong); }
+
+  /* ============ Depth (v4.0): phone portrait 360–599px. Centre card in front; the other 7 are smaller cards behind it,
+     raised in a shallow arc so each one's top (number, minutes, status) peeks out above. No blur. ============ */
+  .mini .mn { display: flex; align-items: baseline; gap: 1px; } .mini .mp { display: none; }
+  body.depth .seats { --cw: min(84vw, 360px); padding-top: var(--depth-top, 150px); }
+  body.depth .seats .seat { min-height: 54vh; }
+  body.depth:not(.select-mode) .seats .seat { transform-origin: 0 0 !important; -webkit-box-reflect: unset !important; }
+  body.depth:not(.select-mode) .seats .seat.side .mini { display: flex; width: 100% !important; z-index: 30; justify-content: flex-start;
+    padding-top: calc(7px * var(--tinv, 6)); gap: calc(3px * var(--tinv, 6)); box-shadow: inset 0 calc(5px * var(--tinv, 6)) 0 var(--glow); border-radius: calc(12px * var(--tinv, 6)); }
+  body.depth:not(.select-mode) .seats .seat.side { border-radius: calc(12px * var(--tinv, 6)); }
+  body.depth:not(.select-mode) .seats .seat.side .dim { z-index: 31; border-radius: calc(12px * var(--tinv, 6)); }
+  body.depth .seats .seat .mini small { font-size: calc(10px * var(--tinv, 6)); letter-spacing: 0; color: var(--c-text-muted); }
+  body.depth .seats .seat .mini b { font-size: calc(17px * var(--tinv, 6)); }
+  body.depth .seats .seat .mini .md { width: calc(8px * var(--tinv, 6)); height: calc(8px * var(--tinv, 6)); }
+  body.depth .seats .seat .mini .mm { font-size: calc(12px * var(--tinv, 6)); }
+  body.depth .seats .seat.paused .mini .mp { display: block; font-size: calc(9px * var(--tinv, 6)); font-weight: 700; letter-spacing: .04em; color: var(--c-paused); line-height: 1; }
+  body.depth .seats .seat.paused .mini .md { display: none; }
+  body.depth .seats .seat.paused .mini { outline: calc(2px * var(--tinv, 6)) dashed var(--c-paused); outline-offset: calc(-4px * var(--tinv, 6)); }
+  body.depth .seats .seat.timeup .mini { background: color-mix(in srgb, var(--bar-danger) 30%, var(--c-surface)); }
+  body.depth:not(.select-mode) .seats .seat.side.flag::before { box-shadow: 0 0 0 calc(3px * var(--tinv, 6)) var(--glow), 0 0 calc(18px * var(--tinv, 6)) var(--glow); border-radius: calc(12px * var(--tinv, 6)); }
+  body.depth .seats .seat.side.nudge { animation: none; }
+  @keyframes depthNudge { 0%, 60%, 100% { translate: 0 0; } 75% { translate: 0 calc(10px * var(--tinv, 6)); } 88% { translate: 0 calc(3px * var(--tinv, 6)); } }
+  body.depth:not(.select-mode) .seats .seat.side.nudge:not(.paused) { animation: depthNudge 2.4s var(--ease) infinite; }
+  @media (prefers-reduced-motion: reduce) { body.depth .seats .seat.side.nudge { animation: none !important; } }
 </style>
 </head>
 <body>
@@ -1435,7 +1459,14 @@ let FG = null;
 function measureFan() {
   const sc = document.getElementById('seats'); if (!sc) return null;
   const cards = [...sc.children];
-  FG = { W: sc.clientWidth, cw: cards[0] ? cards[0].offsetWidth || 1 : 300, lefts: cards.map(c => c.offsetLeft), n: cards.length };
+  const W = sc.clientWidth, depth = W >= 344 && innerWidth < 600 && innerWidth >= 360;
+  if (document.body.classList.contains('depth') !== depth) document.body.classList.toggle('depth', depth);   // switching changes card width, so measure after
+  FG = { W: sc.clientWidth, cw: cards[0] ? cards[0].offsetWidth || 1 : 300, lefts: cards.map(c => c.offsetLeft), n: cards.length, depth };
+  if (depth) {   // back-card slots: 7 tiles in a shallow arc above the centre card
+    const M = 8, g = 5, tw = (FG.W - 2 * M - 6 * g) / 7, s = tw / FG.cw;
+    FG.slots = Array.from({ length: 7 }, (_, k) => { const u = (k - 3) / 3; return { x: M + k * (tw + g), y: -(72 + 16 * (1 - u * u)), s }; });
+    const inv = (1 / s).toFixed(3); if (sc.style.getPropertyValue('--tinv') !== inv) sc.style.setProperty('--tinv', inv);
+  }
   return FG;
 }
 function fanGeom(sc, sl) {
@@ -1461,7 +1492,17 @@ function updateFlow(slKnown) {
     ci++; const w = G.cw, ol = FG.lefts[ci], d = (ol + w / 2 - (sl + G.W / 2)) / w;
     if (Math.abs(d) < Math.abs(bestD)) { bestD = d; best = c.dataset.seat; }
     let flow = '', z = '', dim = '0', strip = '';
-    if (!selectMode) {
+    if (!selectMode && FG.depth) {
+      // depth pose: blend between the front pose (a = 0) and this card's back slot (a = 1); transform + opacity only
+      const a = Math.min(1, Math.abs(d)), slot = FG.slots[Math.max(0, Math.min(6, d < 0 ? ci : ci - 1))], nl = ol - sl;
+      const fx = G.Lc, x = fx + (slot.x - fx) * a, y = slot.y * a, sk = 1 + (slot.s - 1) * a;
+      flow = `translate(${(x - nl).toFixed(1)}px, ${y.toFixed(1)}px) scale(${sk.toFixed(4)})`;
+      z = String(a < .5 ? 100 : 60 - Math.round(Math.abs(d))); dim = (.12 * a).toFixed(2);
+      if (c._refs) { const mo = Math.max(0, Math.min(1, (a - .6) / .4)).toFixed(2); if (c._refs.mini.style.opacity !== mo) c._refs.mini.style.opacity = mo; }
+      strip = '';
+      if (c.classList.contains('sl') || c.classList.contains('sr')) c.classList.remove('sl', 'sr');
+    } else if (!selectMode) {
+      if (c._refs && c._refs.mini.style.opacity !== '') c._refs.mini.style.opacity = '';
       const P = cardPose(d, w), left = d < 0, nl = ol - sl;
       // outer edge position on screen; origin is the outer edge so tilt and scale never move it
       const tx = left ? (G.Lc - G.stepL * -d) - nl : (G.Rc + G.stepR * d) - (nl + w);
@@ -2047,7 +2088,7 @@ function renderSeats() {
         <span class="sel-check" aria-hidden="true">✓</span>
       </div>
       <div class="fx" aria-hidden="true"><div class="stripes"></div></div>
-      <div class="mini" aria-hidden="true"><small>B</small><b>${i + 1}</b><i class="md"></i><span class="mm"></span></div><span class="dim" aria-hidden="true"></span>
+      <div class="mini" aria-hidden="true"><span class="mn"><small>B</small><b>${i + 1}</b></span><i class="md"></i><span class="mm"></span><span class="mp">paused</span></div><span class="dim" aria-hidden="true"></span>
       <div class="timer-row">
         <div class="timer" aria-label="Time remaining for ${U}">--:--</div>
         <div class="ring" role="progressbar" aria-label="${U} session progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="glow"></span><span class="lead" aria-hidden="true"></span><span class="h r"><i></i></span><span class="h l"><i></i></span></div>
@@ -2210,6 +2251,7 @@ try { if (localStorage.getItem('bst.lite')) document.body.classList.add('lite');
 document.getElementById('seats').addEventListener('pointerdown', e => { const c = e.target.closest && e.target.closest('.seat'); if (c && c.classList.contains('side') && !selectMode && isControl(e.target)) e.preventDefault(); }, true);
 function layoutFlow() {   // side gutters so the first and last seat can sit exactly in the centre
   const sc = document.getElementById('seats'), c = sc.firstElementChild; if (!c) return;
+  { const depth = sc.clientWidth >= 344 && innerWidth < 600 && innerWidth >= 360; if (document.body.classList.contains('depth') !== depth) document.body.classList.toggle('depth', depth); }
   const pad = Math.max(0, (sc.clientWidth - c.offsetWidth) / 2) + 'px';
   if (sc.style.paddingLeft !== pad) { sc.style.paddingLeft = pad; sc.style.paddingRight = pad; }
   measureFan();
