@@ -584,13 +584,82 @@
     .seat.selected { scale: .98; }
     .snackbar .sb-count { display: none; }
   }
+
+  /* ============ Fan (v3.8): all 8 seats on screen; centre large, side cards overlap as compact strips ============ */
+  .seat-nav { display: none !important; }   /* every seat is now on screen, so the pill strip is redundant */
+  .seats { --cw: min(52vw, 340px); }
+  @media (min-width: 720px) { .seats { --cw: 300px; } }
+  .seats .seat { padding: var(--s-5) var(--s-4); }
+  body:not(.select-mode) .seats .seat.sl { transform-origin: 0 50%; }
+  body:not(.select-mode) .seats .seat.sr { transform-origin: 100% 50%; }
+  /* solid cards so overlapping strips read cleanly */
+  .seats .seat { --c-surface: #141a27; }
+  body.light .seats .seat { --c-surface: #ffffff; }
+  body.theme-premium:not(.high-contrast) .seats .seat { --c-surface: #171b26; }
+  body.theme-premium.daytime:not(.high-contrast) .seats .seat { --c-surface: #fbfaf6; }
+  body.high-contrast .seats .seat { --c-surface: #000; }
+  .seats .seat .mini { position: absolute; top: 0; bottom: 0; width: var(--strip, 40px); display: none; flex-direction: column; align-items: center; justify-content: center;
+    gap: var(--s-2); background: var(--c-surface); z-index: 5; pointer-events: none; border-radius: inherit; overflow: hidden; }
+  .seats .seat.sl .mini { left: 0; box-shadow: inset 4px 0 0 var(--glow); }
+  .seats .seat.sr .mini { right: 0; box-shadow: inset -4px 0 0 var(--glow); }
+  body:not(.select-mode) .seats .seat.side .mini { display: flex; }
+  .mini small { font-size: 11px; font-weight: 700; letter-spacing: .1em; color: var(--c-text-muted); line-height: 1; }
+  .mini b { font-size: 26px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; color: var(--c-text); }
+  .mini .md { width: 10px; height: 10px; border-radius: 50%; background: var(--glow); box-shadow: 0 0 0 2px color-mix(in srgb, var(--glow) 35%, transparent); }
+  .seat.free .mini .md { background: transparent; box-shadow: inset 0 0 0 2px var(--c-text-muted); }
+  .mini .mm { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--c-text); line-height: 1; }
+  .seats .seat .dim { position: absolute; inset: -1px; border-radius: inherit; background: #000; opacity: 0; pointer-events: none; z-index: 7; }
+  body.theme-premium.daytime .seats .seat .dim { background: #e9e6de; }
+  body.select-mode .seats .seat .dim { opacity: 0 !important; }
+  /* each seat's status softly lights its neighbours */
+  body:not(.select-mode):not(.high-contrast) .seats .seat:not(.free) { box-shadow: inset 0 1px 0 var(--c-highlight), 0 0 56px 8px color-mix(in srgb, var(--glow) 32%, transparent), var(--shadow); }
+  .seats .seat { transition: scale .32s var(--spring), opacity var(--dur-lg) ease, border-color .6s ease, box-shadow .6s ease; }
+  body:not(.select-mode) .seats .seat.centre { scale: 1.02; }
+  body:not(.select-mode) .seats .seat.centre.pressing { scale: .985; transition: scale .5s cubic-bezier(.3,1.4,.5,1); }
+  /* spotlight behind the centre card */
+  #spot { position: fixed; left: 50%; top: 48%; width: 120vmin; height: 120vmin; margin: -60vmin 0 0 -60vmin; border-radius: 50%; pointer-events: none; z-index: -1;
+    background: radial-gradient(closest-side, rgba(255,244,220,.13), rgba(255,244,220,.05) 55%, transparent); opacity: 1; transition: opacity .3s ease; }
+  body.theme-premium.daytime #spot { background: radial-gradient(closest-side, rgba(255,255,255,.85), rgba(255,255,255,.3) 55%, transparent); }
+  body.select-mode #spot, body.guest #spot { opacity: 0; }
+  /* time-up seat off-centre nudges toward the centre */
+  @keyframes nudgeL { 0%, 60%, 100% { translate: 0 0; } 75% { translate: 12px 0; } 88% { translate: 4px 0; } }
+  @keyframes nudgeR { 0%, 60%, 100% { translate: 0 0; } 75% { translate: -12px 0; } 88% { translate: -4px 0; } }
+  body:not(.select-mode) .seats .seat.side.nudge.sl { animation: nudgeL 2.4s var(--ease) infinite; }
+  body:not(.select-mode) .seats .seat.side.nudge.sr { animation: nudgeR 2.4s var(--ease) infinite; }
+  /* typography: one centred column, huge light time that gets heavier near expiry */
+  .seats .seat .timer { width: 100%; white-space: nowrap; text-align: center; font-size: clamp(2.4rem, 10.5vw, 3.4rem); line-height: 1.1; }
+  body.theme-premium .seats .seat .timer { font-weight: var(--tw, 200); }
+  .seats .seat .meta, .seats .seat .seat-head { justify-content: center; text-align: center; }
+  @media (prefers-reduced-motion: reduce) { .seats .seat.nudge { animation: none !important; } #spot { transition: none; } }
+  /* Premium navy-to-charcoal backdrop */
+  body.theme-premium:not(.light):not(.high-contrast):not(.daytime) { --c-bg: #0b1020; --bar-ok: #2a9d6a; --bar-warn: #dcaa48; --bar-danger: #9c2c44; }
+  body.theme-premium:not(.light):not(.high-contrast):not(.daytime)::before {
+    background: radial-gradient(80vmax 50vmax at 50% -12%, rgba(195,160,99,.11), transparent 62%),
+      repeating-linear-gradient(118deg, rgba(255,255,255,.014) 0 1px, transparent 1px 4px),
+      linear-gradient(180deg, #0e1730 0%, #0f1424 40%, #131418 100%); }
+  /* Daytime: light variant of Premium */
+  body.theme-premium.daytime:not(.high-contrast) { color-scheme: light;
+    --c-bg: #ece9e1; --c-surface: rgba(255,255,255,.86); --c-surface-strong: rgba(250,248,243,.97); --c-surface-raised: rgba(0,0,0,.03);
+    --c-border: rgba(30,25,15,.12); --c-highlight: rgba(255,255,255,.95); --c-text: #1d1b17; --c-text-muted: #59534a;
+    --c-accent: #b08a45; --c-accent-hover: #9c7a3b; --c-text-on-accent: #17130b; --c-focus: #7a5a1f; --c-select: #8a6a2c;
+    --c-ok: #1d6b45; --c-ok-bg: rgba(42,157,106,.08); --c-warn: #7f5300; --c-warn-bg: rgba(220,170,72,.12); --c-danger: #86223a; --c-danger-bg: rgba(156,44,68,.08);
+    --c-paused: #5b4a8a; --c-paused-bg: rgba(91,74,138,.08); --c-track: rgba(0,0,0,.08);
+    --bar-ok: #2a9d6a; --bar-warn: #e2b04e; --bar-danger: #8e2438;
+    --shadow: 0 1px 1px rgba(60,45,20,.08), 0 10px 24px -8px rgba(60,45,20,.18), 0 32px 64px -24px rgba(60,45,20,.22);
+    --shadow-lg: 0 2px 4px rgba(60,45,20,.1), 0 24px 60px -12px rgba(60,45,20,.25); background: #ece9e1; color: var(--c-text); }
+  body.theme-premium.daytime:not(.high-contrast)::before {
+    background: radial-gradient(80vmax 50vmax at 50% -12%, rgba(195,160,99,.18), transparent 62%),
+      repeating-linear-gradient(118deg, rgba(0,0,0,.012) 0 1px, transparent 1px 4px), linear-gradient(180deg, #f3f1eb, #e4e0d6); }
+  body.theme-premium.daytime:not(.high-contrast) button.secondary { background: rgba(0,0,0,.035); }
+  body.theme-premium.daytime:not(.high-contrast) .summary .chip b { color: #7a5a1f; }
+  html:has(body.theme-premium.daytime:not(.high-contrast)) { background: #ece9e1; }
 </style>
 </head>
 <body>
 <div class="tint" aria-hidden="true"><i class="t-green"></i><i class="t-yellow"></i><i class="t-red"></i><i class="t-paused"></i></div>
 <div class="mood" aria-hidden="true"><i class="m-amber"></i><i class="m-blue"></i></div>
 <div id="fxLayer" aria-hidden="true"></div>
-<div id="scrim" aria-hidden="true"></div>
+<div id="scrim" aria-hidden="true"></div><div id="spot" aria-hidden="true"></div>
 <header class="topbar">
   <div class="topbar-row">
     <h1><span aria-hidden="true">🍸</span> Seat Timers</h1>
@@ -672,6 +741,9 @@
   <label>Manager PIN for resets (blank = none) <input type="password" id="setPin" inputmode="numeric" autocomplete="off"></label>
   <label><input type="checkbox" id="setMute"> Mute sounds</label>
   <label>Look <select id="setLook" onchange="setLook(this.value)"><option value="premium">Premium</option><option value="arcade">Arcade (game look)</option></select></label>
+  <label><input type="checkbox" id="setDaytime" onchange="setDaytime(this.checked)"> Daytime (light Premium)</label>
+  <label><input type="checkbox" id="setGyro" onchange="setGyro(this.checked)"> Gentle tilt with phone motion</label>
+  <p class="hint" id="gyroMsg" role="status"></p>
   <label><input type="checkbox" id="setHighContrast"> High contrast</label>
   <label><input type="checkbox" id="setAutoEnd"> Auto-end a session when time is up</label>
   <label><input type="checkbox" id="setWakeLock"> Keep screen awake while seats are running <span id="wakeState"></span></label>
@@ -709,7 +781,7 @@ const DISPLAY_IDS = SEAT_IDS.slice().reverse();
 const byDisplay = ids => DISPLAY_IDS.filter(id => ids.includes(id));
 const STORE_KEY = 'barSeatTimers.v2';
 const DEFAULT_SETTINGS = { walkinMin: 60, greenPct: 50, amberPct: 75,
-  pin: '', mute: false, highContrast: false, theme: 'dark', look: 'premium', autoEnd: false, wakeLock: true };
+  pin: '', mute: false, highContrast: false, theme: 'dark', look: 'premium', daytime: false, gyro: false, autoEnd: false, wakeLock: true };
 const UNDO_MS = 8000;
 const EXTEND_MS = 15 * 60 * 1000;
 
@@ -822,20 +894,22 @@ function playBeep(freq = 880, dur = 0.2) {
 const SFX = {
   start:  [[523, 0, .09, 'triangle'], [784, .08, .16, 'triangle']],
   tick:   [[2200, 0, .03, 'triangle', .05]],
+  settle: [[1400, 0, .025, 'triangle', .045]],
   extend: [[660, 0, .06, 'square'], [990, .06, .1, 'square']],
   warn:   [[880, 0, .13, 'sine'], [660, .15, .18, 'sine']],
   timeup: [[1046, 0, .14, 'sawtooth'], [784, .16, .14, 'sawtooth'], [523, .32, .34, 'sawtooth']]
 };
-const VIB = { start: 20, extend: [15, 40, 15], tick: 6 };
+const VIB = { start: 20, extend: [15, 40, 15], tick: 6, settle: 4 };
 // Premium: warmer glass chimes (pure sines, long soft decay) and crisp short haptics.
 const SFX_P = {
   start:  [[1046.5, 0, .55, 'sine', .11], [1568, 0, .6, 'sine', .05], [2093, .01, .4, 'sine', .025]],
   tick:   [[1500, 0, .045, 'sine', .03]],
+  settle: [[2400, 0, .02, 'sine', .035], [1200, 0, .05, 'sine', .03]],
   extend: [[880, 0, .35, 'sine', .09], [1318.5, .07, .4, 'sine', .06]],
   warn:   [[740, 0, .55, 'sine', .11], [1108.7, .02, .5, 'sine', .045]],
   timeup: [[1318.5, 0, .8, 'sine', .12], [1046.5, .2, .9, 'sine', .1], [784, .4, 1.2, 'sine', .09]]
 };
-const VIB_P = { start: 10, extend: [8, 30, 8], tick: 4 };
+const VIB_P = { start: 10, extend: [8, 30, 8], tick: 4, settle: 3 };
 const sfxLog = [];
 function sfx(kind) {
   const V = isPremium() ? VIB_P : VIB, S = isPremium() ? SFX_P : SFX;
@@ -921,6 +995,7 @@ function extendTimer(id, silent) {
 }
 
 function endSession(id, auto) {
+  setTimeout(() => fxSafe(() => FX.flip(id)), 0);
   const s = seats[id];
   if (s.running) fxSafe(() => { FX.sparks(id); FX.fold(id); FX.boardWave(SEAT_IDS.indexOf(id)); });   // ghost copies the card as it was; state below changes regardless
   if (s.running && s.startTime) {
@@ -1110,6 +1185,7 @@ function applyTheme() {
   document.body.classList.toggle('theme-arcade', !isPremium());
   document.body.classList.toggle('light', settings.theme === 'light');
   document.body.classList.toggle('high-contrast', !!settings.highContrast);
+  document.body.classList.toggle('daytime', isPremium() && !!settings.daytime);
   const f = (id) => document.getElementById(id);
   if (f('setWalkin')) {
     f('setWalkin').value = settings.walkinMin;
@@ -1123,6 +1199,7 @@ function applyTheme() {
     f('setHighContrast').checked = !!settings.highContrast;
     f('setAutoEnd').checked = !!settings.autoEnd;
     f('setLook').value = isPremium() ? 'premium' : 'arcade';
+    f('setDaytime').checked = !!settings.daytime; f('setGyro').checked = !!settings.gyro;
   }
 }
 
@@ -1213,7 +1290,7 @@ function glideTo(sc, to) {
   const step = () => {
     const t = Math.min(1, Math.max(0, (performance.now() - t0) / dur));
     sc.scrollLeft = from + dist * (t < 1 ? ease(t) : 1); updateFlow(); updateNav();
-    if (t < 1) glide.raf = requestAnimationFrame(step); else glide = null;
+    if (t < 1) glide.raf = requestAnimationFrame(step); else { glide = null; sfx('settle'); }
   };
   glide = { raf: requestAnimationFrame(step) };
 }
@@ -1292,31 +1369,46 @@ function autoScrollLoop() {
 // ============ Cover Flow ============
 // Every card's pose is a pure function of the row's scroll position (native scrolling gives momentum + snap).
 let centreId = 'b1', flowReady = false;
-function cardPose(d, w) {
-  const a = Math.min(Math.abs(d), 1), far = Math.max(0, Math.abs(d) - 1), sg = d < 0 ? -1 : 1;
-  return { tx: -sg * (a * .16 + far * .28) * w, tz: -(a * 140 + far * 40), ry: -sg * a * 45, sc: 1 - a * .15,
-           op: Math.max(.3, 1 - a * .4 - far * .12), z: 100 - Math.round(Math.abs(d) * 10) };
+const FAN = { ry: 55, maxVis: .3, margin: 8 };
+// Fan geometry: the centre card sits in the middle; each side's cards share the space beside it as overlapping strips
+// (about 30% of a card when there is room; narrower so that all eight always fit on screen).
+function fanGeom(sc) {
+  const W = sc.clientWidth, first = sc.firstElementChild, cw = first ? first.offsetWidth : 300, n = sc.children.length;
+  const f = first ? (sc.scrollLeft + W / 2 - (first.offsetLeft + cw / 2)) / cw : 0;
+  const Lc = (W - cw) / 2, room = Math.max(0, Lc - FAN.margin), maxStep = cw * FAN.maxVis;
+  return { W, cw, f, Lc, Rc: Lc + cw, stepL: Math.min(maxStep, room / Math.max(1, f)), stepR: Math.min(maxStep, room / Math.max(1, n - 1 - f)) };
+}
+function cardPose(d, w) {   // kept for reference by older code paths: scale/tilt/dim as a function of distance
+  const a = Math.min(Math.abs(d), 1), far = Math.max(0, Math.abs(d) - 1);
+  return { ry: (d < 0 ? 1 : -1) * a * FAN.ry, sc: Math.max(.72, 1 - a * .16 - far * .025), dim: Math.min(.5, a * .22 + far * .05), z: 100 - Math.round(Math.abs(d) * 10) };
 }
 function applyCard(c) {
-  const t = (c._flow || '') + (c._tilt ? ' ' + c._tilt : '');
+  const t = [c._flow, c._gyro, c._tilt].filter(Boolean).join(' ');
   if (c.style.transform !== t) c.style.transform = t;
 }
 function updateFlow() {
   const sc = document.getElementById('seats'); if (!sc) return;
-  const mid = sc.scrollLeft + sc.clientWidth / 2, three = FX.on() && !selectMode;
+  const three = FX.on() && !selectMode, G = fanGeom(sc);
   let best = null, bestD = 1e9;
   for (const c of sc.children) {
-    const w = c.offsetWidth || 1, d = (c.offsetLeft + w / 2 - mid) / w;
+    const w = c.offsetWidth || 1, d = (c.offsetLeft + w / 2 - (sc.scrollLeft + G.W / 2)) / w;
     if (Math.abs(d) < Math.abs(bestD)) { bestD = d; best = c.dataset.seat; }
-    let flow = '', op = '', z = '';
+    let flow = '', z = '', dim = '0', strip = '';
     if (!selectMode) {
-      const P = cardPose(d, w);
-      if (three && Math.abs(d) > .002) flow = `perspective(1000px) translateX(${P.tx.toFixed(1)}px) translateZ(${P.tz.toFixed(1)}px) rotateY(${P.ry.toFixed(2)}deg) scale(${P.sc.toFixed(3)})`;
-      op = Math.abs(d) > .002 ? P.op.toFixed(3) : ''; z = String(P.z);
-    }
+      const P = cardPose(d, w), left = d < 0, nl = c.offsetLeft - sc.scrollLeft;
+      // outer edge position on screen; origin is the outer edge so tilt and scale never move it
+      const tx = left ? (G.Lc - G.stepL * -d) - nl : (G.Rc + G.stepR * d) - (nl + w);
+      flow = `translateX(${tx.toFixed(1)}px)` + (three ? ` perspective(900px) rotateY(${P.ry.toFixed(2)}deg)` : '') + ` scale(${P.sc.toFixed(3)})`;
+      z = String(P.z); dim = P.dim.toFixed(3);
+      const step = left ? G.stepL : G.stepR, cos = three ? Math.cos(P.ry * Math.PI / 180) : 1;
+      strip = Math.max(24, Math.min(w * .45, (step + 2) / (P.sc * cos))).toFixed(1) + 'px';
+      if (c.classList.contains('sl') !== left || c.classList.contains('sr') === left) { c.classList.toggle('sl', left); c.classList.toggle('sr', !left); }
+    } else if (c.classList.contains('sl') || c.classList.contains('sr')) c.classList.remove('sl', 'sr');
     c._flow = flow; applyCard(c);
-    if (c.style.opacity !== op) c.style.opacity = op;
+    if (c.style.opacity !== '') c.style.opacity = '';
     if (c.style.zIndex !== z) c.style.zIndex = z;
+    if (c._refs && c._refs.dim.style.opacity !== dim) c._refs.dim.style.opacity = dim;
+    if (c.style.getPropertyValue('--strip') !== strip) c.style.setProperty('--strip', strip);
   }
   if (best && best !== centreId) {
     const passed = Math.abs(DISPLAY_IDS.indexOf(best) - DISPLAY_IDS.indexOf(centreId));
@@ -1332,10 +1424,47 @@ function updateFlow() {
       if (side) c.setAttribute('aria-description', 'Tap to bring to centre'); else c.removeAttribute('aria-description');
     } else if (!side && !selectMode && !c.classList.contains('centre')) c.classList.add('centre');
     if (selectMode && c.classList.contains('centre')) c.classList.remove('centre');
+    if (side && c._gyro) { c._gyro = ''; applyCard(c); }
+    const nudge = side && FX.on() && c.classList.contains('timeup');
+    if (c.classList.contains('nudge') !== nudge) c.classList.toggle('nudge', nudge);
   }
+  // spotlight follows the centre: brightest when a card is exactly centred
+  const spot = document.getElementById('spot');
+  if (spot) { const o = (1 - Math.min(1, Math.abs(G.f - Math.round(G.f)) * 1.4)).toFixed(2); if (spot.style.opacity !== o) spot.style.opacity = o; }
   const st = navState(seats[centreId]);
   ['green','yellow','red','paused'].forEach(k => document.body.classList.toggle('c-' + k, !selectMode && (st === k || (k === 'red' && st === 'timeup'))));
 }
+// ---- Gentle gyro tilt (optional; Settings). Fails quietly where unsupported or not permitted.
+let gyroOn = false, gyroRaf = 0, gyroV = { x: 0, y: 0 };
+function onGyro(e) {
+  if (e.beta == null && e.gamma == null) return;
+  gyroV = { x: Math.max(-1, Math.min(1, (e.gamma || 0) / 30)), y: Math.max(-1, Math.min(1, ((e.beta || 0) - 45) / 30)) };
+  if (!gyroRaf) gyroRaf = requestAnimationFrame(applyGyro);
+}
+function applyGyro() {
+  gyroRaf = 0; const c = document.getElementById('seat-' + centreId);
+  if (!c || !gyroOn || !FX.on() || selectMode) return;
+  const g = `perspective(900px) rotateX(${(-gyroV.y * 4).toFixed(2)}deg) rotateY(${(gyroV.x * 5).toFixed(2)}deg)`;
+  if (c._gyro !== g) { c._gyro = g; applyCard(c); }
+}
+function startGyro() { if (gyroOn || !('DeviceOrientationEvent' in window)) return; window.addEventListener('deviceorientation', onGyro); gyroOn = true; }
+function stopGyro() { window.removeEventListener('deviceorientation', onGyro); gyroOn = false; document.querySelectorAll('#seats .seat').forEach(c => { if (c._gyro) { c._gyro = ''; applyCard(c); } }); }
+async function setGyro(on) {
+  const msg = document.getElementById('gyroMsg'); let ok = !!on, why = '';
+  if (on) {
+    if (!('DeviceOrientationEvent' in window)) { ok = false; why = 'Motion tilt is not available on this device.'; }
+    else if (typeof DeviceOrientationEvent.requestPermission === 'function') {   // iOS: must ask, from this tap
+      try { ok = (await DeviceOrientationEvent.requestPermission()) === 'granted'; } catch (e) { ok = false; }
+      if (!ok) why = 'Motion permission was not granted, so tilt stays off.';
+    }
+    if (ok && RM.matches) why = 'Saved; tilt stays still while reduced motion is on.';
+  }
+  settings.gyro = ok; saveAll();
+  const cb = document.getElementById('setGyro'); if (cb) cb.checked = ok;
+  if (msg) msg.textContent = why;
+  if (ok) startGyro(); else stopGyro();
+}
+function setDaytime(on) { settings.daytime = !!on; saveAll(); applyTheme(); }
 // Side cards are inert apart from tap-to-centre (capture phase, before any control or tap-to-start handler).
 function sideTap(e) {
   const c = e.target.closest && e.target.closest('.seat'); if (!c || selectMode || !c.classList.contains('side')) return;
@@ -1459,6 +1588,10 @@ const FX = {
   }
 };
 Object.assign(FX, {
+  flip(id) {   // soft flip of the face when a seat frees
+    const c = FX.card(id); if (!c) return;
+    FX.anim(c.querySelector('.timer-row'), [{ transform: 'perspective(600px) rotateX(0)', opacity: 1 }, { transform: 'perspective(600px) rotateX(80deg)', opacity: .2, offset: .45 }, { transform: 'perspective(600px) rotateX(0)', opacity: 1 }], { duration: 640, easing: 'ease-in-out' });
+  },
   tilt(id, cx, cy) {
     const c = FX.card(id); if (!c || !FX.on() || c.classList.contains('side')) return;
     const b = c.getBoundingClientRect(), dx = (cx - b.left) / b.width - .5, dy = (cy - b.top) / b.height - .5;
@@ -1586,7 +1719,7 @@ function updateSeat(id) {
   const remaining = getDurationMs(s) - getElapsed(s);
   const wasSel = el.classList.contains('selected');
   const cls = 'seat ' + (colour || 'free') + (s.paused ? ' paused' : '') + (s.running && remaining <= 0 ? ' timeup' : '') + (s.selected ? ' selected' : '')
-    + ['side', 'centre', 'pressing'].filter(k => el.classList.contains(k)).map(k => ' ' + k).join('');
+    + ['side', 'centre', 'pressing', 'sl', 'sr', 'nudge'].filter(k => el.classList.contains(k)).map(k => ' ' + k).join('');
   if (el.className !== cls) el.className = cls;
   r.label.setAttribute('aria-pressed', String(!!s.selected));
   if (s.selected && !wasSel) FX.pop(r.check);
@@ -1607,6 +1740,9 @@ function updateSeat(id) {
   if (r.glow.style.transform !== gs) r.glow.style.transform = gs;
   const lt = 'rotate(' + (360 * p).toFixed(2) + 'deg)';
   if (r.lead.style.transform !== lt) r.lead.style.transform = lt;
+  setText(r.mm, !s.running ? 'free' : (remaining <= 0 ? 'up' : Math.ceil(remaining / 60000) + 'm'));
+  const tw = String(Math.round(200 + 400 * Math.max(0, Math.min(1, (p - .75) / .25))));   // heavier as expiry nears
+  if (el.style.getPropertyValue('--tw') !== tw) el.style.setProperty('--tw', tw);
   const pr = String(Math.round(pct));
   if (r.prog.getAttribute('aria-valuenow') !== pr) r.prog.setAttribute('aria-valuenow', pr);
   setText(r.left, s.running ? (remaining <= 0 ? 'over by ' + formatTime(-remaining) : 'remaining') : Math.round(getDurationMs(s) / 60000) + ' min session');
@@ -1743,6 +1879,7 @@ function saveSettings() {
   settings.highContrast = document.getElementById('setHighContrast').checked;
   settings.autoEnd = document.getElementById('setAutoEnd').checked;
   settings.look = document.getElementById('setLook').value === 'arcade' ? 'arcade' : 'premium';
+  settings.daytime = document.getElementById('setDaytime').checked; settings.gyro = document.getElementById('setGyro').checked && settings.gyro;
   if (settings.amberPct <= settings.greenPct) settings.amberPct = Math.min(99, settings.greenPct + 25);
   saveAll();
   updateWakeLock();
@@ -1842,6 +1979,7 @@ function renderSeats() {
         <span class="sel-check" aria-hidden="true">✓</span>
       </div>
       <div class="fx" aria-hidden="true"><div class="stripes"></div></div>
+      <div class="mini" aria-hidden="true"><small>B</small><b>${i + 1}</b><i class="md"></i><span class="mm"></span></div><span class="dim" aria-hidden="true"></span>
       <div class="timer-row">
         <div class="timer" aria-label="Time remaining for ${U}">--:--</div>
         <div class="ring" role="progressbar" aria-label="${U} session progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="glow"></span><span class="lead" aria-hidden="true"></span><span class="h r"><i></i></span><span class="h l"><i></i></span></div>
@@ -1857,7 +1995,7 @@ function renderSeats() {
     const q = c => d.querySelector(c);
     d._refs = { label: q('.seat-label'), icon: q('.badge .ic'), stext: q('.stext'), timer: q('.timer'),
       ring: q('.ring'), glow: q('.ring .glow'), lead: q('.ring .lead'), rr: q('.ring .h.r i'), rl: q('.ring .h.l i'), fx: q('.fx'), check: q('.sel-check'), prog: q('.ring'), left: q('.left'), ext: q('.ext'),
-      primary: q('.btn-primary'), extend: q('.btn-extend'), reset: q('.btn-reset'), notes: q('.notes-input'), };
+      mm: q('.mini .mm'), dim: q('.dim'), primary: q('.btn-primary'), extend: q('.btn-extend'), reset: q('.btn-reset'), notes: q('.notes-input'), };
     d._refs.label.addEventListener('click', e => { e.stopPropagation(); if (suppressClick) return; if (!selectMode) enterSelectMode(); toggleSelect(id); });
     d.dataset.seat = id;
     d.addEventListener('pointerdown', onSeatPointerDown);
@@ -1993,6 +2131,7 @@ function layoutFlow() {   // side gutters so the first and last seat can sit exa
 layoutFlow(); jumpTo('b1');
 if (window.ResizeObserver) new ResizeObserver(() => fxSafe(() => { const id = centreId, sc = document.getElementById('seats'), w = sc.clientWidth; if (w !== layoutFlow.w) { layoutFlow.w = w; layoutFlow(); if (!selectMode) jumpTo(flowTarget || id); } })).observe(document.getElementById('seats'));
 updateFlow(); flowReady = true;
+if (settings.gyro) startGyro();
 window.addEventListener('resize', () => fxSafe(() => { const id = centreId; layoutFlow(); jumpTo(id); }));
 updateNav();
 fxSafe(updateMood);
