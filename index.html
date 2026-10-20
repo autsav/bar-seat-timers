@@ -607,6 +607,7 @@
     .seat-nav.chips .s-free { color: var(--c-text-muted); }
     .seat-nav.chips button.centre { box-shadow: 0 0 0 2px var(--c-bg), 0 0 0 4px var(--c-accent); translate: 0 -3px; }
     .seat-nav.chips button.sel { outline: 2px dashed var(--c-select); outline-offset: 2px; }
+    body.select-mode .seat-nav.chips { position: fixed; z-index: 41; left: var(--s-2); right: var(--s-2); margin: 0; bottom: calc(var(--abh, 124px) + 20px); }   /* chips ride just above the action bar */
     .seat-nav.chips button.alert::after { inset: -4px; border-radius: 14px; }
   }
   @media (max-width: 599px) and (prefers-reduced-motion: reduce) { .seat-nav.chips button.alert::after { animation: none; opacity: 1; } }
@@ -1149,6 +1150,7 @@ function enterSelectMode() {
   pushSelectEntry();
   haptic(30);
   updateSummary(); announce('Selection mode. Tap seats to select.');
+  requestAnimationFrame(() => { const ab = document.getElementById('actionBar'); if (ab && ab.offsetHeight) document.body.style.setProperty('--abh', ab.offsetHeight + 'px'); });
 }
 function exitSelectMode(fromPop) {
   if (!selectMode) return;

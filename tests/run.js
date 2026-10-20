@@ -960,6 +960,9 @@ async function chipTests(browser, name, opts, reduce) {
   ok(await ev(() => { const c = document.getElementById('seat-' + centreId), cr = c.getBoundingClientRect(); return [...c.querySelectorAll('.timer, .seat-label, .badge, .meta, .seat-actions button')].filter(e => e.offsetWidth > 0).every(e => { const r = e.getBoundingClientRect(); return e.scrollWidth <= e.clientWidth + 1 && r.left >= cr.left - 1 && r.right <= cr.right + 1; }); }), `${tag}: centre card text not clipped ${await ev(() => { const c = document.getElementById('seat-' + centreId), cr = c.getBoundingClientRect(); return [...c.querySelectorAll('.timer, .seat-label, .badge, .meta, .seat-actions button')].filter(e => { const r = e.getBoundingClientRect(); return !(e.scrollWidth <= e.clientWidth + 1 && r.left >= cr.left - 1 && r.right <= cr.right + 1); }).map(e => e.className + ':' + e.scrollWidth + '/' + e.clientWidth + ' ' + Math.round(e.getBoundingClientRect().left) + '-' + Math.round(e.getBoundingClientRect().right) + ' card ' + Math.round(cr.left) + '-' + Math.round(cr.right)).join(' ; '); })}`);
   // selection mode: chip tap selects
   await ev(() => enterSelectMode()); await tick(50);
+  if (!reduce) await p.waitForTimeout(500);
+  await p.locator('#nav-b3').scrollIntoViewIfNeeded();
+  ok(await ev(() => { const a = document.getElementById('nav-b3').getBoundingClientRect(), e = document.elementFromPoint(a.left + a.width / 2, a.top + a.height / 2); return e && e.closest('#nav-b3'); }), `${tag}: in selection mode the action bar does not cover the chips`);
   await p.locator('#nav-b3').tap(); await tick(300);
   ok(await ev(() => selectMode && seats.b3.selected && document.getElementById('nav-b3').classList.contains('sel')), `${tag}: in selection mode a chip tap selects the seat`);
   await ev(() => setSelected('b2', true)); await tick(300); if (!reduce) await p.waitForTimeout(600); await shot('select');
