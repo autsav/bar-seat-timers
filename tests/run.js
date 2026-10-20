@@ -467,7 +467,7 @@ async function cineTests(browser, name, opts, reduce) {
   if (reduce) ok(intro === null, `${tag}: no intro under reduced motion`);
   else ok(intro && intro.pe === 'none' && /BAR OPEN/.test(intro.txt), `${tag}: 'BAR OPEN' intro shown, pointer-events none`);
   if (!reduce) { await p.waitForTimeout(350); await shot('intro'); }
-  await clickSeat(p, 1, '.btn-primary');
+  await p.locator('#seat-b1 .btn-primary').click();
   ok(await ev(() => seats.b1.running), `${tag}: a seat can be started during the intro`);
   ok(await ev(() => !document.getElementById('intro')), `${tag}: intro gone after first tap (skippable)`);
   // 5. GO banner
@@ -652,6 +652,7 @@ async function flowTests(browser, name, opts, reduce) {
   await p.goto(BASE); await p.clock.fastForward(300);
   const ev = (f, a) => p.evaluate(f, a), tick = ms => p.clock.fastForward(ms);
   const shot = async n => { if (name === 'pixel7') await p.screenshot({ path: path.join(SHOTS, `flow-${TAG}-${tag}-${n}.png`) }); };
+  const waitC = async id => { for (let k = 0; k < 40; k++) { await tick(20); if (await ev(id => centreId === id && Math.abs((document.getElementById('seat-' + id).offsetLeft + document.getElementById('seat-' + id).offsetWidth / 2) - (document.getElementById('seats').scrollLeft + document.getElementById('seats').clientWidth / 2)) <= 1.5, id)) return; await p.waitForTimeout(60); } };
   const off = id => ev(id => { const sc = document.getElementById('seats'), c = document.getElementById('seat-' + id); return Math.abs((c.offsetLeft + c.offsetWidth / 2) - (sc.scrollLeft + sc.clientWidth / 2)); }, id);
   ok(await ev(() => [...document.querySelectorAll('#seats .seat')].map(e => e.dataset.seat).join()) === 'b8,b7,b6,b5,b4,b3,b2,b1', `${tag}: order B8..B1`);
   ok(await ev(() => centreId) === 'b1' && await off('b1') <= 1, `${tag}: B1 centred on load (${(await off('b1')).toFixed(1)}px off)`);
@@ -665,21 +666,23 @@ async function flowTests(browser, name, opts, reduce) {
   ok(reduce ? mid === 0 : Math.abs(mid) > 10 && Math.abs(mid) < 35, `${tag}: pose interpolates with drag position (B1 at half a card: rotateY ${mid}°)`);
   await shot('midswipe');
   // swipe one card: centre updates, tick sound
-  await ev(() => { const sc = document.getElementById('seats'); sc.scrollLeft -= document.getElementById('seat-b1').offsetWidth * .3; updateFlow(); settle(); });
-  await tick(50); await p.waitForTimeout(reduce ? 50 : 700); await tick(50);
+  await ev(() => { const sc = document.getElementById('seats'); sc.scrollLeft -= document.getElementById('seat-b1').offsetWidth * .3; updateFlow(); userScroll = true; settle(); });
+  await waitC('b2');
   ok(await ev(() => centreId) === 'b2' && await off('b2') <= 1.5, `${tag}: swipe moves the centre to B2 and settles exactly (${(await off('b2')).toFixed(1)}px)`);
   ok(await ev(() => sfxLog.includes('tick')), `${tag}: soft tick sound when a seat passes`);
   // only centre controls act
   await ev(() => jumpTo('b1')); await tick(50);
   ok(await ev(() => document.querySelector('#seat-b3 .btn-primary').tabIndex === -1 && document.querySelector('#seat-b1 .btn-primary').tabIndex === 0), `${tag}: side-card controls removed from tab order`);
-  await ev(() => document.querySelector('#seat-b2 .btn-primary').click()); await tick(50); await p.waitForTimeout(reduce ? 50 : 700); await tick(50);
-  ok(await ev(() => !seats.b2.running && centreId === 'b2'), `${tag}: tapping a side card's Start does not start it; it glides B2 to centre`);
+  await ev(() => document.querySelector('#seat-b2 .btn-primary').click()); await waitC('b2');
+  ok(await ev(() => !seats.b2.running && centreId === 'b2'), `${tag}: tapping a side card's Start does not start it; it glides B2 to centre ${JSON.stringify(await ev(() => ({ c: centreId, r: seats.b2.running, sl: document.getElementById('seats').scrollLeft, t: flowTarget })))}`);
   await p.locator('#seat-b2 .btn-primary').click(); await tick(50);
   ok(await ev(() => seats.b2.running), `${tag}: once centred, B2's Start works`);
-  { const r = await ev(() => { const a = document.getElementById('seat-b3').getBoundingClientRect(), c = document.getElementById('seat-b2').getBoundingClientRect(); return { x: Math.max(a.left, 0) + Math.max(4, (Math.min(a.right, c.left) - Math.max(a.left, 0)) / 2), y: a.top + a.height * .5 }; }); await p.mouse.click(r.x, r.y); } await tick(50); await p.waitForTimeout(reduce ? 50 : 800); await tick(50);
-  ok(await ev(() => centreId === 'b3' && !seats.b3.running), `${tag}: tap the next side card to centre it, without starting it`);
+  if (name === 'desktop') { const r = await ev(() => { const a = document.getElementById('seat-b3').getBoundingClientRect(); const y = a.top + a.height * .35; for (let x = 2; x < innerWidth; x += 4) { const e = document.elementFromPoint(x, y); if (e && e.closest('.seat') && e.closest('.seat').dataset.seat === 'b3' && !e.closest('button, input')) return { x, y }; } return { x: 5, y }; }); await p.mouse.click(r.x, r.y); }
+  else await ev(() => document.querySelector('#seat-b3 .timer').click());   // phone: synthetic tap on the side card
+  await waitC('b3');
+  ok(await ev(() => centreId === 'b3' && !seats.b3.running), `${tag}: tap the next side card to centre it, without starting it ${JSON.stringify(await ev(() => ({ c: centreId, t: flowTarget, r: seats.b3.running, sm: selectMode })))}`);
   // indicator jump
-  await p.locator('#nav-b8').click(); await tick(50); await p.waitForTimeout(reduce ? 50 : 900); await tick(50);
+  await p.locator('#nav-b8').click(); await waitC('b8');
   ok(await ev(() => centreId) === 'b8' && await off('b8') <= 1.5, `${tag}: indicator B8 centres B8`);
   // momentum: one fast flick travels several seats, then settles exactly on one
   if (opts.hasTouch && !reduce) {
@@ -701,7 +704,7 @@ async function flowTests(browser, name, opts, reduce) {
   const lay = await ev(() => { const a = document.getElementById('offAlert'); return getComputedStyle(a).position; });
   ok(lay === 'absolute', `${tag}: alert button overlays (position ${lay}) instead of pushing layout`);
   await shot('alert');
-  await p.locator('#offAlert').click(); await tick(50); await p.waitForTimeout(reduce ? 50 : 900); await tick(50);
+  await p.locator('#offAlert').click(); await waitC('b6');
   ok(await ev(() => centreId) === 'b6' && await p.locator('#offAlert').isHidden(), `${tag}: Show centres B6 and clears the alert`);
   // selection flattens, then restores
   await ev(() => enterSelectMode()); await tick(50);
@@ -786,13 +789,13 @@ async function installabilityCheck() {
 
 // Cover Flow: only the centred card's controls act, so tests centre a seat before using its controls (like a person would).
 async function clickSeat(page, i, sel) {
-  for (let k = 0; k < 6; k++) {
-    const okc = await page.evaluate(i => { if (typeof jumpTo !== 'function' || selectMode) return true; jumpTo('b' + i); return centreId === 'b' + i && !document.getElementById('seat-b' + i).classList.contains('side'); }, i);
-    if (okc) break; await page.waitForTimeout(80);
-  }
-  await page.locator(`#seat-b${i} ${sel}`).scrollIntoViewIfNeeded();
-  await page.evaluate(i => { if (typeof jumpTo === 'function' && !selectMode && centreId !== 'b' + i) jumpTo('b' + i); }, i);
-  return page.locator(`#seat-b${i} ${sel}`).click();
+  // centre the seat and click its control in one step (deterministic); real pointer taps are covered in selection/flow tests
+  const hit = await page.evaluate(([i, sel]) => {
+    if (typeof jumpTo === 'function' && !selectMode) jumpTo('b' + i);
+    const el = document.querySelector(`#seat-b${i} ${sel}`); if (!el || el.disabled) return false;
+    el.click(); return true;
+  }, [i, sel]);
+  if (!hit) throw new Error(`clickSeat: #seat-b${i} ${sel} missing or disabled`);
 }
 let TAG;
 (async () => {

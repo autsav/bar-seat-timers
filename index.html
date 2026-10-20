@@ -1060,14 +1060,30 @@ function seatVisible(id) {
   const vis = Math.min(a.right, b.right) - Math.max(a.left, b.left);
   return vis >= a.width * .6;
 }
+let flowTarget = null, glide = null, userScroll = false;
+// Our own glide (rAF) so the settle is a soft spring and always lands exactly; a touch or wheel cancels it.
+function glideStop() { if (glide) { cancelAnimationFrame(glide.raf); glide = null; } }
+function glideTo(sc, to) {
+  glideStop();
+  const from = sc.scrollLeft, dist = to - from; if (Math.abs(dist) < 1) { sc.scrollLeft = to; updateFlow(); return; }
+  const dur = Math.min(700, 360 + Math.abs(dist) * .25), t0 = performance.now();
+  const ease = t => { const c = 1.15; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };   // gentle overshoot then rest
+  const step = () => {
+    const t = Math.min(1, Math.max(0, (performance.now() - t0) / dur));
+    sc.scrollLeft = from + dist * (t < 1 ? ease(t) : 1); updateFlow(); updateNav();
+    if (t < 1) glide.raf = requestAnimationFrame(step); else glide = null;
+  };
+  glide = { raf: requestAnimationFrame(step) };
+}
 function jumpTo(id, smooth) {
+  flowTarget = id; userScroll = false;
   const c = document.getElementById('seat-' + id); if (!c) return;
   const sc = document.getElementById('seats');
   if (typeof layoutFlow === 'function') layoutFlow();
   const left = c.offsetLeft - (sc.clientWidth - c.offsetWidth) / 2;
-  const behavior = smooth && FX.on() ? 'smooth' : 'auto';
-  sc.scrollTo({ left: Math.max(0, Math.min(left, sc.scrollWidth - sc.clientWidth)), behavior });
-  if (behavior === 'auto') updateFlow();
+  const to = Math.max(0, Math.min(left, sc.scrollWidth - sc.clientWidth));
+  if (smooth && FX.on()) glideTo(sc, to);
+  else { glideStop(); sc.scrollLeft = to; updateFlow(); }
   delete seatAlerts[id]; updateNav();
 }
 function buildNav() {
@@ -1301,7 +1317,7 @@ const FX = {
 };
 Object.assign(FX, {
   tilt(id, cx, cy) {
-    const c = FX.card(id); if (!c || !FX.on()) return;
+    const c = FX.card(id); if (!c || !FX.on() || c.classList.contains('side')) return;
     const b = c.getBoundingClientRect(), dx = (cx - b.left) / b.width - .5, dy = (cy - b.top) / b.height - .5;
     c._tilt = `perspective(700px) rotateX(${(-dy * 10).toFixed(1)}deg) rotateY(${(dx * 10).toFixed(1)}deg) translateY(-4px)`;
     c.classList.add('pressing'); applyCard(c);
@@ -1781,13 +1797,15 @@ buildNav();
 document.getElementById('seats').addEventListener('click', sideTap, true);
 // Settle: native scrolling supplies drag + momentum; when it comes to rest we glide to the nearest seat.
 // (CSS scroll-snap is off because transformed cards would make the snap targets move.)
-let settleT = 0, userScroll = false;
-function settle() { if (selectMode || press) return; const sc = document.getElementById('seats'); updateFlow();
+let settleT = 0;
+function settle() { if (selectMode || press || !userScroll || glide) return; userScroll = false; const sc = document.getElementById('seats'); updateFlow();
   const c = document.getElementById('seat-' + centreId), want = c.offsetLeft - (sc.clientWidth - c.offsetWidth) / 2;
   if (Math.abs(sc.scrollLeft - want) > 1) jumpTo(centreId, true); }
 { const sc = document.getElementById('seats');
   sc.addEventListener('scroll', () => { clearTimeout(settleT); if (!('onscrollend' in window)) settleT = setTimeout(settle, 140); }, { passive: true });
-  sc.addEventListener('scrollend', () => settle()); }
+  sc.addEventListener('scrollend', () => settle());
+  // only a person's swipe/wheel needs settling; programmatic glides already land on a seat
+  ['pointerdown', 'touchstart', 'wheel'].forEach(t => sc.addEventListener(t, () => { userScroll = true; glideStop(); }, { passive: true })); }
 document.getElementById('seats').addEventListener('pointerdown', e => { const c = e.target.closest && e.target.closest('.seat'); if (c && c.classList.contains('side') && !selectMode && isControl(e.target)) e.preventDefault(); }, true);
 function layoutFlow() {   // side gutters so the first and last seat can sit exactly in the centre
   const sc = document.getElementById('seats'), c = sc.firstElementChild; if (!c) return;
@@ -1795,7 +1813,7 @@ function layoutFlow() {   // side gutters so the first and last seat can sit exa
   if (sc.style.paddingLeft !== pad) { sc.style.paddingLeft = pad; sc.style.paddingRight = pad; }
 }
 layoutFlow(); jumpTo('b1');
-if (window.ResizeObserver) new ResizeObserver(() => fxSafe(() => { const id = centreId, sc = document.getElementById('seats'), w = sc.clientWidth; if (w !== layoutFlow.w) { layoutFlow.w = w; layoutFlow(); if (!selectMode) jumpTo(id); } })).observe(document.getElementById('seats'));
+if (window.ResizeObserver) new ResizeObserver(() => fxSafe(() => { const id = centreId, sc = document.getElementById('seats'), w = sc.clientWidth; if (w !== layoutFlow.w) { layoutFlow.w = w; layoutFlow(); if (!selectMode) jumpTo(flowTarget || id); } })).observe(document.getElementById('seats'));
 updateFlow(); flowReady = true;
 window.addEventListener('resize', () => fxSafe(() => { const id = centreId; layoutFlow(); jumpTo(id); }));
 updateNav();
