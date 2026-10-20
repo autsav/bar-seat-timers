@@ -730,6 +730,78 @@ async function flowTests(browser, name, opts, reduce) {
   await ctx.close();
 }
 
+async function premiumTests(browser, name, opts, reduce) {
+  const tag = name + (reduce ? '-reduced' : '');
+  const ctx = await browser.newContext({ ...opts, serviceWorkers: 'block', reducedMotion: reduce ? 'reduce' : 'no-preference' });
+  const p = await ctx.newPage();
+  const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('dialog', d => d.accept());
+  await p.addInitScript(INIT);
+  await p.addInitScript(() => sessionStorage.setItem('bst.intro', '1'));
+  await p.clock.install({ time: new Date('2026-10-20T19:00:00') });
+  await p.goto(BASE); await p.clock.fastForward(300);
+  const ev = (f, a) => p.evaluate(f, a), tick = ms => p.clock.fastForward(ms);
+  const shot = async n => { if (name === 'pixel7' && !reduce) await p.screenshot({ path: path.join(SHOTS, `premium-${TAG}-pixel7-${n}.png`) }); };
+  const lum = c => { const m = c.match(/[\d.]+/g).map(Number).slice(0, 3).map(v => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }); return .2126 * m[0] + .7152 * m[1] + .0722 * m[2]; };
+  const cr = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
+  // default + rendering
+  ok(await ev(() => settings.look === 'premium' && document.body.classList.contains('theme-premium') && !document.body.classList.contains('theme-arcade')), `${tag}: Premium is the default look`);
+  ok(await ev(() => document.fonts.check('300 20px InterLocal')) || await ev(async () => { await document.fonts.load('300 20px InterLocal'); return document.fonts.check('300 20px InterLocal'); }), `${tag}: bundled Inter font loads`);
+  const r = await ev(() => { const t = document.querySelector('#seat-b1 .timer'), cs = getComputedStyle(t); return { ff: cs.fontFamily, fw: +cs.fontWeight, num: cs.fontVariantNumeric, lab: getComputedStyle(document.querySelector('#seat-b1 .seat-label'), '::before').content, svg: document.querySelectorAll('#seat-b1 svg.li').length, lead: getComputedStyle(document.querySelector('#seat-b1 .ring .lead')).display, bf: getComputedStyle(document.querySelector('#seat-b1')).backdropFilter }; });
+  ok(/InterLocal/.test(r.ff) && r.fw <= 300 && /tabular-nums/.test(r.num), `${tag}: thin tabular timer digits in Inter (${r.ff.slice(0, 30)}, ${r.fw}, ${r.num})`);
+  ok(/Seat ·/.test(r.lab), `${tag}: letter-spaced 'Seat · B1' label (${r.lab})`);
+  ok(r.svg >= 1 && await ev(() => !/[▶⏸↺]/u.test(document.querySelector('#seat-b1 .btn-primary').textContent)), `${tag}: line icons instead of emoji (${r.svg} svg)`);
+  ok(r.lead === 'block', `${tag}: gradient ring lead dot shown`);
+  ok(/blur/.test(r.bf || ''), `${tag}: frosted glass card (${r.bf})`);
+  // contrast
+  const c = await ev(() => { const g = (s, pr) => getComputedStyle(document.querySelector(s))[pr]; return { t: g('#seat-b1 .timer', 'color'), bg: getComputedStyle(document.documentElement).backgroundColor, lab: g('#seat-b1 .seat-label', 'color') }; });
+  ok(cr(c.t, c.bg) >= 7 && cr(c.lab, c.bg) >= 4.5, `${tag}: contrast readable (timer ${cr(c.t, c.bg).toFixed(1)}:1, label ${cr(c.lab, c.bg).toFixed(1)}:1 vs ${c.bg})`);
+  ok(await ev(() => FX.spring() !== undefined && !/1\.[1-9]|,\s*1\.[0-9]+\)/.test(FX.spring())), `${tag}: premium easing has no overshoot (${await ev(() => FX.spring())})`);
+  await shot('board');
+  // effects (normal motion only)
+  if (!reduce) {
+    await ev(() => { startTimer('b1'); }); await tick(50);
+    ok(await ev(() => !document.querySelector('.spark:not(.gold)') && (document.querySelectorAll('.spark.gold').length > 0 || true)), `${tag}: no arcade sparks in premium`);
+    await ev(() => FX.banner('SEAT B3 · GO')); ok(await ev(() => document.querySelector('.banner')?.textContent) === 'Seat · B3', `${tag}: banner reads 'Seat · B3'`);
+    await ev(() => FX.confetti()); ok(await ev(() => document.querySelectorAll('.confetti.shimmer').length > 0 && !document.querySelector('.confetti:not(.shimmer)')), `${tag}: golden shimmer replaces confetti`);
+    await ev(() => { seats.b1.startTime -= 61 * 60000; }); await tick(300);
+    ok(await ev(() => !!document.querySelector('#seat-b1 .stamp.lux') && !document.querySelector('.stamp:not(.lux)')), `${tag}: elegant 'Time' badge instead of TIME! stamp`);
+    await p.waitForTimeout(500); await shot('alert');
+    ok(await ev(() => /alert|red|over/.test(document.getElementById('seat-b1').className)), `${tag}: alert still flags the seat`);
+  } else {
+    await ev(() => { startTimer('b1'); seats.b1.startTime -= 61 * 60000; }); await tick(300);
+    ok(await ev(() => !document.querySelector('.stamp, .confetti, .spark')), `${tag}: reduced motion: no premium effects spawned`);
+    ok(await ev(() => /alert|red|over/.test(document.getElementById('seat-b1').className)), `${tag}: reduced motion: alert still flags the seat`);
+  }
+  // cover flow still works
+  await ev(() => jumpTo('b3')); for (let k = 0; k < 20; k++) { await tick(20); await p.waitForTimeout(30); }
+  ok(await ev(() => centreId) === 'b3', `${tag}: Cover Flow still centres seats in Premium`);
+  // selection
+  await ev(() => { enterSelectMode(); setSelected('b3', true); setSelected('b2', true); }); await tick(50); if (!reduce) await p.waitForTimeout(500);
+  ok(await ev(() => selectMode && document.querySelectorAll('#seats .seat.selected').length === 2), `${tag}: selection works in Premium`);
+  await shot('select'); await ev(() => exitSelectMode()); await tick(50);
+  // guest
+  await ev(() => toggleGuestView()); await tick(200); if (!reduce) await p.waitForTimeout(400);
+  ok(await ev(() => document.querySelectorAll('.guest-card').length === 8 && /blur/.test(getComputedStyle(document.querySelector('.guest-card')).backdropFilter || '')), `${tag}: guest view premium-styled`);
+  await shot('guest'); await ev(() => toggleGuestView()); await tick(100);
+  // sheets + scrim
+  await ev(() => toggleSettings()); await tick(50); if (!reduce) await p.waitForTimeout(500);
+  ok(await ev(() => document.body.classList.contains('sheet-open') && getComputedStyle(document.getElementById('settingsPanel')).position === 'fixed' && getComputedStyle(document.getElementById('scrim')).pointerEvents === 'auto'), `${tag}: Settings opens as glass sheet with scrim`);
+  await shot('settings');
+  await ev(() => document.getElementById('scrim').click()); await tick(50);
+  ok(await ev(() => !document.body.classList.contains('sheet-open') && document.getElementById('settingsPanel').style.display === 'none'), `${tag}: tapping the scrim closes the sheet`);
+  // switch + persistence
+  await ev(() => { toggleSettings(); const s = document.getElementById('setLook'); s.value = 'arcade'; s.dispatchEvent(new Event('change')); closeSheets(); }); await tick(100);
+  ok(await ev(() => document.body.classList.contains('theme-arcade') && !document.body.classList.contains('theme-premium') && /▶|⏸/u.test(document.querySelector('#seat-b2 .btn-primary').textContent) && !document.querySelector('#seat-b2 svg.li')), `${tag}: switching to Arcade restores emoji/game look`);
+  await p.reload(); await p.clock.fastForward(300);
+  ok(await ev(() => settings.look === 'arcade' && document.body.classList.contains('theme-arcade') && document.getElementById('setLook').value === 'arcade'), `${tag}: Arcade persists across reload`);
+  ok(await ev(() => !/Seat ·/.test(getComputedStyle(document.querySelector('#seat-b1 .seat-label'), '::before').content) && getComputedStyle(document.querySelector('#seat-b1 .ring .lead')).display === 'none'), `${tag}: Arcade renders without premium label/lead dot`);
+  if (!reduce) await p.waitForTimeout(300); await shot('arcade');
+  await ev(() => setLook('premium')); await p.reload(); await p.clock.fastForward(300);
+  ok(await ev(() => settings.look === 'premium' && document.body.classList.contains('theme-premium')), `${tag}: Premium persists across reload`);
+  ok(errs.length === 0, `${tag}: no page errors (premium) ${errs.join(' | ')}`);
+  await ctx.close();
+}
+
 function pngSize(buf) { return buf.slice(1, 4).toString() === 'PNG' ? [buf.readUInt32BE(16), buf.readUInt32BE(20)] : null; }
 
 async function pwaTests(browser, name, opts) {
@@ -817,6 +889,8 @@ let TAG;
     await rowTests(browser, name, opts);
     await flowTests(browser, name, opts, false);
     await flowTests(browser, name, opts, true);
+    await premiumTests(browser, name, opts, false);
+    await premiumTests(browser, name, opts, true);
     await pwaTests(browser, name, opts);
   }
   await browser.close();

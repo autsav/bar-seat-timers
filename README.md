@@ -60,3 +60,23 @@ Outside selection mode swipes scroll; in selection mode a horizontal drag select
 The staff row is a Cover Flow carousel (B8 … B1, opens with B1 centred). Side covers rotate ~45°, scale ~0.85, sit back and dim,
 interpolated continuously from the scroll position; the row glides to the nearest seat when scrolling stops. Only the centred card's
 controls act; tapping a side card centres it. Selection mode flattens the strip; reduced motion keeps it flat (no 3D).
+
+## Premium look (default) / Arcade
+Settings → **Look** switches between **Premium** (default) and **Arcade** (the original game look). The choice is saved with your settings.
+
+What Premium changes:
+- **Cards and backdrop:** frosted-glass cards with layered shadows, on a textured slate backdrop.
+- **Colours:** champagne-gold accent, with emerald, amber and wine-red status colours.
+- **Ring:** a gradient ring with a bright leading dot.
+- **Type:** Inter (bundled, SIL OFL 1.1, `fonts/`), with thin tabular digits and letter-spaced `SEAT · B3` labels.
+- **Motion:** slower easing with no overshoot.
+- **Effects:**
+  - A golden shimmer instead of confetti and sparks.
+  - A soft "Time" badge instead of the TIME! stamp.
+  - An occasional sheen across the centre card.
+- **Sound and touch:** warmer chimes and crisp haptics.
+- **Icons:** line icons instead of emoji.
+- **Intro:** a logo reveal.
+- **Sheets and menus:** Settings and History open as glass bottom sheets with a scrim behind them.
+
+Cover Flow, alerts, selection, reduced motion, high contrast and the guest view all work in both looks.
