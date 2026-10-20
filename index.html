@@ -586,7 +586,30 @@
   }
 
   /* ============ Fan (v3.8): all 8 seats on screen; centre large, side cards overlap as compact strips ============ */
-  .seat-nav { display: none !important; }   /* every seat is now on screen, so the pill strip is redundant */
+  @media (min-width: 600px) { .seat-nav { display: none !important; } }   /* wide: every seat readable in the fan */
+  /* ============ Chips (v3.9): narrow phones get a seat chip row under the fan; side strips become plain peeks ============ */
+  @media (max-width: 599px) {
+    body:not(.select-mode) .seats .seat.side .mini > * { display: none; }   /* decorative peek: status edge only, no squeezed text */
+    body:not(.select-mode) .seats .seat.side .mini { width: 100%; z-index: 30; }
+    body:not(.select-mode) .seats .seat.side .dim { z-index: 31; }   /* the whole side card is a clean cover, so nothing reads as clipped */
+    .seats { padding-bottom: var(--s-4); }
+    body:not(.select-mode):not(.high-contrast) .seats .seat { -webkit-box-reflect: unset; }
+    .seat-nav.chips { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; margin: 0 0 var(--s-3); padding: 0; }
+    .seat-nav.chips button { min-height: 48px; min-width: 0; padding: 4px 0; flex-direction: column; justify-content: center; gap: 2px; border-radius: 12px;
+      font-size: 13px; font-weight: 800; line-height: 1; color: var(--c-text); opacity: 1; overflow: hidden;
+      border: 2px solid var(--chip, var(--c-border)); background: color-mix(in srgb, var(--chip, transparent) 18%, var(--c-surface-strong)); }
+    .seat-nav.chips button .dot { display: none; }
+    .seat-nav.chips button .cm { font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--c-text-muted); white-space: nowrap; }
+    .seat-nav.chips .s-green { --chip: var(--bar-ok); } .seat-nav.chips .s-yellow { --chip: var(--bar-warn); } .seat-nav.chips .s-red { --chip: var(--bar-danger); }
+    .seat-nav.chips .s-timeup { --chip: var(--bar-danger); background: var(--bar-danger); color: #fff; }
+    .seat-nav.chips .s-timeup .cm { color: #fff; }
+    .seat-nav.chips .s-paused { --chip: var(--c-paused); border-style: dashed; background: var(--c-paused-bg); }
+    .seat-nav.chips .s-free { color: var(--c-text-muted); }
+    .seat-nav.chips button.centre { box-shadow: 0 0 0 2px var(--c-bg), 0 0 0 4px var(--c-accent); translate: 0 -3px; }
+    .seat-nav.chips button.sel { outline: 2px dashed var(--c-select); outline-offset: 2px; }
+    .seat-nav.chips button.alert::after { inset: -4px; border-radius: 14px; }
+  }
+  @media (max-width: 599px) and (prefers-reduced-motion: reduce) { .seat-nav.chips button.alert::after { animation: none; opacity: 1; } }
   .seats { --cw: min(52vw, 340px); }
   @media (min-width: 720px) { .seats { --cw: 300px; } }
   .seats .seat { padding: var(--s-5) var(--s-4); }
@@ -1310,11 +1333,12 @@ function jumpTo(id, smooth) {
 }
 function buildNav() {
   const n = document.getElementById('seatNav');
-  n.innerHTML = '';
+  n.innerHTML = ''; n.classList.add('chips');
+  const sc0 = document.getElementById('seats'); if (sc0 && n.nextElementSibling !== sc0.nextElementSibling) sc0.after(n);   // chips sit under the fan
   DISPLAY_IDS.forEach(id => {
     const b = document.createElement('button'); b.type = 'button'; b.id = 'nav-' + id; b.className = 'secondary';
-    b.innerHTML = `<span class="dot" aria-hidden="true"></span>${id.toUpperCase()}`;
-    b.addEventListener('click', () => jumpTo(id, true));
+    b.innerHTML = `<span class="dot" aria-hidden="true"></span><span class="cn">${id.toUpperCase()}</span><span class="cm"></span>`;
+    b.addEventListener('click', () => { if (selectMode) { toggleSelect(id); updateNav(); } else jumpTo(id, true); });
     n.appendChild(b);
   });
   document.getElementById('offAlert').addEventListener('click', () => { const id = document.getElementById('offAlert').dataset.seat; if (id) jumpTo(id, true); });
@@ -1336,9 +1360,13 @@ function updateNav() {
     if (vis) delete seatAlerts[id];
     const al = seatAlerts[id];
     const card = document.getElementById('seat-' + id); if (card && card.classList.contains('flag') !== !!al) card.classList.toggle('flag', !!al);   // side card pulses
-    const cls = 'secondary s-' + st + (vis ? ' on' : ' off') + (al ? ' alert' : '') + (id === centreId && !selectMode ? ' centre' : '');
+    const cls = 'secondary s-' + st + (vis ? ' on' : ' off') + (al ? ' alert' : '') + (id === centreId && !selectMode ? ' centre' : '') + (seats[id].selected ? ' sel' : '');
+    const s = seats[id], rem = getDurationMs(s) - getElapsed(s);
+    const cm = b.querySelector('.cm'), mt = !s.running ? 'free' : (rem <= 0 ? 'up' : Math.ceil(rem / 60000) + 'm');
+    if (cm && cm.textContent !== mt) cm.textContent = mt;
+    if (b.getAttribute('aria-current') !== String(id === centreId && !selectMode)) b.setAttribute('aria-current', String(id === centreId && !selectMode));
     if (b.className !== cls) b.className = cls;
-    const lbl = `${id.toUpperCase()}: ${words[st]}${vis ? '' : ', off-screen'}${al ? ', needs attention' : ''}. Tap to show.`;
+    const lbl = `${id.toUpperCase()}: ${words[st]}${s.running && rem > 0 ? ', ' + mt + ' left' : ''}${vis ? '' : ', off-centre'}${al ? ', needs attention' : ''}. ${selectMode ? 'Tap to select.' : 'Tap to centre.'}`;
     if (b.getAttribute('aria-label') !== lbl) b.setAttribute('aria-label', lbl);
     const rank = { yellow: 1, red: 2, timeup: 3 };
     if (al && (!top || rank[al] > rank[seatAlerts[top]])) top = id;
