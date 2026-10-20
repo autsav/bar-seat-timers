@@ -726,7 +726,7 @@ async function flowTests(browser, name, opts, reduce) {
   if (opts.hasTouch && !reduce) {
     // Headless Chrome does not synthesise a fling, so this drives a fast long touch drag (~2.6 cards) and checks it settles on a seat.
     const cdp = await ctx.newCDPSession(p);
-    const b = await p.locator('#seats').boundingBox(), y = Math.round(b.y + 150), w = await ev(() => document.getElementById('seat-b8').offsetWidth);
+    const b = await p.locator('#seats').boundingBox(), y = Math.round(b.y + b.height * .6), w = await ev(() => document.getElementById('seat-b8').offsetWidth);
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 400, y }] });
     for (let k = 1; k <= 12; k++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: Math.round(400 - k * w * 2.6 / 12 / 2), y }] }); }
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 10, y }] });
