@@ -150,3 +150,16 @@ row centred on screen, with 24px margins and 12px gaps on wide screens. Tiles ar
 scales with them, up to 1.7×. The stack's top padding follows the measured tile height, and short landscape screens
 drop the card's minimum height. `tabletTests` checks 768×1024, 1024×768, 800×1280, 1280×800, 1366×1024, 1024×1366,
 915×412, 412×915 and 1440×900.
+
+## Parties and grouped selection (v4.3)
+
+- **Selection mode:** adjacent selected seats merge into one block, with no gap and one outline. When there are
+  separate selected runs, each selected seat gets the same selection outline and a 🔗 link icon.
+- **Batch start:** starting two or more free seats together makes a persistent party (`seat.party = "b4+b3"`). The
+  members share one start time. +15, Pause and End act on the whole party, and a batch action on a selected party
+  applies only once.
+- **Display:** the party's back cards join into one gold-outlined pill labelled "party". The front card reads
+  "SEAT · B4 + B3" and has an **Ungroup** button, which can be undone. Guest view joins the party's cards.
+- **History and CSV:** each entry records the party.
+- **Swiping:** a party counts as one stop. Swipes land on its first member and step past it.
+- Parties persist in localStorage. Undo restores them after End or Ungroup.

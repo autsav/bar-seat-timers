@@ -146,7 +146,7 @@ async function featureTests(browser, name, opts) {
   ok(/30 min/.test(await p.locator('#historyTable').textContent()) && !/Walk-in|Booking/.test(await p.locator('#historyTable').textContent()), `${name}: history shows limit (no type) [${(await p.locator('#historyTable').textContent()).slice(0,120)}|${await p.evaluate(() => document.getElementById('historyPanel').style.display)}]`);
   const [dl] = await Promise.all([p.waitForEvent('download'), p.locator('#historyPanel').getByRole('button', { name: /Export CSV/ }).click()]);
   const csv = fs.readFileSync(await dl.path(), 'utf8');
-  ok(/^Seat,LimitMin,Notes,/.test(csv) && /\nb3,30,/.test(csv) && !/walkin|booking/i.test(csv), `${name}: CSV has LimitMin, no type`);
+  ok(/^Seat,Party,LimitMin,Notes,/.test(csv) && /\nb3,,30,/.test(csv) && !/walkin|booking/i.test(csv), `${name}: CSV has LimitMin, no type`);
   await p.locator('#historyPanel').getByRole('button', { name: 'Close' }).click();
 
   // notes hint
@@ -278,6 +278,8 @@ async function selectionTests(browser, name, opts) {
   // batch Start exits mode
   await p.locator('#actionBar').getByRole('button', { name: /Start/ }).click(); await tick(300);
   ok(await ev(() => ['b1','b5','b6','b7','b8'].every(id => seats[id].running) && !selectMode), `${name}: batch Start starts 5 seats and exits selection mode`);
+  ok(await ev(() => ['b1','b5','b6','b7','b8'].every(id => seats[id].party === 'b8+b7+b6+b5+b1')), `${name}: batch Start makes the 5 seats one party`);
+  await ev(() => { ungroup('b1'); hideSnack(); }); await tick(50);   // the rest of this test drives the seats individually
   // batch +15 and End via the Select button
   await p.locator('#selectBtn').click();
   ok(await ev(() => selectMode), `${name}: Select button enters selection mode`);
@@ -418,7 +420,7 @@ async function motionTests(browser, name, opts, reduce) {
   ok(reduce ? pop === 0 : pop > 0, `${tag}: tick ${reduce ? 'appears without' : 'pops with'} animation on select (${pop})`);
   if (!reduce) await p.waitForTimeout(450);
   ok(/3 seats selected/.test(await p.locator('#actionCount').textContent()), `${tag}: rolling count reads "3 seats selected"`);
-  ok(reduce ? Math.abs(+(await ev(() => getComputedStyle(document.getElementById('seat-b7')).scale)) - .98) < .002 : (v => v > .93 && v < .975)(+(await ev(() => getComputedStyle(document.getElementById('seat-b7')).scale))), `${tag}: selected seats shrink (${await ev(() => getComputedStyle(document.getElementById('seat-b7')).scale)})`);
+  ok(await ev(reduce => [...document.querySelectorAll('#seats .seat.selected')].every(c => { const v = +getComputedStyle(c).scale; return /sj-[lr]/.test(c.className) ? v === 1 : (reduce ? Math.abs(v - .98) < .002 : v > .93 && v < .975); }), reduce), `${tag}: selected seats shrink (${await ev(() => getComputedStyle(document.getElementById('seat-b7')).scale)})`);
   if (!reduce) await p.waitForTimeout(500);
   await shot('select');
   await ev(() => exitSelectMode());
@@ -1043,6 +1045,7 @@ async function smoothTests(browser, name, opts) {
     return { inv, recalcs: st.length, maxEls: Math.max(0, ...st.map(e => (e.args && e.args.elementCount) || 0)), layouts: lay.length };
   };
   await p.evaluate(() => jumpTo('b1')); await p.waitForTimeout(1100);
+  for (let k = 0; k < 60 && await p.evaluate(() => document.querySelectorAll('.mood i, .tint i').length && [...document.querySelectorAll('.mood i, .tint i')].some(e => e.getAnimations().length)); k++) await p.waitForTimeout(100);   // let ambient cross-fades finish first
   await p.evaluate(() => { window.__cardCls = [...document.querySelectorAll('#seats .seat')].map(c => c.className).join('|'); jumpTo('b8', true); }); await p.waitForTimeout(40);
   const tg = await trace(async () => { await p.waitForTimeout(260); });
   const outside = await p.evaluate(() => { const sc = document.getElementById('seats'); return [...document.querySelectorAll('body *')].filter(e => !sc.contains(e)).map(e => e.tagName + (e.id ? ` id='${e.id}'` : '') + (e.getAttribute('class') ? ` class='${e.getAttribute('class')}'` : '')); });
@@ -1145,6 +1148,79 @@ async function tabletTests(browser) {
     ok(err <= .5 && await ev(() => !glide), `${tag}: drag tracks the finger 1:1 (max error ${err.toFixed(2)}px) and springs to a seat (${await ev(() => centreId)})`);
     await ev(() => jumpTo('b1')); await p.waitForTimeout(400);
     if ([[768, 1024], [1024, 768], [1280, 800], [800, 1280], [915, 412]].some(([a, b]) => a === w && b === h)) await p.screenshot({ path: path.join(SHOTS, `tablet-${TAG}-${w}x${h}.png`) });
+    ok(errs.length === 0, `${tag}: no page errors ${errs.join(' | ')}`);
+    await ctx.close();
+  }
+}
+
+// ---- Parties: grouped selection, batch start = shared timer, Ungroup, persistence, undo, layout, swipe as one stop
+async function partyTests(browser) {
+  for (const [name, opts] of [['pixel7', devices['Pixel 7']], ['tablet 1024x768', { viewport: { width: 1024, height: 768 }, hasTouch: true, isMobile: true }], ['tablet 768x1024', { viewport: { width: 768, height: 1024 }, hasTouch: true, isMobile: true }]]) {
+    const tag = name + ' party';
+    const ctx = await browser.newContext({ ...opts, serviceWorkers: 'block' });
+    const p = await ctx.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('dialog', d => d.accept());
+    await p.addInitScript(INIT); await p.addInitScript(() => sessionStorage.setItem('bst.intro', '1'));
+    await p.goto(BASE); await p.waitForTimeout(700);
+    const ev = (f, a) => p.evaluate(f, a), shot = async n => { if (name === 'pixel7' || name === 'tablet 1024x768') await p.screenshot({ path: path.join(SHOTS, `party-${TAG}-${name.replace(/\s/g, '-')}-${n}.png`) }); };
+    // selection grouping
+    await ev(() => { enterSelectMode(); setSelected('b4', true); setSelected('b3', true); setSelected('b7', true); }); await p.waitForTimeout(700);
+    const g = await ev(() => { const r = id => document.getElementById('seat-' + id).getBoundingClientRect(), c = id => document.getElementById('seat-' + id).className;
+      return { gap: r('b3').left - r('b4').right, b4: c('b4'), b3: c('b3'), b7: c('b7'), lnk: getComputedStyle(document.querySelector('#seat-b7 .lnk')).display, ol: [getComputedStyle(document.getElementById('seat-b7')).outlineColor, getComputedStyle(document.getElementById('seat-b4')).outlineColor] }; });
+    ok(Math.abs(g.gap) <= 1 && /sj-r/.test(g.b4) && /sj-l/.test(g.b3), `${tag}: adjacent selected seats merge with no gap (${g.gap.toFixed(1)}px)`);
+    ok(/slink/.test(g.b7) && g.lnk === 'block' && g.ol[0] === g.ol[1], `${tag}: a non-adjacent selected seat gets the matching group outline and a link icon`);
+    if (name === 'pixel7') { await ev(() => { const c = document.getElementById('seat-b4'); c.scrollIntoView({ inline: 'center' }); }); await p.waitForTimeout(300); await shot('select'); }
+    // batch start -> party
+    await ev(() => { setSelected('b7', false); batch(startSelected); }); await p.waitForTimeout(400);
+    ok(await ev(() => seats.b4.party === 'b4+b3' && seats.b3.party === 'b4+b3' && seats.b4.startTime === seats.b3.startTime), `${tag}: starting B4+B3 together makes one party with one start time`);
+    await ev(() => jumpTo('b1')); await p.waitForTimeout(700);
+    const pill = await ev(() => { const a = document.getElementById('seat-b4').getBoundingClientRect(), b = document.getElementById('seat-b3').getBoundingClientRect(), m = document.querySelector('#seat-b4 .mini').getBoundingClientRect();
+      return { joined: m.right >= b.left - .5, cls: [document.getElementById('seat-b4').className, document.getElementById('seat-b3').className], tag: document.querySelector('#seat-b4 .mpt').textContent }; });
+    ok(pill.joined && /join-r/.test(pill.cls[0]) && /join-l/.test(pill.cls[1]) && pill.tag === 'party', `${tag}: the party's back cards are one joined pill labelled 'party' (${JSON.stringify(pill)})`);
+    // every back card still fully on screen
+    ok(await ev(() => { const vw = document.documentElement.clientWidth; return [...document.querySelectorAll('#seats .seat.side')].every(c => { const r = c.getBoundingClientRect(); return r.left >= 4 && r.right <= vw - 4 && r.top >= 0 && r.width >= 48; }); }), `${tag}: all back cards (with the party pill) fully on screen with margins`);
+    await shot('back');
+    // front card shows the party
+    await ev(() => jumpTo('b3')); await p.waitForTimeout(700);
+    ok(await ev(() => /B4 \+ B3/.test(document.querySelector('#seat-b3 .seat-label').textContent) && getComputedStyle(document.querySelector('#seat-b3 .btn-ungroup')).display !== 'none'), `${tag}: bringing a member forward shows 'SEAT · B4 + B3' with an Ungroup action`);
+    await shot('front');
+    // shared +15 / Pause
+    await ev(() => document.querySelector('#seat-b3 .btn-extend').click()); await p.waitForTimeout(100);
+    ok(await ev(() => seats.b4.extraMs === 900000 && seats.b3.extraMs === 900000), `${tag}: +15 applies to the whole party`);
+    await ev(() => document.querySelector('#seat-b3 .btn-primary').click()); await p.waitForTimeout(100);
+    ok(await ev(() => seats.b4.paused && seats.b3.paused), `${tag}: Pause applies to the whole party`);
+    await ev(() => { enterSelectMode(); setSelected('b4', true); setSelected('b3', true); batch(pauseSelected); }); await p.waitForTimeout(100);
+    ok(await ev(() => !seats.b4.paused && !seats.b3.paused), `${tag}: batch Pause/Resume on a selected party toggles it once (resumed)`);
+    // guest view
+    await ev(() => toggleGuestView()); await p.waitForTimeout(300);
+    ok(await ev(() => /party/.test(document.getElementById('guest-b4').className) && /join-r/.test(document.getElementById('guest-b4').className) && document.querySelector('#guest-b4 strong').textContent === 'B4 + B3'), `${tag}: guest view shows the party joined`);
+    if (name === 'pixel7') await shot('guest');
+    await ev(() => toggleGuestView());
+    // persistence
+    await p.reload(); await p.waitForTimeout(700);
+    ok(await ev(() => seats.b4.party === 'b4+b3' && seats.b3.party === 'b4+b3' && document.getElementById('seat-b4').classList.contains('party')), `${tag}: the party survives a reload`);
+    // swipe as one stop: from B5, one swipe step toward B1 lands on the party, the next steps past it to B2
+    await ev(() => jumpTo('b5')); await p.waitForTimeout(500);
+    const cdp = await ctx.newCDPSession(p);
+    const swipe = async () => { const fb = await p.locator('#seat-' + (await ev(() => centreId))).boundingBox(), w = await ev(() => innerWidth), y = Math.round(fb.y + Math.min(fb.height * .5, 200)), x = Math.round(w / 2 + 60), step = await ev(() => FG.cw * .85 / 6);
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+      for (let k = 1; k <= 6; k++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x - k * step, y }] }); await p.waitForTimeout(30); }
+      await p.waitForTimeout(120); await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await p.waitForTimeout(900); return ev(() => centreId); };
+    const s1 = await swipe(), s2 = await swipe();
+    ok(s1 === 'b4' && s2 === 'b2', `${tag}: swiping treats the party as one stop (B5 → ${s1.toUpperCase()} → ${s2.toUpperCase()})`);
+    // undo + ungroup
+    await ev(() => jumpTo('b4')); await p.waitForTimeout(500);
+    await ev(() => document.querySelector('#seat-b4 .btn-ungroup').click()); await p.waitForTimeout(100);
+    ok(await ev(() => !seats.b4.party && !seats.b3.party && seats.b4.running && seats.b3.running && !document.getElementById('seat-b4').classList.contains('party')), `${tag}: Ungroup splits the party; both seats keep running`);
+    await ev(() => undoLast()); await p.waitForTimeout(100);
+    ok(await ev(() => seats.b4.party === 'b4+b3' && seats.b3.party === 'b4+b3'), `${tag}: Undo restores the party`);
+    // shared End + history + undo
+    await ev(() => document.querySelector('#seat-b4 .btn-reset').click()); await p.waitForTimeout(200);
+    ok(await ev(() => !seats.b4.running && !seats.b3.running && history.slice(-2).every(h => h.party === 'b4+b3')), `${tag}: End frees the whole party and History logs it as a party`);
+    await ev(() => undoLast()); await p.waitForTimeout(200);
+    ok(await ev(() => seats.b4.running && seats.b3.running && seats.b4.party === 'b4+b3' && !history.some(h => h.party)), `${tag}: Undo brings the party back`);
+    await ev(() => { document.querySelector('#seat-b4 .btn-reset').click(); renderHistory(); }); await p.waitForTimeout(200);
+    ok(await ev(() => /B4 \+ B3/.test(document.getElementById('historyTable').innerHTML)), `${tag}: History table shows the party`);
+    ok(await ev(() => !/booking/i.test(document.body.innerText)), `${tag}: still no booking UI`);
     ok(errs.length === 0, `${tag}: no page errors ${errs.join(' | ')}`);
     await ctx.close();
   }
@@ -1338,6 +1414,7 @@ let TAG;
   console.log(`Testing ${BASE}`);
   const browser = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
   if (!process.env.ONLY || process.env.ONLY.split(',').includes('tabletTests')) await tabletTests(browser);
+  if (!process.env.ONLY || process.env.ONLY.split(',').includes('partyTests')) await partyTests(browser);
   for (const [name, opts] of [['desktop', { viewport: { width: 1366, height: 900 } }], ['pixel7', devices['Pixel 7']]]) {
     if (!process.env.ONLY || process.env.ONLY.split(',').includes('featureTests')) await featureTests(browser, name, opts);
     if (!process.env.ONLY || process.env.ONLY.split(',').includes('migrationAndShot')) await migrationAndShot(browser, name, opts);
