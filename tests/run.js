@@ -231,7 +231,7 @@ async function selectionTests(browser, name, opts) {
   const ev = f => p.evaluate(f), tick = ms => p.clock.fastForward(ms);
   const touch = !!opts.hasTouch;
   const cdp = touch ? await ctx.newCDPSession(p) : null;
-  const centre = async i => { await p.evaluate(i => { const r = document.querySelector('#seat-b' + i + ' .timer').getBoundingClientRect(); if (r.top < 90 || r.bottom > innerHeight - 170) document.getElementById('seat-b' + i).scrollIntoView({ block: 'center' }); }, i); const b = await p.locator('#seat-b' + i + ' .timer').boundingBox(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; };
+  const centre = async i => { await p.evaluate(i => { const r = document.querySelector('#seat-b' + i + ' .timer').getBoundingClientRect(); const sc = document.getElementById('seats').getBoundingClientRect(); if (r.top < 90 || r.bottom > innerHeight - 170 || r.left < sc.left || r.right > sc.right) document.getElementById('seat-b' + i).scrollIntoView({ block: 'center', inline: 'center' }); }, i); const b = await p.locator('#seat-b' + i + ' .timer').boundingBox(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; };
   const down = async pt => touch ? cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: pt.x, y: pt.y }] }) : (await p.mouse.move(pt.x, pt.y), p.mouse.down());
   const move = async pt => touch ? cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: pt.x, y: pt.y }] }) : p.mouse.move(pt.x, pt.y, { steps: 4 });
   const up = async () => touch ? cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }) : p.mouse.up();
@@ -264,8 +264,11 @@ async function selectionTests(browser, name, opts) {
   // drag-to-paint from B5 across B6, B7, B8 (layout-dependent path through centres)
   await ev(() => { const r = document.getElementById('seat-b5').getBoundingClientRect(); window.scrollBy(0, r.top - 90); });
   await tick(50);
-  await down(await centre(5)); await tick(30);
-  for (const i of [6, 7, 8]) { await move(await centre(i)); await tick(20); }
+  // row order is B8..B1: start on B5 and drag to the left edge; the row auto-scrolls and paints B6, B7, B8
+  const c5 = await centre(5); await down(c5); await tick(30);
+  const edge = await ev(() => document.getElementById('seats').getBoundingClientRect().left + 10);
+  for (let k = 1; k <= 6; k++) { await move({ x: c5.x + (edge - c5.x) * k / 6, y: c5.y }); await tick(20); }
+  for (let k = 0; k < 120 && !(await ev(() => seats.b8.selected)); k++) { await move({ x: edge + (k % 2), y: c5.y }); await tick(32); }
   await up(); await tick(50);
   ok(JSON.stringify(await selected()) === '["b1","b5","b6","b7","b8"]', `${name}: drag across B5→B8 selects them (${(await selected()).join(',')})`);
   ok(/5 seats selected/.test(await p.locator('#actionCount').textContent()), `${name}: count announced (aria-live) "5 seats selected"`);
@@ -281,7 +284,7 @@ async function selectionTests(browser, name, opts) {
   await p.locator('#selectBtn').click(); await tap(7); await tap(8);
   await p.locator('#actionBar').getByRole('button', { name: /End/ }).click(); await tick(200);
   ok(await ev(() => !seats.b7.running && !seats.b8.running && seats.b1.running && !selectMode), `${name}: batch End ends B7+B8 and exits`);
-  ok(/Ended B7, B8/.test(await p.locator('#snackText').textContent()), `${name}: batch End offers Undo`);
+  ok(/Ended B8, B7/.test(await p.locator('#snackText').textContent()), `${name}: batch End offers Undo`);
   await p.locator('#snackUndo').click(); await tick(100);
   ok(await ev(() => seats.b7.running && seats.b8.running), `${name}: Undo restores batch End`);
   // back exits mode
@@ -555,6 +558,85 @@ async function cineTests(browser, name, opts, reduce) {
   await ctx.close();
 }
 
+
+// Single-row layout: B8..B1 order, B1 at right on load, snap, indicator jump, off-screen alerts.
+async function rowTests(browser, name, opts) {
+  const ctx = await browser.newContext({ ...opts, serviceWorkers: 'block', reducedMotion: 'reduce' });
+  const p = await ctx.newPage();
+  const errs = []; p.on('pageerror', e => errs.push(e.message));
+  p.on('dialog', d => d.accept());
+  await p.addInitScript(INIT);
+  await p.clock.install({ time: new Date('2026-10-20T19:00:00') });
+  await p.goto(BASE); await p.clock.fastForward(300);
+  const ev = (f, a) => p.evaluate(f, a), tick = ms => p.clock.fastForward(ms);
+  const shot = async n => { if (name === 'pixel7') await p.screenshot({ path: path.join(SHOTS, `row-${TAG}-${name}-${n}.png`) }); };
+  const order = await ev(() => [...document.querySelectorAll('#seats .seat')].map(e => e.dataset.seat).join(','));
+  ok(order === 'b8,b7,b6,b5,b4,b3,b2,b1', `${name}: staff row order B8..B1 (${order})`);
+  const geo = await ev(() => { const sc = document.getElementById('seats'), r = sc.getBoundingClientRect(), tops = new Set([...sc.children].map(c => Math.round(c.getBoundingClientRect().top)));
+    const b1 = document.getElementById('seat-b1').getBoundingClientRect(), b8 = document.getElementById('seat-b8').getBoundingClientRect();
+    return { rows: tops.size, end: Math.abs(sc.scrollLeft - (sc.scrollWidth - sc.clientWidth)) <= 2, b1In: b1.right <= r.right + 1 && b1.left >= r.left - 1, b8Out: b8.right <= r.left + 1,
+      snap: getComputedStyle(sc).scrollSnapType, frac: b1.width / innerWidth, vw: innerWidth, fit: [...sc.children].filter(c => { const a = c.getBoundingClientRect(); return a.left >= r.left - 1 && a.right <= r.right + 1; }).length }; });
+  ok(geo.rows === 1, `${name}: one horizontal row (${geo.rows} row)`);
+  ok(geo.end && geo.b1In && geo.b8Out, `${name}: on load scrolled to the end, B1 at the right, B8 off-screen`);
+  ok(/x mandatory/.test(geo.snap), `${name}: scroll-snap x mandatory`);
+  if (name === 'pixel7') ok(geo.frac >= .7 && geo.frac <= .8, `${name}: card is ${Math.round(geo.frac * 100)}% of viewport width`);
+  else ok(geo.fit >= 3, `${name}: wide screen fits ${geo.fit} full cards in the row`);
+  const nav = await ev(() => [...document.querySelectorAll('#seatNav button')].map(b => b.textContent.trim()).join(','));
+  ok(nav === 'B8,B7,B6,B5,B4,B3,B2,B1', `${name}: indicator in B8..B1 order`);
+  ok(await ev(() => document.getElementById('nav-b1').classList.contains('on') && document.getElementById('nav-b8').classList.contains('off')), `${name}: indicator marks B1 on-screen, B8 off-screen`);
+  // status colours on indicator
+  await ev(() => { startTimer('b8'); startTimer('b7'); seats.b7.startTime -= 61 * 60000; startTimer('b6'); togglePause('b6'); });
+  await tick(300);
+  ok(await ev(() => document.getElementById('nav-b8').classList.contains('s-green') && document.getElementById('nav-b7').classList.contains('s-timeup') && document.getElementById('nav-b6').classList.contains('s-paused')), `${name}: indicator coloured by status (green / time-up / paused)`);
+  ok(await ev(() => document.getElementById('nav-b7').classList.contains('alert')) && !(await p.locator('#offAlert').isHidden()), `${name}: off-screen time-up on B7 highlights its indicator + shows a jump button`);
+  ok(/B7 time is up/.test(await p.locator('#offAlert').textContent()), `${name}: alert button text "${(await p.locator('#offAlert').textContent()).trim()}"`);
+  await shot('alert');
+  await p.locator('#offAlert').click(); await tick(300);
+  ok(await ev(() => seatVisible('b7') && !document.getElementById('nav-b7').classList.contains('alert')) && await p.locator('#offAlert').isHidden(), `${name}: tapping the alert scrolls B7 into view and clears it`);
+  // amber while off-screen
+  await ev(() => jumpTo('b1')); await tick(300);
+  await ev(() => { seats.b8.startTime -= 31 * 60000; }); await tick(300);
+  ok(await ev(() => !seatVisible('b8') && document.getElementById('nav-b8').classList.contains('alert') && document.getElementById('nav-b8').classList.contains('s-yellow')), `${name}: B8 turning amber off-screen highlights its amber indicator`);
+  // indicator jump
+  await p.locator('#nav-b8').click(); await tick(300);
+  ok(await ev(() => seatVisible('b8') && document.getElementById('nav-b8').classList.contains('on')), `${name}: tapping B8 indicator jumps to B8`);
+  await shot('b8');
+  await p.locator('#nav-b1').click(); await tick(300);
+  ok(await ev(() => seatVisible('b1')), `${name}: tapping B1 indicator jumps back to B1`);
+  // swipes scroll outside selection mode (touch-action allows pan-x), selection mode blocks pan so drag selects
+  ok(await ev(() => getComputedStyle(document.getElementById('seat-b2')).touchAction) !== 'none', `${name}: outside selection mode cards allow swipe scrolling`);
+  await ev(() => enterSelectMode());
+  ok(await ev(() => getComputedStyle(document.getElementById('seat-b2')).touchAction) === 'none', `${name}: in selection mode a drag selects instead of scrolling`);
+  await ev(() => exitSelectMode());
+  // keyboard digits still map to seat numbers, not positions
+  if (name === 'desktop') { await p.locator('h1').click(); await p.keyboard.press('Digit2'); await tick(100); ok(await ev(() => seats.b2.running), `${name}: key 2 still starts B2`); }
+  // guest view order
+  await ev(() => toggleGuestView()); await tick(200);
+  const g = await ev(() => [...document.querySelectorAll('#guestSeats .guest-card')].map(e => e.id.replace('guest-', '')).join(','));
+  ok(g === 'b8,b7,b6,b5,b4,b3,b2,b1', `${name}: guest view order B8..B1`);
+  ok(await ev(() => getComputedStyle(document.getElementById('seatNav')).display === 'none'), `${name}: indicator hidden in guest view`);
+  await shot('guest');
+  await ev(() => toggleGuestView());
+  // batch label in bar order
+  await ev(() => { enterSelectMode(); setSelected('b1', true); setSelected('b8', true); }); await ev(() => batch(resetSelected)); await tick(100);
+  ok(/Ended B8, B1/.test(await p.locator('#snackText').textContent()), `${name}: batch labels use bar order ("${await p.locator('#snackText').textContent()}")`);
+  ok(await ev(() => document.documentElement.scrollWidth <= innerWidth + 1), `${name}: page itself does not scroll sideways`);
+  ok(errs.length === 0, `${name}: no page errors (row) ${errs.join(' | ')}`);
+  await ctx.close();
+  // motion-on load screenshot (B1 right after intro)
+  if (name === 'pixel7') {
+    const c2 = await browser.newContext({ ...opts, serviceWorkers: 'block' }); const q = await c2.newPage();
+    await q.addInitScript(INIT); await q.clock.install({ time: new Date('2026-10-20T19:00:00') });
+    await q.goto(BASE); await q.evaluate(() => { ['b1','b2','b3','b5'].forEach(id => startTimer(id)); seats.b2.startTime -= 33 * 60000; seats.b3.startTime -= 50 * 60000; });
+    await q.clock.fastForward(1000); await q.waitForTimeout(1900);
+    await q.screenshot({ path: path.join(SHOTS, `row-${TAG}-pixel7-load.png`) });
+    ok(await q.evaluate(() => seatVisible('b1') && !seatVisible('b8')), `pixel7: motion-on load also lands on B1`);
+    await q.evaluate(() => enterSelectMode()); await q.evaluate(() => { setSelected('b1', true); setSelected('b2', true); }); await q.waitForTimeout(600);
+    await q.screenshot({ path: path.join(SHOTS, `row-${TAG}-pixel7-select.png`) });
+    await c2.close();
+  }
+}
+
 function pngSize(buf) { return buf.slice(1, 4).toString() === 'PNG' ? [buf.readUInt32BE(16), buf.readUInt32BE(20)] : null; }
 
 async function pwaTests(browser, name, opts) {
@@ -629,6 +711,7 @@ let TAG;
     await motionTests(browser, name, opts, true);
     await cineTests(browser, name, opts, false);
     await cineTests(browser, name, opts, true);
+    await rowTests(browser, name, opts);
     await pwaTests(browser, name, opts);
   }
   await browser.close();

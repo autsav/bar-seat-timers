@@ -438,6 +438,31 @@
   body.light .gt .d:not(.sep) { background: linear-gradient(#1e293b 0 49%, #000 49% 51%, #0f172a 51%); }
   .gt.idle { font-variant-numeric: normal; letter-spacing: .04em; color: var(--c-text-muted); }
   @media (prefers-reduced-motion: reduce) { .mood i { transition: none; } #intro, .banner, .spark, .confetti, .stamp { display: none !important; } }
+
+  /* ============ Single-row bar layout (v3.5): B8 ... B1, left to right ============ */
+  .seats { display: flex !important; gap: var(--s-3); overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain; padding: 6px var(--s-3) var(--s-3); margin: 0 calc(-1 * var(--s-3)) var(--s-4); scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
+  .seats .seat { flex: 0 0 min(76vw, 360px); scroll-snap-align: center; scroll-snap-stop: normal; }
+  @media (min-width: 720px) { .seats { margin: 0 calc(-1 * var(--s-5)) var(--s-4); padding: 6px var(--s-5) var(--s-3); } .seats .seat { flex-basis: 300px; scroll-snap-align: start; } }
+  .seat-nav { display: flex; justify-content: center; gap: 6px; margin: 0 0 var(--s-2); flex-wrap: nowrap; }
+  .seat-nav button { min-width: 0; min-height: 36px; padding: 2px 7px; font-size: var(--fs-xs); font-weight: 800; color: var(--c-text-muted);
+    background: var(--c-surface-raised); border: 1px solid var(--c-border); border-radius: 999px; gap: 4px; position: relative; }
+  .seat-nav button .dot { width: 8px; height: 8px; background: var(--c-track); }
+  .seat-nav button.on { color: var(--c-text); border-color: color-mix(in srgb, var(--c-text) 45%, transparent); }
+  .seat-nav button.off { opacity: .75; }
+  .seat-nav .s-green .dot { background: var(--bar-ok); } .seat-nav .s-yellow .dot { background: var(--bar-warn); }
+  .seat-nav .s-red .dot { background: var(--bar-danger); } .seat-nav .s-paused .dot { background: var(--c-paused); }
+  .seat-nav .s-timeup .dot { background: var(--bar-danger); box-shadow: 0 0 0 2px var(--c-danger); }
+  .seat-nav button.alert { opacity: 1; color: #fff; border-color: var(--bar-warn); }
+  .seat-nav button.alert::after { content: ""; position: absolute; inset: -3px; border-radius: inherit; box-shadow: 0 0 0 2px var(--bar-warn), 0 0 12px var(--bar-warn);
+    opacity: 0; animation: breathe 1.1s ease-in-out infinite; }
+  .seat-nav button.alert.s-red::after, .seat-nav button.alert.s-timeup::after { box-shadow: 0 0 0 2px var(--bar-danger), 0 0 12px var(--bar-danger); }
+  @media (max-width: 380px) { .seat-nav button { padding: 2px 4px; } .seat-nav { gap: 3px; } }
+  .off-alert { display: flex; margin: 0 auto var(--s-2); color: #0b0f17; background: var(--bar-warn); font-weight: 800; }
+  .off-alert.red { background: var(--bar-danger); color: #fff; }
+  .off-alert[hidden] { display: none; }
+  body.guest-on .seat-nav, body.guest-on .off-alert { display: none; }
+  body.select-mode .seats.painting { scroll-snap-type: none; }   /* let edge auto-scroll move freely; snap returns on release */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
     .seat.timeup::after, .seat.yellow:not(.paused)::before, .seat.red:not(.timeup):not(.paused)::before { opacity: .7; }
@@ -505,7 +530,9 @@
   <span><button type="button" onclick="promptInstall()">Install</button> <button type="button" class="secondary" onclick="dismissInstall()" aria-label="Not now">✕</button></span>
 </div>
 <h2 class="sr-only">Seats</h2>
-<div class="seats" id="seats"></div>
+<nav class="seat-nav" id="seatNav" aria-label="Seat positions, B8 to B1"></nav>
+<button type="button" id="offAlert" class="off-alert" hidden></button>
+<div class="seats" id="seats" tabindex="-1"></div>
 
 <div class="legend" aria-label="Status key">
   <span><span class="dot" style="background:var(--bar-ok)"></span>● Running</span>
@@ -560,6 +587,9 @@
 
 <script>
 const SEAT_IDS = ['b1','b2','b3','b4','b5','b6','b7','b8'];
+// Physical bar order, left to right: B8 ... B1 (B1 is on the right). Used wherever seats are shown in a row or list.
+const DISPLAY_IDS = SEAT_IDS.slice().reverse();
+const byDisplay = ids => DISPLAY_IDS.filter(id => ids.includes(id));
 const STORE_KEY = 'barSeatTimers.v2';
 const DEFAULT_SETTINGS = { walkinMin: 60, greenPct: 50, amberPct: 75,
   pin: '', mute: false, highContrast: false, theme: 'dark', autoEnd: false, wakeLock: true };
@@ -841,7 +871,7 @@ function resetSelected() {
   const ids = selectedIds();
   if (!ids.length) return;
   if (!checkPin()) return;
-  withUndo('Ended ' + ids.map(i => i.toUpperCase()).join(', '), () => ids.forEach(id => endSession(id, false)));
+  withUndo('Ended ' + byDisplay(ids).map(i => i.toUpperCase()).join(', '), () => ids.forEach(id => endSession(id, false)));
   updateWakeLock();
 }
 function resetAll() {
@@ -924,10 +954,12 @@ document.addEventListener('pointermove', e => {
     return;
   }
   e.preventDefault();
+  lastPt = { x: e.clientX, y: e.clientY };
   const id = seatAt(e.clientX, e.clientY);
   if (id) setSelected(id, press.value);
+  if (!autoRaf) autoRaf = requestAnimationFrame(autoScrollLoop);
 }, { passive: false });
-function endPress() { if (press) clearTimeout(press.timer); press = null; fxSafe(FX.pressCancel); fxSafe(FX.untilt); setTimeout(() => { suppressClick = false; }, 0); }
+function endPress() { if (press) clearTimeout(press.timer); press = null; lastPt = null; document.getElementById('seats').classList.remove('painting'); if (autoRaf) { cancelAnimationFrame(autoRaf); autoRaf = 0; } fxSafe(FX.pressCancel); fxSafe(FX.untilt); setTimeout(() => { suppressClick = false; }, 0); }
 document.addEventListener('pointerup', endPress);
 document.addEventListener('pointercancel', endPress);
 function onSeatClick(e, id) {
@@ -979,6 +1011,83 @@ function ringColour(s) {
   if (el >= t.amber || el >= d) return 'var(--bar-danger)';
   if (el >= t.green) { const k = Math.round(100 * (el - t.green) / Math.max(1, t.amber - t.green)); return 'color-mix(in oklab, var(--bar-danger) ' + k + '%, var(--bar-warn))'; }
   const k = Math.round(100 * el / Math.max(1, t.green)); return 'color-mix(in oklab, var(--bar-warn) ' + k + '%, var(--bar-ok))';
+}
+
+
+// ============ Row navigation: indicator, jump, off-screen alerts ============
+const seatAlerts = {};   // id -> 'yellow' | 'red' | 'timeup' while that seat is off-screen
+function seatVisible(id) {
+  const c = document.getElementById('seat-' + id), sc = document.getElementById('seats');
+  if (!c || !sc || sc.offsetParent === null) return true;
+  const a = c.getBoundingClientRect(), b = sc.getBoundingClientRect();
+  const vis = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+  return vis >= a.width * .6;
+}
+function jumpTo(id, smooth) {
+  const c = document.getElementById('seat-' + id); if (!c) return;
+  const sc = document.getElementById('seats');
+  const left = c.offsetLeft - (sc.clientWidth - c.offsetWidth) / 2;
+  sc.scrollTo({ left: Math.max(0, Math.min(left, sc.scrollWidth - sc.clientWidth)), behavior: smooth && FX.on() ? 'smooth' : 'auto' });
+  delete seatAlerts[id]; updateNav();
+}
+function buildNav() {
+  const n = document.getElementById('seatNav');
+  n.innerHTML = '';
+  DISPLAY_IDS.forEach(id => {
+    const b = document.createElement('button'); b.type = 'button'; b.id = 'nav-' + id; b.className = 'secondary';
+    b.innerHTML = `<span class="dot" aria-hidden="true"></span>${id.toUpperCase()}`;
+    b.addEventListener('click', () => jumpTo(id, true));
+    n.appendChild(b);
+  });
+  document.getElementById('offAlert').addEventListener('click', () => { const id = document.getElementById('offAlert').dataset.seat; if (id) jumpTo(id, true); });
+  let raf = 0;
+  document.getElementById('seats').addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; updateNav(); }); }, { passive: true });
+}
+function navState(s) {
+  if (!s.running) return 'free';
+  if (s.paused) return 'paused';
+  if (getDurationMs(s) - getElapsed(s) <= 0) return 'timeup';
+  return colourFor(s) || 'green';
+}
+function updateNav() {
+  const words = { free: 'free', green: 'running', yellow: 'amber', red: 'red', timeup: 'time up', paused: 'paused' };
+  let top = null;
+  DISPLAY_IDS.forEach(id => {
+    const b = document.getElementById('nav-' + id); if (!b) return;
+    const st = navState(seats[id]), vis = seatVisible(id);
+    if (vis) delete seatAlerts[id];
+    const al = seatAlerts[id];
+    const cls = 'secondary s-' + st + (vis ? ' on' : ' off') + (al ? ' alert' : '');
+    if (b.className !== cls) b.className = cls;
+    const lbl = `${id.toUpperCase()}: ${words[st]}${vis ? '' : ', off-screen'}${al ? ', needs attention' : ''}. Tap to show.`;
+    if (b.getAttribute('aria-label') !== lbl) b.setAttribute('aria-label', lbl);
+    const rank = { yellow: 1, red: 2, timeup: 3 };
+    if (al && (!top || rank[al] > rank[seatAlerts[top]])) top = id;
+  });
+  const oa = document.getElementById('offAlert');
+  if (top) {
+    const w = { yellow: 'is amber', red: 'is red', timeup: 'time is up' }[seatAlerts[top]];
+    const t = `⚠ ${top.toUpperCase()} ${w} · Show ›`;
+    if (oa.textContent !== t) oa.textContent = t;
+    oa.dataset.seat = top; oa.classList.toggle('red', seatAlerts[top] !== 'yellow'); oa.hidden = false;
+  } else if (!oa.hidden) { oa.hidden = true; delete oa.dataset.seat; }
+}
+function flagOffscreen(id, level) { if (!seatVisible(id)) { seatAlerts[id] = level; updateNav(); } }
+// Selection drag: auto-scroll the row when the finger nears its left/right edge.
+let autoRaf = 0, lastPt = null;
+function autoScrollLoop() {
+  autoRaf = 0;
+  if (!press || !press.painting || !lastPt) return;
+  const sc = document.getElementById('seats'), b = sc.getBoundingClientRect(), EDGE = 48;
+  let dx = 0;
+  if (lastPt.x < b.left + EDGE) dx = -Math.ceil((b.left + EDGE - lastPt.x) / 3) - 4;
+  else if (lastPt.x > b.right - EDGE) dx = Math.ceil((lastPt.x - (b.right - EDGE)) / 3) + 4;
+  if (!dx) return;
+  sc.classList.add('painting');
+  const before = sc.scrollLeft; sc.scrollLeft += dx;
+  const id = seatAt(Math.min(Math.max(lastPt.x, b.left + 2), b.right - 2), lastPt.y);
+  if (id) setSelected(id, press.value);
+  if (sc.scrollLeft !== before) autoRaf = requestAnimationFrame(autoScrollLoop);
 }
 
 // ============ Motion layer ============
@@ -1237,18 +1346,18 @@ function checkAlerts(id, catchUp) {
   if (!s.timeUpNotified && el >= getDurationMs(s)) {
     s.timeUpNotified = s.warnedRed = s.warnedAmber = true;
     fired = U + ': time is up';
-    sfx('timeup'); notify(fired, 'seat-' + id);
+    sfx('timeup'); notify(fired, 'seat-' + id); flagOffscreen(id, 'timeup');
     saveAll();
     fxSafe(() => FX.timeUp(id));
     if (settings.autoEnd) endSession(id, true);   // fires once, then the seat is free
   } else if (!s.warnedRed && el >= t.amber && el < getDurationMs(s)) {
     s.warnedRed = s.warnedAmber = true;
     fired = U + ' is red: ' + formatTime(getDurationMs(s) - el) + ' left';
-    sfx('warn'); notify(fired, 'seat-' + id); saveAll();
+    sfx('warn'); notify(fired, 'seat-' + id); flagOffscreen(id, 'red'); saveAll();
   } else if (!s.warnedAmber && el >= t.green && el < t.amber) {
     s.warnedAmber = true;
     fired = U + ' is amber: ' + formatTime(getDurationMs(s) - el) + ' left';
-    sfx('warn'); notify(fired, 'seat-' + id); saveAll();
+    sfx('warn'); notify(fired, 'seat-' + id); flagOffscreen(id, 'yellow'); saveAll();
   }
   return fired;
 }
@@ -1374,6 +1483,7 @@ function toggleHistory() {
 }
 function toggleGuestView() {
   document.getElementById('guestView').classList.add('cine');
+  document.body.classList.toggle('guest-on', document.getElementById('guestView').style.display !== 'block');
   const p = document.getElementById('guestView');
   const seatsDiv = document.getElementById('seats');
   if (p.style.display === 'block') {
@@ -1390,7 +1500,7 @@ function toggleGuestView() {
 function renderGuestView() {
   const cont = document.getElementById('guestSeats');
   if (!cont.children.length) {
-    SEAT_IDS.forEach(id => {
+    DISPLAY_IDS.forEach(id => {
       const d = document.createElement('div');
       d.id = 'guest-' + id;
       d.innerHTML = `<strong>${id.toUpperCase()}</strong><span class="gt">--:--</span><span class="gs"></span>`;
@@ -1425,7 +1535,8 @@ function seatPrimary(id) {
 function renderSeats() {
   const cont = document.getElementById('seats');
   cont.innerHTML = '';
-  SEAT_IDS.forEach((id, i) => {
+  DISPLAY_IDS.forEach(id => {
+    const i = SEAT_IDS.indexOf(id);
     const U = id.toUpperCase();
     const d = document.createElement('article');
     d.className = 'seat free';
@@ -1504,6 +1615,7 @@ function tick() {
   fxSafe(updateMood);
   SEAT_IDS.forEach(id => { checkAlerts(id); updateSeat(id); });
   updateSummary();
+  fxSafe(updateNav);
   if (document.getElementById('guestView').style.display === 'block') renderGuestView();
 }
 
@@ -1563,6 +1675,9 @@ loadAll();
 renderSeats();
 SEAT_IDS.forEach(updateSeat);
 updateSummary();
+buildNav();
+{ const sc = document.getElementById('seats'); sc.scrollLeft = sc.scrollWidth; }   // B1 (rightmost) in view on load
+updateNav();
 fxSafe(updateMood);
 fxSafe(FX.intro);
 fxSafe(FX.entrance);
