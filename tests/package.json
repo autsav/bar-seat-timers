@@ -1,0 +1,10 @@
+{
+  "name": "bar-seat-timers-tests",
+  "private": true,
+  "description": "Browser tests for Bar Seat Timers (desktop + Pixel 7)",
+  "scripts": {
+    "test": "node run.js",
+    "test:live": "node run.js https://autsav.github.io/bar-seat-timers/"
+  },
+  "devDependencies": { "playwright-core": "^1.48.0" }
+}
