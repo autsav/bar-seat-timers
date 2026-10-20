@@ -563,6 +563,8 @@
   /* glass sheets + scrim */
   #scrim { position: fixed; inset: 0; z-index: 49; background: rgba(4,4,6,.55); opacity: 0; pointer-events: none; transition: opacity .35s var(--ease);
     -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
+  #scrim { visibility: hidden; transition: opacity .35s var(--ease), visibility 0s linear .35s; }   /* closed scrim leaves the compositor */
+  body.theme-premium.menu-open #scrim, body.theme-premium.sheet-open #scrim { visibility: visible; transition: opacity .35s var(--ease), visibility 0s; }
   body.theme-premium.menu-open #scrim { opacity: 1; pointer-events: auto; }
   body.theme-premium.sheet-open #scrim { opacity: 1; pointer-events: auto; z-index: 64; }
   body.theme-premium .settings-panel, body.theme-premium .history { position: fixed; z-index: 65; left: 0; right: 0; bottom: 0; margin: 0 auto; max-width: 720px;
@@ -617,7 +619,7 @@
   /* ============ One motion source (v4.1): no native scroll, no transitions or shadows on moving cards ============ */
   body:not(.select-mode) #seats { overflow: hidden !important; touch-action: pan-y; overscroll-behavior-x: contain; scroll-behavior: auto; }
   body:not(.select-mode) .seats .seat { -webkit-box-reflect: unset !important; box-shadow: none !important; transition: none !important; scale: none !important; }   /* scale/translate props would multiply the JS transform */
-  body:not(.select-mode) .seats .seat .dim, body:not(.select-mode) .seats .seat .mini { will-change: opacity; transition: none !important; }
+  body:not(.select-mode) .seats .seat .dim, body:not(.select-mode) .seats .seat .mini { transition: none !important; }
   .perf-meter { position: fixed; z-index: 90; top: 6px; left: 6px; padding: 3px 8px; border-radius: 8px; background: rgba(0,0,0,.72); color: #9f9; font: 600 12px/1.3 ui-monospace, monospace; pointer-events: none; contain: strict; width: 150px; height: 22px; }
   .seats { --cw: min(52vw, 340px); }
   @media (min-width: 720px) { .seats { --cw: 300px; } }
