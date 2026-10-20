@@ -96,3 +96,16 @@ Cover Flow, alerts, selection, reduced motion, high contrast and the guest view 
 - **Colour:** a navy-to-charcoal backdrop, and status colours that glow onto neighbouring cards. Statuses differ in brightness as well as hue.
 - **Time display:** huge, light time on the centre card that gets heavier near expiry, with no layout shift.
 - **Reduced motion:** a flat fan, with no tilt, gyro or nudge.
+
+## Chips + smoothness (v3.9)
+- **Chip row on narrow phones (<600px):** under the fan sit 8 seat chips, B8 to B1, each 48px tall. Each chip shows the seat number plus minutes left, "free" or "up", in its status colour (time-up is filled red, paused is dashed). The centred seat's chip is highlighted.
+  - Tapping a chip centres that seat; in selection mode it selects instead.
+  - Off-centre alerts pulse the chip, and the Show button stays.
+  - On the phone, side cards become clean status-edged peeks with no squeezed text. Wide screens keep the full fan without chips.
+- **Smoothness:**
+  - No per-card backdrop blur. Cards are solid and promoted to their own compositor layers (`will-change: transform`).
+  - Fan geometry is measured once and cached, so per-frame updates read no layout.
+  - The settle is a critically damped spring (~380ms, no overshoot in Premium). Native scrolling still provides the finger-tracking and flick momentum.
+  - Ambient loops and reflections pause while the fan moves.
+- **Smooth mode:** if motion frames run slow on a device (p75 over 26ms in two separate movements), heavy decoration switches off automatically and stays off on that device. It is stored in `localStorage` as `bst.lite`.
+- **Perf probe:** `node tests/perf.js [url]` runs Pixel 7 emulation at 4x CPU throttle and reports rAF frame stats plus DevTools metrics for a swipe, tap-to-front, and idle.

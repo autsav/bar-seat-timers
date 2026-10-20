@@ -777,12 +777,12 @@ async function premiumTests(browser, name, opts, reduce) {
   // default + rendering
   ok(await ev(() => settings.look === 'premium' && document.body.classList.contains('theme-premium') && !document.body.classList.contains('theme-arcade')), `${tag}: Premium is the default look`);
   ok(await ev(() => document.fonts.check('300 20px InterLocal')) || await ev(async () => { await document.fonts.load('300 20px InterLocal'); return document.fonts.check('300 20px InterLocal'); }), `${tag}: bundled Inter font loads`);
-  const r = await ev(() => { const t = document.querySelector('#seat-b1 .timer'), cs = getComputedStyle(t); return { ff: cs.fontFamily, fw: +cs.fontWeight, num: cs.fontVariantNumeric, lab: getComputedStyle(document.querySelector('#seat-b1 .seat-label'), '::before').content, svg: document.querySelectorAll('#seat-b1 svg.li').length, lead: getComputedStyle(document.querySelector('#seat-b1 .ring .lead')).display, bf: getComputedStyle(document.querySelector('#seat-b1')).backdropFilter }; });
+  const r = await ev(() => { const t = document.querySelector('#seat-b1 .timer'), cs = getComputedStyle(t); return { ff: cs.fontFamily, fw: +cs.fontWeight, num: cs.fontVariantNumeric, lab: getComputedStyle(document.querySelector('#seat-b1 .seat-label'), '::before').content, svg: document.querySelectorAll('#seat-b1 svg.li').length, lead: getComputedStyle(document.querySelector('#seat-b1 .ring .lead')).display, bf: getComputedStyle(document.querySelector('#seat-b1')).backdropFilter, bi: getComputedStyle(document.querySelector('#seat-b1')).backgroundImage, sh: getComputedStyle(document.querySelector('#seat-b1')).boxShadow, sheet: getComputedStyle(document.querySelector('.settings-panel')).backdropFilter }; });
   ok(/InterLocal/.test(r.ff) && r.fw <= 300 && /tabular-nums/.test(r.num), `${tag}: thin tabular timer digits in Inter (${r.ff.slice(0, 30)}, ${r.fw}, ${r.num})`);
   ok(/Seat ·/.test(r.lab), `${tag}: letter-spaced 'Seat · B1' label (${r.lab})`);
   ok(r.svg >= 1 && await ev(() => !/[▶⏸↺]/u.test(document.querySelector('#seat-b1 .btn-primary').textContent)), `${tag}: line icons instead of emoji (${r.svg} svg)`);
   ok(r.lead === 'block', `${tag}: gradient ring lead dot shown`);
-  ok(/blur/.test(r.bf || ''), `${tag}: frosted glass card (${r.bf})`);
+  ok((r.bf === 'none' || !r.bf) && /gradient/.test(r.bi) && (r.sh.match(/rgba?\(/g) || []).length >= 2 && /blur/.test(r.sheet || ''), `${tag}: cards are solid glass-look (top highlight + layered shadow, no per-card backdrop blur for smoothness); sheets stay frosted (${r.sheet})`);
   // contrast
   const c = await ev(() => { const g = (s, pr) => getComputedStyle(document.querySelector(s))[pr]; return { t: g('#seat-b1 .timer', 'color'), bg: getComputedStyle(document.documentElement).backgroundColor, lab: g('#seat-b1 .seat-label', 'color') }; });
   ok(cr(c.t, c.bg) >= 7 && cr(c.lab, c.bg) >= 4.5, `${tag}: contrast readable (timer ${cr(c.t, c.bg).toFixed(1)}:1, label ${cr(c.lab, c.bg).toFixed(1)}:1 vs ${c.bg})`);
@@ -812,7 +812,7 @@ async function premiumTests(browser, name, opts, reduce) {
   await shot('select'); await ev(() => exitSelectMode()); await tick(50);
   // guest
   await ev(() => toggleGuestView()); await tick(200); if (!reduce) await p.waitForTimeout(400);
-  ok(await ev(() => document.querySelectorAll('.guest-card').length === 8 && /blur/.test(getComputedStyle(document.querySelector('.guest-card')).backdropFilter || '')), `${tag}: guest view premium-styled`);
+  ok(await ev(() => document.querySelectorAll('.guest-card').length === 8 && /rgb\(/.test(getComputedStyle(document.querySelector('.guest-card')).backgroundColor) && /InterLocal/.test(getComputedStyle(document.querySelector('.guest-card')).fontFamily)), `${tag}: guest view premium-styled`);
   await shot('guest'); await ev(() => toggleGuestView()); await tick(100);
   // sheets + scrim
   await ev(() => toggleSettings()); await tick(50); if (!reduce) await p.waitForTimeout(500);
@@ -981,6 +981,49 @@ async function chipTests(browser, name, opts, reduce) {
   await ctx.close();
 }
 
+async function smoothTests(browser, name, opts) {
+  if (name !== 'pixel7') return;
+  const tag = 'pixel7 smooth';
+  const ctx = await browser.newContext({ ...opts, serviceWorkers: 'block', reducedMotion: 'no-preference' });
+  const p = await ctx.newPage();
+  const errs = []; p.on('pageerror', e => errs.push(e.message));
+  await p.addInitScript(() => { sessionStorage.setItem('bst.intro', '1'); window.__noLite = 1; });
+  await p.goto(BASE); await p.waitForTimeout(1200);
+  await p.evaluate(() => { ['b2', 'b3', 'b5', 'b6', 'b7'].forEach(id => startTimer(id)); seats.b7.startTime -= 61 * 60000; });
+  await p.waitForTimeout(600);
+  const cdp = await ctx.newCDPSession(p); await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
+  // frame times during scripted tap-to-front glides + a touch swipe, measured with rAF in the page
+  await p.evaluate(() => { const f = []; let last = 0, on = true; const loop = t => { if (last) f.push(t - last); last = t; if (on) requestAnimationFrame(loop); }; requestAnimationFrame(loop); window.__stopF = () => { on = false; return f; }; });
+  const mid = [];
+  for (const id of ['b6', 'b2', 'b8', 'b1']) { await p.evaluate(id => { jumpTo(id, true); }, id); await p.waitForTimeout(150); mid.push(await p.evaluate(() => document.body.classList.contains('moving'))); await p.waitForTimeout(600); }
+  const box = await p.locator('#seats').boundingBox(), y = Math.round(box.y + box.height * .45);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 120, y }] });
+  for (let k = 1; k <= 20; k++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 120 + k * 9, y }] }); await p.waitForTimeout(16); }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await p.waitForTimeout(900);
+  const f = (await p.evaluate(() => window.__stopF())).sort((a, b) => a - b), q = k => f[Math.min(f.length - 1, Math.floor(k * f.length))];
+  console.log(`INFO ${tag}: 4x CPU throttle, ${f.length} frames: p50 ${q(.5).toFixed(1)}ms, p95 ${q(.95).toFixed(1)}ms, max ${f[f.length - 1].toFixed(1)}ms`);
+  ok(q(.5) <= 20 && q(.95) <= 51, `${tag}: motion frame times under 4x CPU throttle (p50 ${q(.5).toFixed(1)}ms ≤ 20, p95 ${q(.95).toFixed(1)}ms ≤ 51 i.e. at most 3 vsyncs; headless software raster)`);
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+  ok(mid.every(Boolean), `${tag}: ambient effects pause while the fan moves (body.moving during glides)`);
+  await p.waitForTimeout(500);
+  ok(await p.evaluate(() => !document.body.classList.contains('moving')), `${tag}: ambient effects resume at rest`);
+  ok(await p.evaluate(() => [...document.querySelectorAll('#seats .seat')].every(c => getComputedStyle(c).backdropFilter === 'none' && getComputedStyle(c).willChange === 'transform')), `${tag}: cards have no backdrop blur and are their own compositor layers`);
+  // the per-frame pose reads no layout: updateFlow with a known scroll position triggers no forced layout
+  ok(await p.evaluate(() => { let reads = 0; const P = HTMLElement.prototype, keys = ['offsetLeft', 'offsetWidth', 'offsetTop', 'offsetHeight', 'offsetParent', 'clientWidth']; const saved = keys.map(k => [k, Object.getOwnPropertyDescriptor(P, k) || Object.getOwnPropertyDescriptor(Element.prototype, k)]);
+    for (const [k, d] of saved) { const host = Object.getOwnPropertyDescriptor(P, k) ? P : Element.prototype; Object.defineProperty(host, k, { configurable: true, get() { reads++; return d.get.call(this); } }); }
+    const gb = Element.prototype.getBoundingClientRect; Element.prototype.getBoundingClientRect = function () { reads++; return gb.call(this); };
+    try { updateFlow(document.getElementById('seats').scrollLeft); updateNav(); } finally { for (const [k, d] of saved) { const host = Object.getOwnPropertyDescriptor(P, k) ? P : Element.prototype; Object.defineProperty(host, k, d); } Element.prototype.getBoundingClientRect = gb; }
+    return reads === 0; }), `${tag}: per-frame fan update + nav do zero layout reads`);
+  // Smooth mode: slow frames engage lite automatically
+  ok(await p.evaluate(() => { delete window.__noLite; perfWatch.slow = 0; for (let r = 0; r < 2; r++) { perfWatch.f = Array.from({ length: 30 }, () => 40); perfWatch.raf = 1; perfWatch.stop(); } return document.body.classList.contains('lite') && localStorage.getItem('bst.lite') === 'auto'; }), `${tag}: slow frames switch on Smooth mode automatically`);
+  ok(await p.evaluate(() => { const c = getComputedStyle(document.getElementById('seat-b2')); return c.webkitBoxReflect === 'none' || !c.webkitBoxReflect || c.webkitBoxReflect === ''; }) && await p.evaluate(() => getComputedStyle(document.getElementById('spot')).display === 'none'), `${tag}: Smooth mode drops reflections and the spotlight`);
+  await p.reload(); await p.waitForTimeout(500);
+  ok(await p.evaluate(() => document.body.classList.contains('lite')), `${tag}: Smooth mode remembered on this device`);
+  await p.evaluate(() => setLite(false));
+  ok(errs.length === 0, `${tag}: no page errors ${errs.join(' | ')}`);
+  await ctx.close();
+}
+
 function pngSize(buf) { return buf.slice(1, 4).toString() === 'PNG' ? [buf.readUInt32BE(16), buf.readUInt32BE(20)] : null; }
 
 async function pwaTests(browser, name, opts) {
@@ -1070,6 +1113,7 @@ let TAG;
     if (!process.env.ONLY || process.env.ONLY.split(',').includes('flowTests')) await flowTests(browser, name, opts, true);
     if (!process.env.ONLY || process.env.ONLY.split(',').includes('premiumTests')) await premiumTests(browser, name, opts, false);
     if (!process.env.ONLY || process.env.ONLY.split(',').includes('premiumTests')) await premiumTests(browser, name, opts, true);
+    if (!process.env.ONLY || process.env.ONLY.split(',').includes('smoothTests')) await smoothTests(browser, name, opts);
     for (const rm of [false, true]) if (!process.env.ONLY || process.env.ONLY.split(',').includes('chipTests')) await chipTests(browser, name, opts, rm);
     for (const rm of [false, true]) if (!process.env.ONLY || process.env.ONLY.split(',').includes('fanTests')) await fanTests(browser, name, opts, rm);
     if (!process.env.ONLY || process.env.ONLY.split(',').includes('pwaTests')) await pwaTests(browser, name, opts);
