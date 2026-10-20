@@ -721,6 +721,7 @@ async function flowTests(browser, name, opts, reduce) {
   await waitC('b3');
   ok(await ev(() => centreId === 'b3' && !seats.b3.running), `${tag}: tap the next side card to centre it, without starting it ${JSON.stringify(await ev(() => ({ c: centreId, t: flowTarget, r: seats.b3.running, sm: selectMode })))} pre=${globalThis.__pre || ''}`);
   // indicator jump
+  await p.waitForTimeout(500);   // let a running front-swap finish before reading positions
   { const pt = await ev(() => { const a = document.getElementById('seat-b8').getBoundingClientRect(); return { x: Math.round(a.left + 5), y: Math.round(a.top + a.height / 2) }; }); if (opts.hasTouch) await p.touchscreen.tap(pt.x, pt.y); else await p.mouse.click(pt.x, pt.y); } await waitC('b8');
   ok(await ev(() => centreId) === 'b8' && await off('b8') <= 1.5, `${tag}: tapping B8's side strip centres B8`);
   // momentum: one fast flick travels several seats, then settles exactly on one
@@ -728,8 +729,9 @@ async function flowTests(browser, name, opts, reduce) {
     // Headless Chrome does not synthesise a fling, so this drives a fast long touch drag (~2.6 cards) and checks it settles on a seat.
     const cdp = await ctx.newCDPSession(p);
     const b = await p.locator('#seats').boundingBox(), y = Math.round(b.y + b.height * .6), w = await ev(() => document.getElementById('seat-b8').offsetWidth);
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 400, y }] });
-    for (let k = 1; k <= 12; k++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: Math.round(400 - k * w * 2.6 / 12 / 2), y }] }); }
+    await p.waitForTimeout(500);   // let any front-swap finish first
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 360, y }] });
+    for (let k = 1; k <= 12; k++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: Math.round(360 - k * w * 2.6 / 12 / 2), y }] }); }
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 10, y }] });
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     for (let k = 0; k < 20; k++) { await tick(20); await p.waitForTimeout(60); }
