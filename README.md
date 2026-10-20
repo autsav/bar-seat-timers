@@ -150,3 +150,13 @@ row centred on screen, with 24px margins and 12px gaps on wide screens. Tiles ar
 scales with them, up to 1.7×. The stack's top padding follows the measured tile height, and short landscape screens
 drop the card's minimum height. `tabletTests` checks 768×1024, 1024×768, 800×1280, 1280×800, 1366×1024, 1024×1366,
 915×412, 412×915 and 1440×900.
+
+## iTunes-style Cover Flow everywhere (v4.4)
+Cover Flow is now the main board on phones, tablets and desktop. It replaces the depth stack's row of back cards.
+- The centre card faces forward at full size. Side cards overlap closely, turned about 65° on the Y axis with perspective. They read B8..B1 from left to right. Cards dim and shrink with distance, and sit on a dark glossy floor with reflections.
+- Each side card's visible sliver shows its seat number, minutes (or free/up) and status colour. The label is counter-scaled so it faces outward and stays readable.
+- Tablets and desktop show all 8 cards. Phones show as many as fit readably (4–7 depending on the centred seat); the far ones fade out.
+- Motion is the same as v4.1: one position float, a 1:1 finger drag, and a critically damped spring with flick projection. One rAF loop writes only transform and opacity, so motion does no layout reads. Rotation eases to 0° as a card reaches the centre.
+- Tapping a side card glides it to the centre. Only the centre card's controls work.
+- Reflections are a static child gradient, with no `-webkit-box-reflect`. They are off in Smooth/lite, high-contrast and light modes. Reduced motion stays flat.
+- The `coverflowTests` suite covers poses, order, visibility and readability, alert placement, tap-to-centre, drag tracking and settling. It runs at Pixel 7, 915×412, 768×1024, 1024×768, 800×1280, 1280×800, 1366×1024, 1024×1366 and 1440×900.

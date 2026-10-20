@@ -752,6 +752,20 @@
   @media (max-height: 500px) { body.depth .seats .seat { min-height: 0; } }
   body.depth:not(.select-mode) .seats .seat .mini { top: 0; bottom: 0; height: auto; }   /* the tile face covers the whole back card */
   body.depth:not(.select-mode) .seats .seat.side .seat-head { visibility: hidden; }   /* Chrome painted a back card's head unscaled over the row */
+  /* ============ Cover Flow (v4.4): iTunes-style carousel on every screen ============ */
+  body:not(.select-mode) .seats .seat { transform-origin: 0 50% !important; }
+  body:not(.select-mode) .seats .seat.sl .mini { transform-origin: 0 50%; }
+  body:not(.select-mode) .seats .seat.sr .mini { transform-origin: 100% 50%; }
+  body:not(.select-mode) .seats { padding-top: 40px; padding-bottom: 120px;
+    background: linear-gradient(to bottom, transparent calc(100% - 120px), rgba(255,255,255,.035) calc(100% - 120px), transparent calc(100% - 30px)); }
+  .seats .seat .refl { position: absolute; left: 0; right: 0; top: 100%; height: 34%; margin-top: 6px; border-radius: inherit; pointer-events: none;
+    background: linear-gradient(to bottom, color-mix(in srgb, var(--glow, #888) 26%, var(--c-surface)) 0%, transparent 85%); opacity: .45; }
+  body.select-mode .seats .seat .refl, body.lite .seats .seat .refl, body.high-contrast .seats .seat .refl, body.light .seats .seat .refl { display: none; }
+  .seats { --cw: min(52vw, 300px); }
+  @media (min-width: 600px) { .seats { --cw: min(40vw, 320px); } }
+  @media (min-width: 1000px) { .seats { --cw: 340px; } }
+  @media (max-height: 500px) { .seats .seat { min-height: 0 !important; } }
+  @media (max-height: 500px) { body:not(.select-mode) .seats .seat.side .mini { justify-content: flex-start; padding-top: 64px; } }
 </style>
 </head>
 <body>
@@ -1503,7 +1517,7 @@ function autoScrollLoop() {
 // ============ Cover Flow ============
 // Every card's pose is a pure function of the row's scroll position (native scrolling gives momentum + snap).
 let centreId = 'b1', flowReady = false;
-const FAN = { ry: 55, maxVis: .3, margin: 8 };
+const FAN = { ry: 65, maxVis: .26, margin: 8 };
 // Fan geometry: the centre card sits in the middle; each side's cards share the space beside it as overlapping strips
 // (about 30% of a card when there is room; narrower so that all eight always fit on screen).
 // Layout is measured once (on load/resize/layout change) and cached, so the per-frame pose never reads layout.
@@ -1511,7 +1525,7 @@ let FG = null;
 function measureFan() {
   const sc = document.getElementById('seats'); if (!sc) return null;
   const cards = [...sc.children];
-  const W = sc.clientWidth, depth = W >= 344 && innerWidth >= 360;   // phones, tablets (both orientations) and desktop all use the depth stack
+  const W = sc.clientWidth, depth = false;   // v4.4: Cover Flow everywhere (the depth stack stays in the code, unused)
   if (document.body.classList.contains('depth') !== depth) document.body.classList.toggle('depth', depth);   // switching changes card width, so measure after
   FG = { max: Math.max(0, sc.scrollWidth - sc.clientWidth), W: sc.clientWidth, cw: cards[0] ? cards[0].offsetWidth || 1 : 300, lefts: cards.map(c => c.offsetLeft), n: cards.length, depth };
   if (depth) {   // back-card slots: 7 tiles in a shallow arc above the centre card
@@ -1533,12 +1547,15 @@ function fanGeom(sc, sl) {
   if (!FG || FG.n !== sc.children.length || !FG.W) measureFan();   // re-measured on resize/layout change, never per frame
   const W = FG.W, cw = FG.cw, n = FG.n;
   const f = n ? (sl + W / 2 - (FG.lefts[0] + cw / 2)) / cw : 0;
-  const Lc = (W - cw) / 2, room = Math.max(0, Lc - FAN.margin), maxStep = cw * FAN.maxVis;
-  return { W, cw, f, Lc, Rc: Lc + cw, stepL: Math.min(maxStep, room / Math.max(1, f)), stepR: Math.min(maxStep, room / Math.max(1, n - 1 - f)) };
+  const Lc = (W - cw) / 2, room = Math.max(0, Lc - FAN.margin), maxStep = cw * FAN.maxVis, minStep = W < 600 ? 26 : 30;
+  // classic Cover Flow: a tight stack with a small step; on narrow phones only as many side cards as stay readable
+  const st = k => Math.max(Math.min(minStep, maxStep), Math.min(maxStep, room / Math.max(1, k)));
+  const stepL = st(f), stepR = st(n - 1 - f);
+  return { W, cw, f, Lc, Rc: Lc + cw, stepL, stepR, kL: Math.max(1, Math.floor(room / stepL + 1e-6)), kR: Math.max(1, Math.floor(room / stepR + 1e-6)) };
 }
 function cardPose(d, w) {   // kept for reference by older code paths: scale/tilt/dim as a function of distance
   const a = Math.min(Math.abs(d), 1), far = Math.max(0, Math.abs(d) - 1);
-  return { ry: (d < 0 ? 1 : -1) * a * FAN.ry, sc: Math.max(.72, 1 - a * .16 - far * .025), dim: Math.min(.5, a * .22 + far * .05), z: 100 - Math.round(Math.abs(d) * 10) };
+  return { ry: (d < 0 ? 1 : -1) * a * FAN.ry, sc: Math.max(.7, 1 - a * .14 - far * .02), dim: Math.min(.5, a * .22 + far * .05), z: 100 - Math.round(Math.abs(d) * 10) };
 }
 function applyCard(c) {
   const t = [c._flow, c._gyro, c._tilt].filter(Boolean).join(' ');
@@ -1551,7 +1568,7 @@ function updateFlow(slKnown) {
   for (const c of sc.children) {
     ci++; const w = G.cw, ol = FG.lefts[ci], d = (ol + w / 2 - (sl + G.W / 2)) / w;
     if (Math.abs(d) < Math.abs(bestD)) { bestD = d; best = c.dataset.seat; }
-    let flow = '', z = '', dim = '0', strip = '';
+    let flow = '', z = '', dim = '0', strip = '', op = '';
     if (!selectMode && FG.depth) {
       // depth pose: blend between the front pose (a = 0) and this card's back slot (a = 1); transform + opacity only
       const a = Math.min(1, Math.abs(d)), slot = FG.slots[Math.max(0, Math.min(6, d < 0 ? ci : ci - 1))], nl = ol - rs;
@@ -1565,15 +1582,20 @@ function updateFlow(slKnown) {
       if (c._refs) { const mo = mot ? Math.max(0, Math.min(1, (Math.abs(d) - .6) / .4)).toFixed(2) : ''; if (c._refs.mini.style.opacity !== mo) c._refs.mini.style.opacity = mo; }
       const P = cardPose(d, w), left = d < 0, nl = ol - rs;
       // outer edge position on screen; origin is the outer edge so tilt and scale never move it
-      const tx = left ? (G.Lc - G.stepL * -d) - nl : (G.Rc + G.stepR * d) - (nl + w);
-      flow = `translateX(${tx.toFixed(1)}px)` + (three ? ` perspective(900px) rotateY(${P.ry.toFixed(2)}deg)` : '') + ` scale(${(P.sc * (1 + .02 * (1 - Math.min(1, Math.abs(d))))).toFixed(3)})`;
+      // pivot on the outer edge (origin x = 0, y = middle): left cards hinge on their left edge, right cards on their right edge
+      const sk = P.sc * (1 + .02 * (1 - Math.min(1, Math.abs(d)))), X = left ? (G.Lc - G.stepL * -d) - nl : (G.Rc + G.stepR * d) - nl;
+      flow = `translateX(${X.toFixed(1)}px)` + (three ? ` perspective(1000px) rotateY(${P.ry.toFixed(2)}deg)` : '') + ` scale(${sk.toFixed(3)})` + (left ? '' : ` translateX(${-w}px)`);
       z = String(P.z); dim = P.dim.toFixed(2);
-      const step = left ? G.stepL : G.stepR, cos = three ? Math.cos(P.ry * Math.PI / 180) : 1;
-      strip = Math.round(Math.max(24, Math.min(w * .45, (step + 2) / (P.sc * cos)))) + 'px';
+      const step = left ? G.stepL : G.stepR, cos = three ? Math.max(.2, Math.cos(P.ry * Math.PI / 180)) : 1;
+      strip = Math.round(Math.max(24, Math.min(w * .45, (step + 2) / P.sc))) + 'px';
+      // the label on the visible sliver faces outward: counter-stretch it so the rotation doesn't squash it
+      if (c._refs) { const k = `scaleX(${(1 / cos).toFixed(3)})`; if (c._refs.mini.style.transform !== k) c._refs.mini.style.transform = k; }
+      // phones: side cards beyond what fits readably fade out at the edge (opacity only)
+      const kk = left ? G.kL : G.kR; op = Math.max(0, Math.min(1, kk + 1 - Math.abs(d))).toFixed(2);
       if (!mot && (c.classList.contains('sl') !== left || c.classList.contains('sr') === left)) { c.classList.toggle('sl', left); c.classList.toggle('sr', !left); }
     } else if (c.classList.contains('sl') || c.classList.contains('sr')) c.classList.remove('sl', 'sr');
     c._flow = flow; applyCard(c);
-    if (c.style.opacity !== '') c.style.opacity = '';
+    if (op === '1.00') op = ''; if (c.style.opacity !== op) c.style.opacity = op;
     if (c.style.zIndex !== z) c.style.zIndex = z;
     if (c._refs && c._refs.dim.style.opacity !== dim) c._refs.dim.style.opacity = dim;
     const mi = c._refs && c._refs.mini; if (mi && !mot && mi.style.width !== strip) mi.style.width = strip;   // plain property on one element: no inherited custom-property recalc
@@ -2151,7 +2173,7 @@ function renderSeats() {
         <span class="sel-check" aria-hidden="true">✓</span>
       </div>
       <div class="fx" aria-hidden="true"><div class="stripes"></div></div>
-      <div class="mini" aria-hidden="true"><span class="mn"><small>B</small><b>${i + 1}</b></span><i class="md"></i><span class="mm"></span><span class="mp">paused</span></div><span class="dim" aria-hidden="true"></span>
+      <div class="mini" aria-hidden="true"><span class="mn"><small>B</small><b>${i + 1}</b></span><i class="md"></i><span class="mm"></span><span class="mp">paused</span></div><span class="dim" aria-hidden="true"></span><span class="refl" aria-hidden="true"></span>
       <div class="timer-row">
         <div class="timer" aria-label="Time remaining for ${U}">--:--</div>
         <div class="ring" role="progressbar" aria-label="${U} session progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="glow"></span><span class="lead" aria-hidden="true"></span><span class="h r"><i></i></span><span class="h l"><i></i></span></div>
@@ -2380,7 +2402,7 @@ try { if (localStorage.getItem('bst.lite')) document.body.classList.add('lite');
 document.getElementById('seats').addEventListener('pointerdown', e => { const c = e.target.closest && e.target.closest('.seat'); if (c && c.classList.contains('side') && !selectMode && isControl(e.target)) e.preventDefault(); }, true);
 function layoutFlow() {   // side gutters so the first and last seat can sit exactly in the centre
   const sc = document.getElementById('seats'), c = sc.firstElementChild; if (!c) return;
-  { const depth = sc.clientWidth >= 344 && innerWidth >= 360; if (document.body.classList.contains('depth') !== depth) document.body.classList.toggle('depth', depth); }
+  { const depth = false; if (document.body.classList.contains('depth') !== depth) document.body.classList.toggle('depth', depth); }
   const pad = Math.max(0, (sc.clientWidth - c.offsetWidth) / 2) + 'px';
   if (sc.style.paddingLeft !== pad) { sc.style.paddingLeft = pad; sc.style.paddingRight = pad; }
   measureFan();
