@@ -324,16 +324,6 @@
     body.light { --c-surface: rgba(255,255,255,.97); --c-surface-strong: #fff; }
   }
   /* ============ R1/R2/R3/R10 additions ============ */
-  .type-pick { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-1); padding: 3px; border-radius: var(--radius-sm);
-    background: var(--c-surface-raised); border: 1px solid var(--c-border); }
-  .type-pick button { min-height: 38px; padding: var(--s-1); font-size: var(--fs-sm); background: transparent; color: var(--c-text-muted); border-color: transparent; }
-  .type-pick button { display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; gap: 0; min-width: 0; }
-  .type-pick small { font-size: var(--fs-xs); opacity: .85; font-variant-numeric: tabular-nums; }
-  .meta .ttag { white-space: nowrap; }
-  .type-pick button[aria-pressed="true"] { background: var(--c-accent); color: var(--c-text-on-accent); }
-  .seat:not(.free) .type-pick { display: none; }
-  .ttag { font-weight: 700; color: var(--c-text); }
-  .ttag.booking { color: var(--c-paused); }
   /* End sits on its own row, away from +15 */
   .seat .seat-actions, .seat.free .seat-actions { grid-template-columns: 2fr 1fr !important; }
   .seat .seat-actions .btn-primary { grid-column: auto !important; }
@@ -430,15 +420,10 @@
 
 <section class="settings-panel" id="settingsPanel" aria-labelledby="settingsTitle">
   <h3 id="settingsTitle">Settings</h3>
-  <fieldset><legend>Session types</legend>
-  <label>Walk-in limit (min) <input type="number" id="setWalkin" min="1" value="60"></label>
-  <label>Booking limit (min) <input type="number" id="setBooking" min="1" value="90"></label>
-  <label>Default type for new sessions
-    <select id="setDefaultType"><option value="walkin">Walk-in</option><option value="booking">Booking</option></select></label>
-  </fieldset>
+  <label>Session limit (min) <input type="number" id="setWalkin" min="1" value="60"></label>
   <label>Amber from (% of limit) <input type="number" id="setGreenPct" min="5" max="95" value="50"></label>
   <label>Red from (% of limit) <input type="number" id="setAmberPct" min="10" max="99" value="75"></label>
-  <p class="hint">Thresholds scale with each seat's type (60-min walk-in: amber at 30, red at 45 · 90-min booking: amber at 45, red at 67). Changes apply to new sessions only; running seats keep their limits.</p>
+  <p class="hint">Thresholds scale with the limit (60 min: amber at 30, red at 45). Changes apply to new sessions only; running seats keep the limit they started with.</p>
   <label>Manager PIN for resets (blank = none) <input type="password" id="setPin" inputmode="numeric" autocomplete="off"></label>
   <label><input type="checkbox" id="setMute"> Mute sounds</label>
   <label><input type="checkbox" id="setHighContrast"> High contrast</label>
@@ -473,9 +458,8 @@
 <script>
 const SEAT_IDS = ['b1','b2','b3','b4','b5','b6','b7','b8'];
 const STORE_KEY = 'barSeatTimers.v2';
-const DEFAULT_SETTINGS = { walkinMin: 60, bookingMin: 90, defaultType: 'walkin', greenPct: 50, amberPct: 75,
+const DEFAULT_SETTINGS = { walkinMin: 60, greenPct: 50, amberPct: 75,
   pin: '', mute: false, highContrast: false, theme: 'dark', autoEnd: false, wakeLock: true };
-const TYPE_LABEL = { walkin: 'Walk-in', booking: 'Booking' };
 const UNDO_MS = 8000;
 const EXTEND_MS = 15 * 60 * 1000;
 
@@ -487,7 +471,7 @@ let audioCtx = null;
 function blankSeat() {
   return { running: false, paused: false, startTime: null, pausedAt: null, pausedTotal: 0,
            extraMs: 0, extensions: 0, notes: '', selected: false,
-           type: null, nextType: null, limitMs: null, greenMs: null, amberMs: null,
+           limitMs: null, greenMs: null, amberMs: null,
            warnedAmber: false, warnedRed: false, timeUpNotified: false, sessionStart: null };
 }
 
@@ -506,20 +490,22 @@ function loadAll() {
       if (raw.greenMin) settings.greenPct = Math.round(raw.greenMin / raw.durationMin * 100);
       if (raw.yellowMin) settings.amberPct = Math.round(raw.yellowMin / raw.durationMin * 100);
     }
-    ['durationMin','greenMin','yellowMin'].forEach(k => delete settings[k]);
+    ['durationMin','greenMin','yellowMin','bookingMin','defaultType'].forEach(k => delete settings[k]);   // bar is walk-in only
     history = Array.isArray(data.history) ? data.history : [];
     SEAT_IDS.forEach(id => { const saved = { ...((data.seats || {})[id] || {}) }; delete saved.name; seats[id] = { ...blankSeat(), ...saved }; });
-    history = history.map(h => { const { name: _legacy, ...rest } = h || {}; return rest; });
+    history = history.map(h => { const { name: _legacy, type: _type, ...rest } = h || {}; return rest; });
     SEAT_IDS.forEach(id => {   // migrate running seats saved before per-seat limits existed
       const st = seats[id];
       if (st.running && !st.limitMs) {
         const lim = (raw.durationMin || settings.walkinMin) * 60000;
-        Object.assign(st, { type: 'walkin', limitMs: lim,
+        Object.assign(st, { limitMs: lim,
           greenMs: (raw.greenMin ? raw.greenMin * 60000 : lim * settings.greenPct / 100),
           amberMs: (raw.yellowMin ? raw.yellowMin * 60000 : lim * settings.amberPct / 100),
           warnedRed: !!st.warnedYellow });
       }
       delete st.warnedYellow;
+      // Walk-in only: drop session types. A seat still running from a booking keeps its locked limitMs until it ends.
+      delete st.type; delete st.nextType;
     });
   } catch (e) {
     SEAT_IDS.forEach(id => { seats[id] = blankSeat(); });
@@ -531,16 +517,15 @@ function saveAll() {
   try { localStorage.setItem(STORE_KEY, JSON.stringify({ seats, history, settings })); } catch (e) {}
 }
 
-function typeLimitMs(type) { return (type === 'booking' ? settings.bookingMin : settings.walkinMin) * 60000; }
-function pendingType(s) { return (s && s.nextType) || settings.defaultType || 'walkin'; }
+function limitSettingMs() { return settings.walkinMin * 60000; }
 // Running seats use the limit captured when they started, so settings changes never retime them.
 function getDurationMs(s) {
-  if (!s) return typeLimitMs(settings.defaultType);
-  const base = s.running && s.limitMs ? s.limitMs : typeLimitMs(pendingType(s));
+  if (!s) return limitSettingMs();
+  const base = s.running && s.limitMs ? s.limitMs : limitSettingMs();
   return base + (s.extraMs || 0);
 }
 function thresholds(s) {
-  const lim = s.limitMs || typeLimitMs(pendingType(s));
+  const lim = s.limitMs || limitSettingMs();
   return { green: (s.greenMs != null ? s.greenMs : lim * settings.greenPct / 100) + (s.extraMs || 0),
            amber: (s.amberMs != null ? s.amberMs : lim * settings.amberPct / 100) + (s.extraMs || 0) };
 }
@@ -611,9 +596,9 @@ function startTimer(id, silent) {
     if (s.paused) togglePause(id, true);
     return;
   }
-  const type = pendingType(s), lim = typeLimitMs(type);
+  const lim = limitSettingMs();
   Object.assign(s, { running: true, paused: false, startTime: Date.now(), pausedAt: null, pausedTotal: 0,
-                     extraMs: 0, extensions: 0, type, limitMs: lim,
+                     extraMs: 0, extensions: 0, limitMs: lim,
                      greenMs: lim * settings.greenPct / 100, amberMs: lim * settings.amberPct / 100,
                      warnedAmber: false, warnedRed: false, timeUpNotified: false, sessionStart: new Date().toISOString() });
   if (!silent) { playBeep(660, 0.12); saveAll(); updateSeat(id); updateSummary(); }
@@ -646,11 +631,11 @@ function extendTimer(id, silent) {
 function endSession(id, auto) {
   const s = seats[id];
   if (s.running && s.startTime) {
-    history.push({ seat: id, type: s.type || 'walkin', limitMin: Math.round((s.limitMs || 0) / 60000), notes: s.notes, durationMin: Math.round(getElapsed(s) / 60000),
+    history.push({ seat: id, limitMin: Math.round((s.limitMs || 0) / 60000), notes: s.notes, durationMin: Math.round(getElapsed(s) / 60000),
                    extensions: s.extensions, start: s.sessionStart || new Date(s.startTime).toISOString(), end: new Date().toISOString(), autoEnd: !!auto });
   }
-  const keepSel = s.selected, keepType = s.nextType;
-  seats[id] = { ...blankSeat(), selected: keepSel, nextType: keepType };
+  const keepSel = s.selected;
+  seats[id] = { ...blankSeat(), selected: keepSel };
   saveAll();
   updateSeat(id);
   updateSummary();
@@ -739,8 +724,6 @@ function applyTheme() {
   const f = (id) => document.getElementById(id);
   if (f('setWalkin')) {
     f('setWalkin').value = settings.walkinMin;
-    f('setBooking').value = settings.bookingMin;
-    f('setDefaultType').value = settings.defaultType;
     f('setGreenPct').value = settings.greenPct;
     f('setAmberPct').value = settings.amberPct;
     f('setWakeLock').checked = !!settings.wakeLock;
@@ -788,13 +771,6 @@ function updateSeat(id) {
   const pr = String(Math.round(pct));
   if (r.prog.getAttribute('aria-valuenow') !== pr) r.prog.setAttribute('aria-valuenow', pr);
   setText(r.left, s.running ? (remaining <= 0 ? 'over by ' + formatTime(-remaining) : 'remaining') : Math.round(getDurationMs(s) / 60000) + ' min session');
-  const tt = s.running ? (s.type || 'walkin') : '';
-  setText(r.ttag, tt ? TYPE_LABEL[tt] + ' ' + Math.round(s.limitMs / 60000) : '');
-  const tc = 'ttag' + (tt === 'booking' ? ' booking' : '');
-  if (r.ttag.className !== tc) r.ttag.className = tc;
-  const pt = pendingType(s);
-  r.typeBtns.forEach(b => { const v = String(b.dataset.type === pt); if (b.getAttribute('aria-pressed') !== v) b.setAttribute('aria-pressed', v); });
-  setText(r.walkinLbl, settings.walkinMin + 'm'); setText(r.bookingLbl, settings.bookingMin + 'm');
   setText(r.ext, s.extensions ? '+' + s.extensions * 15 + ' min' : '');
   // one clear primary action
   const primary = !s.running ? '▶ Start' : (s.paused ? '▶ Resume' : '⏸ Pause');
@@ -870,9 +846,9 @@ function updateSummary() {
 function renderHistory() {
   const div = document.getElementById('historyTable');
   if (!history.length) { div.innerHTML = '<p>No sessions yet.</p>'; document.getElementById('analytics').textContent = ''; return; }
-  let html = '<table><tr><th>Seat</th><th>Type</th><th>Duration</th><th>Ext</th><th>Start</th><th>End</th></tr>';
+  let html = '<table><tr><th>Seat</th><th>Limit</th><th>Duration</th><th>Ext</th><th>Start</th><th>End</th></tr>';
   history.slice().reverse().slice(0, 50).forEach(h => {
-    html += `<tr><td>${escapeHTML(String(h.seat).toUpperCase())}</td><td>${escapeHTML((TYPE_LABEL[h.type] || 'Walk-in') + (h.limitMin ? ' ' + h.limitMin : ''))}</td><td>${escapeHTML(h.durationMin)} min</td><td>${escapeHTML(h.extensions)}</td><td>${escapeHTML(new Date(h.start).toLocaleString())}</td><td>${escapeHTML(h.end ? new Date(h.end).toLocaleString() : '-')}</td></tr>`;
+    html += `<tr><td>${escapeHTML(String(h.seat).toUpperCase())}</td><td>${escapeHTML(h.limitMin ? h.limitMin + ' min' : '-')}</td><td>${escapeHTML(h.durationMin)} min</td><td>${escapeHTML(h.extensions)}</td><td>${escapeHTML(new Date(h.start).toLocaleString())}</td><td>${escapeHTML(h.end ? new Date(h.end).toLocaleString() : '-')}</td></tr>`;
   });
   html += '</table>';
   div.innerHTML = html;
@@ -883,9 +859,9 @@ function renderHistory() {
 
 function exportCSV() {
   if (!history.length) { alert('No history'); return; }
-  let csv = 'Seat,Type,LimitMin,Notes,DurationMin,Extensions,Start,End,AutoEnd\n';
+  let csv = 'Seat,LimitMin,Notes,DurationMin,Extensions,Start,End,AutoEnd\n';
   history.forEach(h => {
-    csv += `${h.seat},${h.type || 'walkin'},${h.limitMin || ''},"${(h.notes||'').replace(/"/g,'""')}",${h.durationMin},${h.extensions},${h.start},${h.end || ''},${h.autoEnd}\n`;
+    csv += `${h.seat},${h.limitMin || ''},"${(h.notes||'').replace(/"/g,'""')}",${h.durationMin},${h.extensions},${h.start},${h.end || ''},${h.autoEnd}\n`;
   });
   const blob = new Blob([csv], {type: 'text/csv'});
   const a = document.createElement('a');
@@ -904,12 +880,9 @@ function clearHistory() {
 function saveSettings() {
   const g = id => document.getElementById(id);
   settings.walkinMin = Math.max(1, +g('setWalkin').value || 60);
-  settings.bookingMin = Math.max(1, +g('setBooking').value || 90);
-  settings.defaultType = g('setDefaultType').value === 'booking' ? 'booking' : 'walkin';
   settings.greenPct = Math.min(95, Math.max(5, +g('setGreenPct').value || 50));
   settings.amberPct = Math.min(99, Math.max(10, +g('setAmberPct').value || 75));
   settings.wakeLock = g('setWakeLock').checked;
-  SEAT_IDS.forEach(id => { if (!seats[id].running) seats[id].nextType = null; });   // free seats follow the new default
   settings.pin = document.getElementById('setPin').value;
   settings.mute = document.getElementById('setMute').checked;
   settings.highContrast = document.getElementById('setHighContrast').checked;
@@ -1002,11 +975,7 @@ function renderSeats() {
       </div>
       <div class="timer" aria-label="Time remaining for ${U}">--:--</div>
       <div class="progress-container" role="progressbar" aria-label="${U} session progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-bar"></div></div>
-      <div class="type-pick" role="group" aria-label="Session type for ${U}">
-        <button type="button" data-type="walkin" aria-pressed="false">Walk-in <small class="wl">60m</small></button>
-        <button type="button" data-type="booking" aria-pressed="false">Booking <small class="bl">90m</small></button>
-      </div>
-      <div class="meta"><span class="ttag"></span><span class="left"></span><span class="ext"></span></div>
+      <div class="meta"><span class="left"></span><span class="ext"></span></div>
       <label class="sr-only" for="notes-${id}">Notes for ${U}</label>
       <input class="notes-input" id="notes-${id}" type="text" placeholder="Notes (no names or personal data)" title="Shared device: please don't enter names, phone numbers or other personal data" maxlength="120">
       <div class="seat-actions">
@@ -1017,9 +986,7 @@ function renderSeats() {
     const q = c => d.querySelector(c);
     d._refs = { cb: q('.select-cb'), label: q('.seat-label'), icon: q('.badge .ic'), stext: q('.stext'), timer: q('.timer'),
       bar: q('.progress-bar'), prog: q('.progress-container'), left: q('.left'), ext: q('.ext'),
-      primary: q('.btn-primary'), extend: q('.btn-extend'), reset: q('.btn-reset'), notes: q('.notes-input'),
-      ttag: q('.ttag'), typeBtns: [...d.querySelectorAll('.type-pick button')], walkinLbl: q('.wl'), bookingLbl: q('.bl') };
-    d._refs.typeBtns.forEach(b => b.addEventListener('click', () => { seats[id].nextType = b.dataset.type; saveAll(); updateSeat(id); }));
+      primary: q('.btn-primary'), extend: q('.btn-extend'), reset: q('.btn-reset'), notes: q('.notes-input'), };
     d._refs.cb.addEventListener('change', () => toggleSelect(id));
     d._refs.label.addEventListener('click', () => toggleSelect(id));
     d._refs.notes.addEventListener('input', e => { seats[id].notes = e.target.value; saveAll(); });

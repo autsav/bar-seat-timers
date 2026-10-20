@@ -1,12 +1,12 @@
 # Bar Seat Timers
 
-Timers for the 8 bar seats (B1–B8). Each seat runs a session that turns green → amber → red as its limit
+Timers for the 8 walk-in bar seats (B1–B8). Each seat runs a session that turns green → amber → red as its limit
 approaches, with sound, vibration and optional system notifications.
 
 **Live:** https://autsav.github.io/bar-seat-timers/
 
 ## Features
-- **Session types per seat:** pick *Walk-in* (60 min) or *Booking* (90 min) before starting. The amber and red thresholds scale with the limit (50 % and 75 % by default). The limit is fixed when a session starts, so changing settings never retimes seats that are already running. The type is shown on the card and recorded in history and the CSV.
+- **One walk-in limit:** every seat uses the same session limit (60 min by default, editable in Settings). Amber and red come in at 50 % and 75 % of the limit by default. Each seat locks its limit when it starts, so changing settings never retimes seats that are already running. History and the CSV record each session's limit.
 - **Undo:** End, Reset Selected, Reset All and Shift+1–8 show an 8-second **Undo** bar. End sits on its own row, away from +15.
 - **Stays awake:** uses the Screen Wake Lock API while any seat is running (toggle in Settings), and re-acquires it when you come back to the tab.
 - **Missed alerts:** if the phone slept or the tab was hidden, the amber, red and time-up alerts you missed are caught up and summarised when you return.

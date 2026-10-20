@@ -58,32 +58,29 @@ async function featureTests(browser, name, opts) {
   const ev = f => p.evaluate(f);
   const tick = ms => p.clock.fastForward(ms);
 
-  // --- R2: per-seat types
-  ok(await timer(1) === '1:00:00', `${name}: free seat shows walk-in default 1:00:00`);
-  await seat(2).locator('.type-pick [data-type=booking]').click();
-  ok(await timer(2) === '1:30:00', `${name}: choosing Booking shows 1:30:00 before start`);
+  // --- walk-in only: single limit, no booking UI
+  ok(await timer(1) === '1:00:00', `${name}: free seat shows default 60-min limit 1:00:00`);
+  ok(await ev(() => !document.querySelector('.type-pick, [data-type], #setBooking, #setDefaultType') && !/booking/i.test(document.body.innerText + document.getElementById('settingsPanel').innerHTML)),
+     `${name}: no booking UI anywhere (picker, tag, settings)`);
   await seat(1).locator('.btn-primary').click();
   await seat(2).locator('.btn-primary').click();
   await tick(1000);
-  ok((await seat(1).locator('.ttag').textContent()) === 'Walk-in 60', `${name}: B1 card tagged "Walk-in 60"`);
-  ok((await seat(2).locator('.ttag').textContent()) === 'Booking 90', `${name}: B2 card tagged "Booking 90"`);
-  ok(await ev(() => !document.querySelector('#seat-b1 .type-pick').offsetParent), `${name}: type picker hidden while running`);
+  ok(await ev(() => seats.b1.limitMs === 3600000 && seats.b2.limitMs === 3600000 && !('type' in seats.b1)), `${name}: seats lock the 60-min limit at start`);
 
   // --- R3: wake lock acquired once a seat runs
   await tick(500);
   ok(await ev(() => window.__wake.requests) >= 1, `${name}: wake lock requested when a seat starts (${await ev(() => window.__wake.requests)})`);
 
-  // thresholds scale per type: at 46 min walk-in is red (>=45), booking is amber (45..67.5)
-  await tick(46 * 60000);
-  ok((await seat(1).getAttribute('class')).includes('red'), `${name}: walk-in red at 46 min`);
-  ok((await seat(2).getAttribute('class')).includes('yellow'), `${name}: booking amber at 46 min (scaled)`);
+  await tick(31 * 60000);
+  ok((await seat(1).getAttribute('class')).includes('yellow'), `${name}: amber at 31 min`);
+  await tick(15 * 60000);
+  ok((await seat(1).getAttribute('class')).includes('red'), `${name}: red at 46 min`);
 
   // --- settings must not retime running seats
   const b1Before = await ev(() => getDurationMs(seats.b1)), b2Before = await ev(() => getDurationMs(seats.b2));
   await p.locator('#menuBtn').click();
   await p.locator('#menuPanel').getByRole('button', { name: /Settings/ }).click();
   await p.fill('#setWalkin', '30');
-  await p.fill('#setBooking', '120');
   await p.getByRole('button', { name: 'Save Settings' }).click();
   await tick(500);
   ok(await ev(() => getDurationMs(seats.b1)) === b1Before && await ev(() => getDurationMs(seats.b2)) === b2Before,
@@ -118,14 +115,14 @@ async function featureTests(browser, name, opts) {
   ok(await ev(() => !seats.b1.running) && await ev(() => history.length) === h0 + 1, `${name}: End frees B1 and logs history`);
   ok(await p.locator('#snackbar').isVisible() && /Ended B1/.test(await p.locator('#snackText').textContent()), `${name}: undo snackbar shown`);
   await p.locator('#snackUndo').click(); await tick(300);
-  ok(await ev(() => seats.b1.running && seats.b1.type === 'walkin') && await ev(() => history.length) === h0, `${name}: Undo restores B1 and removes history row`);
+  ok(await ev(() => seats.b1.running && seats.b1.limitMs === 3600000) && await ev(() => history.length) === h0, `${name}: Undo restores B1 and removes history row`);
   // Shift+N
   if (name === 'desktop') {
     await p.locator('h1').click();
     await p.keyboard.press('Shift+Digit2'); await tick(200);
     ok(await ev(() => !seats.b2.running), `${name}: Shift+2 ends B2`);
     await p.locator('#snackUndo').click(); await tick(200);
-    ok(await ev(() => seats.b2.running && seats.b2.type === 'booking'), `${name}: Undo after Shift+2 restores booking B2`);
+    ok(await ev(() => seats.b2.running && seats.b2.limitMs === 3600000), `${name}: Undo after Shift+2 restores B2`);
   }
   // Reset All + undo
   await ev(() => resetAll()); await tick(200);
@@ -144,10 +141,10 @@ async function featureTests(browser, name, opts) {
   // history + CSV contain type
   await p.locator('#menuBtn').click();
   await p.locator('#menuPanel').getByRole('button', { name: /History/ }).click();
-  ok(/Walk-in 30/.test(await p.locator('#historyTable').textContent()), `${name}: history shows session type`);
+  ok(/30 min/.test(await p.locator('#historyTable').textContent()) && !/Walk-in|Booking/.test(await p.locator('#historyTable').textContent()), `${name}: history shows limit (no type)`);
   const [dl] = await Promise.all([p.waitForEvent('download'), p.locator('#historyPanel').getByRole('button', { name: /Export CSV/ }).click()]);
   const csv = fs.readFileSync(await dl.path(), 'utf8');
-  ok(/^Seat,Type,LimitMin,/.test(csv) && /b3,walkin,30,/.test(csv), `${name}: CSV has Type and LimitMin`);
+  ok(/^Seat,LimitMin,Notes,/.test(csv) && /\nb3,30,/.test(csv) && !/walkin|booking/i.test(csv), `${name}: CSV has LimitMin, no type`);
   await p.locator('#historyPanel').getByRole('button', { name: 'Close' }).click();
 
   // notes hint
@@ -160,15 +157,66 @@ async function featureTests(browser, name, opts) {
 
   // screenshot of service state
   await ev(() => { document.getElementById('setWakeLock').checked = true; saveSettings(); });
-  await seat(5).locator('.type-pick [data-type=booking]').click();
   await seat(5).locator('.btn-primary').click();
   await seat(6).locator('.btn-primary').click(); await tick(1000);
   await seat(6).locator('.btn-reset').click(); await tick(300);
-  fs.mkdirSync(SHOTS, { recursive: true });
-  await p.screenshot({ path: path.join(SHOTS, `${TAG}-${name}.png`), fullPage: true });
   if (name === 'pixel7') ok(await ev(() => document.documentElement.scrollWidth <= innerWidth), `${name}: no horizontal overflow`);
   ok(errs.length === 0, `${name}: no console errors ${errs.join(' | ')}`);
   await ctx.close();
+}
+
+// Old saved data from the booking version: booking settings dropped, running booking seat keeps its 90-min lock.
+async function migrationAndShot(browser, name, opts) {
+  const ctx = await browser.newContext({ ...opts, serviceWorkers: 'block' });
+  const p = await ctx.newPage();
+  const errs = []; p.on('pageerror', e => errs.push(e.message));
+  p.on('dialog', d => d.accept());
+  await p.addInitScript(INIT);
+  const T0 = new Date('2026-10-20T19:00:00').getTime();
+  await p.clock.install({ time: T0 });
+  await p.addInitScript(t0 => {
+    if (localStorage.getItem('barSeatTimers.v2')) return;
+    const blank = { running: false, paused: false, startTime: null, pausedAt: null, pausedTotal: 0, extraMs: 0, extensions: 0, notes: '', selected: false };
+    const seats = {}; ['b1','b2','b3','b4','b5','b6','b7','b8'].forEach(id => seats[id] = { ...blank, nextType: 'booking' });
+    seats.b4 = { ...blank, running: true, startTime: t0 - 10 * 60000, type: 'booking', limitMs: 90 * 60000, greenMs: 45 * 60000, amberMs: 67.5 * 60000,
+                 warnedAmber: false, warnedRed: false, timeUpNotified: false, sessionStart: new Date(t0 - 600000).toISOString() };
+    localStorage.setItem('barSeatTimers.v2', JSON.stringify({ seats,
+      history: [{ seat: 'b1', type: 'booking', limitMin: 90, notes: '', durationMin: 88, extensions: 0, start: new Date(t0 - 9e6).toISOString(), end: new Date(t0 - 3.7e6).toISOString(), autoEnd: false }],
+      settings: { walkinMin: 60, bookingMin: 90, defaultType: 'booking', greenPct: 50, amberPct: 75, wakeLock: true } }));
+  }, T0);
+  await p.goto(BASE);
+  await p.clock.fastForward(500);
+  const st = await p.evaluate(() => ({ s: settings, b4: seats.b4, b1: seats.b1, h: history[0], t4: document.querySelector('#seat-b4 .timer').textContent, t1: document.querySelector('#seat-b1 .timer').textContent }));
+  ok(!('bookingMin' in st.s) && !('defaultType' in st.s) && st.s.walkinMin === 60, `${name}: migration drops booking settings`);
+  ok(st.b4.running && st.b4.limitMs === 90 * 60000 && !('type' in st.b4) && /^1:20:0\d$|^1:19:5\d$/.test(st.t4), `${name}: running booking seat keeps locked 90-min limit (${st.t4})`);
+  ok(!('nextType' in st.b1) && st.t1 === '1:00:00', `${name}: free seats use the 60-min limit after migration`);
+  ok(!('type' in st.h) && st.h.limitMin === 90, `${name}: old history keeps its limit, type dropped`);
+  await p.locator('#seat-b4 .btn-reset').click();
+  await p.locator('#seat-b4 .btn-primary').click();
+  await p.clock.fastForward(500);
+  ok(await p.evaluate(() => seats.b4.limitMs === 3600000), `${name}: after it ends, B4 restarts on the 60-min limit`);
+  await p.evaluate(() => { localStorage.clear(); });
+  await ctx.close();
+
+  // Fresh device, default settings: screenshot of a typical service
+  const c2 = await browser.newContext({ ...opts, serviceWorkers: 'block' });
+  const q = await c2.newPage(); q.on('pageerror', e => errs.push(e.message));
+  await q.addInitScript(INIT);
+  await q.clock.install({ time: T0 });
+  await q.goto(BASE);
+  const start = i => q.locator(`#seat-b${i} .btn-primary`).click();
+  await start(1); await q.clock.fastForward(20 * 60000);
+  await start(2); await start(5); await q.clock.fastForward(15 * 60000);
+  await start(3); await q.clock.fastForward(12 * 60000);
+  await start(6); await q.clock.fastForward(14 * 60000);
+  await q.locator('#seat-b5 .btn-extend').click();
+  await q.locator('#seat-b3 .btn-primary').click();   // pause B3
+  await q.clock.fastForward(1000);
+  fs.mkdirSync(SHOTS, { recursive: true });
+  await q.screenshot({ path: path.join(SHOTS, `${TAG}-${name}-default60.png`), fullPage: true });
+  ok(await q.evaluate(() => settings.walkinMin === 60 && seats.b1.limitMs === 3600000), `${name}: screenshot uses default 60-min settings`);
+  ok(errs.length === 0, `${name}: no page errors (migration/screenshot) ${errs.join(' | ')}`);
+  await c2.close();
 }
 
 function pngSize(buf) { return buf.slice(1, 4).toString() === 'PNG' ? [buf.readUInt32BE(16), buf.readUInt32BE(20)] : null; }
@@ -239,6 +287,7 @@ let TAG;
   const browser = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
   for (const [name, opts] of [['desktop', { viewport: { width: 1366, height: 900 } }], ['pixel7', devices['Pixel 7']]]) {
     await featureTests(browser, name, opts);
+    await migrationAndShot(browser, name, opts);
     await pwaTests(browser, name, opts);
   }
   await browser.close();

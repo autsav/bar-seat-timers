@@ -1,7 +1,7 @@
 {
   "name": "Bar Seat Timers",
   "short_name": "Seat Timers",
-  "description": "Session timers for bar seats B1–B8 (walk-in 60 / booking 90).",
+  "description": "Session timers for bar seats B1–B8 (walk-in, 60 min default).",
   "id": "./",
   "start_url": "./",
   "scope": "./",
