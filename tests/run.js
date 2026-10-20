@@ -25,6 +25,7 @@ function serve() {
 
 // Mock Wake Lock + controllable visibility, injected before the page script runs.
 const INIT = () => {
+  window.__noLite = 1;   // tests assert the full look; auto Smooth mode is covered by smoothTests
   window.__wake = { requests: 0, releases: 0, active: null };
   const mk = () => {
     const t = new EventTarget(); t.released = false; t.type = 'screen';
