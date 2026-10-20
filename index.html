@@ -589,6 +589,7 @@
   @media (min-width: 360px) { .seat-nav { display: none !important; } }   /* every seat is readable in the fan / depth stack; chips only as a <360px fallback */
   /* ============ Chips (v3.9): narrow phones get a seat chip row under the fan; side strips become plain peeks ============ */
   @media (max-width: 359px) {
+    body .seats .seat .timer { font-size: 9.2vw; }
     body:not(.select-mode) .seats .seat.side .mini > * { display: none; }   /* decorative peek: status edge only, no squeezed text */
     body:not(.select-mode) .seats .seat.side .mini { width: 100% !important; z-index: 30; }
     body:not(.select-mode) .seats .seat.side .dim { z-index: 31; }   /* the whole side card is a clean cover, so nothing reads as clipped */
@@ -722,7 +723,7 @@
   body.depth:not(.select-mode) .seats .seat.side.flag::before { box-shadow: 0 0 0 calc(3px * var(--tinv, 6)) var(--glow), 0 0 calc(18px * var(--tinv, 6)) var(--glow); border-radius: calc(12px * var(--tinv, 6)); }
   body.depth .seats .seat.side.nudge { animation: none; }
   @keyframes depthNudge { 0%, 60%, 100% { translate: 0 0; } 75% { translate: 0 calc(10px * var(--tinv, 6)); } 88% { translate: 0 calc(3px * var(--tinv, 6)); } }
-  body.depth:not(.select-mode) .seats .seat.side.nudge:not(.paused) { animation: depthNudge 2.4s var(--ease) infinite; }
+  body.depth:not(.select-mode) .seats .seat.side.nudge:not(.paused) { animation: shake 4s ease-in-out infinite, depthNudge 2.4s var(--ease) infinite; }
   @media (prefers-reduced-motion: reduce) { body.depth .seats .seat.side.nudge { animation: none !important; } }
 </style>
 </head>
@@ -1370,6 +1371,24 @@ function glideTo(sc, to) {
   };
   glide = { raf: requestAnimationFrame(step), max: sc.scrollWidth - sc.clientWidth };
 }
+// Depth swap (FLIP): jump the layout to the new seat at once, then animate every card from its old pose to its new one
+// on the compositor (transform + opacity only). The tapped card comes forward and grows; the old front recedes into its slot.
+function depthSwap(sc, to) {
+  glideStop();
+  const cards = [...sc.children], old = cards.map(c => [c.style.transform, c._refs ? c._refs.mini.style.opacity : '']);
+  cards.forEach(c => { (c._swap || []).forEach(a => { try { a.cancel(); } catch (e) {} }); c._swap = null; });
+  sc.scrollLeft = to; updateFlow(to);
+  const o = { duration: 420, easing: isPremium() ? 'cubic-bezier(.22,.61,.36,1)' : 'cubic-bezier(.34,1.25,.64,1)' };
+  let last = null;
+  cards.forEach((c, i) => {
+    const nt = c.style.transform; if (nt === old[i][0]) return;
+    const a = FX.anim(c, [{ transform: old[i][0] || 'none' }, { transform: nt || 'none' }], o); if (!a) return;
+    c._swap = [a]; last = a;
+    const m = c._refs && c._refs.mini, mo = m ? m.style.opacity : ''; if (m && mo !== old[i][1]) { const b = FX.anim(m, [{ opacity: old[i][1] === '' ? 1 : +old[i][1] }, { opacity: mo === '' ? 1 : +mo }], o); if (b) c._swap.push(b); }
+  });
+  moving();
+  if (last) last.onfinish = () => { sfx('settle'); moving(); };
+}
 function jumpTo(id, smooth) {
   flowTarget = id; userScroll = false;
   const c = document.getElementById('seat-' + id); if (!c) return;
@@ -1377,7 +1396,8 @@ function jumpTo(id, smooth) {
   if (typeof layoutFlow === 'function') layoutFlow();
   const left = c.offsetLeft - (sc.clientWidth - c.offsetWidth) / 2;
   const to = Math.max(0, Math.min(left, sc.scrollWidth - sc.clientWidth));
-  if (smooth && FX.on()) glideTo(sc, to);
+  if (smooth && FX.on() && FG && FG.depth && !selectMode && Math.abs(sc.scrollLeft - to) > 1) depthSwap(sc, to);
+  else if (smooth && FX.on()) glideTo(sc, to);
   else { glideStop(); sc.scrollLeft = to; updateFlow(); }
   delete seatAlerts[id]; updateNav();
 }

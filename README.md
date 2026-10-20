@@ -109,3 +109,11 @@ Cover Flow, alerts, selection, reduced motion, high contrast and the guest view 
   - Ambient loops and reflections pause while the fan moves.
 - **Smooth mode:** if motion frames run slow on a device (p75 over 26ms in two separate movements), heavy decoration switches off automatically and stays off on that device. It is stored in `localStorage` as `bst.lite`.
 - **Perf probe:** `node tests/perf.js [url]` runs Pixel 7 emulation at 4x CPU throttle and reports rAF frame stats plus DevTools metrics for a swipe, tap-to-front, and idle.
+
+## Depth stack (v4.0): phone portrait
+- **Layout (360–599px wide):** the centre seat is a large card in front. The other 7 seats are smaller cards behind it, slightly dimmed (never blurred), raised in a shallow arc. They run B8..B1 left to right.
+- **Back cards:** each one's top peeks out above the front card and shows the seat number, minutes left (or free/up), a status-coloured edge and dot, and a dashed "paused" state. Each has at least a 52×60px tap area.
+- **Tap a back card:** it swaps to the front. The cards animate from their old poses to the new ones (FLIP, transform and opacity only): the tapped card grows forward while the old front recedes into its slot.
+- **Swipe:** still steps through seats, with the same continuous pose blend.
+- **Alerts:** a time-up back card pulses and nudges down toward the front, and the Show button stays.
+- **Narrower screens:** below 360px, the chip row returns as a fallback. Wider screens keep the fan.

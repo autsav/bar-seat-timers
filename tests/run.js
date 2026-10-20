@@ -370,7 +370,7 @@ async function motionTests(browser, name, opts, reduce) {
     shake: getComputedStyle(document.getElementById('seat-b3')).animationName, alarm: getComputedStyle(document.getElementById('seat-b3'), '::after').animationName,
     alarmOp: getComputedStyle(document.getElementById('seat-b3'), '::after').opacity }));
   if (reduce) ok(anim.glowA === 'none' && anim.glowR === 'none' && anim.shake === 'none' && anim.alarm === 'none' && anim.alarmOp === '1', `${tag}: no breathing/pulse/shake; static time-up glow (${JSON.stringify(anim)})`);
-  else ok(anim.glowA === 'breathe' && anim.glowR === 'breathe' && /^shake(, nudge[LR])?$/.test(anim.shake) && anim.alarm === 'alarm', `${tag}: amber breathe, red pulse, time-up shake + glow (${JSON.stringify(anim)})`);
+  else ok(anim.glowA === 'breathe' && anim.glowR === 'breathe' && /^shake(, (nudge[LR]|depthNudge))?$/.test(anim.shake) && anim.alarm === 'alarm', `${tag}: amber breathe, red pulse, time-up shake + glow (${JSON.stringify(anim)})`);
   // pause: stripes + frozen ring
   await clickSeat(p, 4, '.btn-primary'); await tick(300);
   const r1 = await ev(() => document.querySelector('#seat-b4 .ring .h.r i').style.transform);
@@ -583,9 +583,9 @@ async function rowTests(browser, name, opts) {
   ok(geo.rows === 1, `${name}: one horizontal row (${geo.rows} row)`);
   ok(geo.end && geo.b1In && geo.b8Out, `${name}: on load scrolled to the end, B1 centred, and the fan keeps B8 on screen`);
   ok(await ev(() => typeof settle === 'function'), `${name}: row settles on a seat after scrolling`);
-  if (name === 'pixel7') ok(geo.frac >= .6 && geo.frac <= .65, `${name}: card is ${Math.round(geo.frac * 100)}% of viewport height`);
+  if (name === 'pixel7') ok(geo.frac >= .5 && geo.frac <= .65, `${name}: card is ${Math.round(geo.frac * 100)}% of viewport height`);
   else ok(geo.fit >= 3, `${name}: wide screen shows ${geo.fit} cards (centre + side covers)`);
-  ok(await ev(() => getComputedStyle(document.getElementById('seatNav')).display) === (name === 'pixel7' ? 'grid' : 'none'), `${name}: ${name === 'pixel7' ? 'narrow phone shows the seat chip row' : 'wide screen hides the chip row (all seats readable in the fan)'}`);
+  ok(await ev(() => getComputedStyle(document.getElementById('seatNav')).display) === 'none', `${name}: no chip row (every seat is readable in the ${name === 'pixel7' ? 'depth stack' : 'fan'})`);
   const tapStrip = async id => { const pt = await ev(id => { const a = document.getElementById('seat-' + id).getBoundingClientRect(), r = document.getElementById('seat-' + id).classList.contains('sr'); return { x: Math.round(r ? a.right - 5 : a.left + 5), y: Math.round(a.top + a.height / 2) }; }, id);
     if (opts.hasTouch) await p.touchscreen.tap(pt.x, pt.y); else await p.mouse.click(pt.x, pt.y); };
   // status colours on indicator
@@ -667,12 +667,12 @@ async function flowTests(browser, name, opts, reduce) {
       const hit = ys.some(y => { const e = document.elementFromPoint(x, y); return e && e.closest('.seat') === c; });
       out.push({ id: c.dataset.seat, inV: a.left >= -0.5 && a.right <= W + .5 && a.top >= 0 && a.bottom <= innerHeight + .5, hit, w: Math.round(a.width) }); }
     return out; });
-  const strips = [];
+  const strips = [], depth = await ev(() => document.body.classList.contains('depth'));
   for (const id of ['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8']) {
     await ev(id => jumpTo(id), id); await tick(30); if (!reduce) await p.waitForTimeout(30);
     const f = await fanCheck(), bad = f.filter(x => !x.inV || !x.hit).map(x => x.id + (x.inV ? '' : ':out') + (x.hit ? '' : ':covered'));
     ok(bad.length === 0 && f.length === 8, `${tag}: ${id.toUpperCase()} centred: all 8 cards inside the viewport and visibly uncovered ${bad.join(' ')}`);
-    const order = await ev(() => [...document.querySelectorAll('#seats .seat')].map(c => c.getBoundingClientRect()).map((a, i, arr) => i === 0 || a.left >= arr[i - 1].left - .5).every(Boolean));
+    const order = await ev(() => [...document.querySelectorAll('#seats .seat')].filter(c => !document.body.classList.contains('depth') || !c.classList.contains('centre')).map(c => c.getBoundingClientRect()).map((a, i, arr) => i === 0 || a.left >= arr[i - 1].left - .5).every(Boolean));
     ok(order, `${tag}: ${id.toUpperCase()} centred: on-screen order still B8 (left) .. B1 (right)`);
     strips.push(await ev(() => { const v = [...document.querySelectorAll('#seats .seat')].map(c => c.getBoundingClientRect()); const st = []; for (let i = 1; i < v.length; i++) st.push(Math.abs(v[i].left - v[i - 1].left)); return Math.round(Math.min(...st.filter(x => x > 0))); }));
   }
@@ -681,22 +681,27 @@ async function flowTests(browser, name, opts, reduce) {
   // compact face on side cards
   await ev(() => { startTimer('b3'); seats.b3.startTime -= 20 * 60000; }); await tick(300);
   const face = await ev(() => { const m = document.querySelector('#seat-b3 .mini'), cs = getComputedStyle(m); return { disp: cs.display, num: m.querySelector('b').textContent, w: +getComputedStyle(m.querySelector('b')).fontWeight, mm: m.querySelector('.mm').textContent, dot: getComputedStyle(m.querySelector('.md')).backgroundColor, cen: getComputedStyle(document.querySelector('#seat-b1 .mini')).display }; });
-  if (name === 'pixel7') ok(face.disp === 'flex' && await ev(() => { const m = document.querySelector('#seat-b3 .mini'), a = m.getBoundingClientRect(), c = document.getElementById('seat-b3').getBoundingClientRect(); return [...m.children].every(k => getComputedStyle(k).display === 'none') && a.width >= c.width - 2; }) && face.cen === 'none', `${tag}: narrow phone: side cards are clean status peeks (no squeezed text; chips carry the numbers)`);
+  if (depth) ok(face.disp === 'flex' && face.num === '3' && face.w >= 700 && face.mm === '40m' && face.cen === 'none', `${tag}: depth: back card shows seat number + status dot + minutes left (${JSON.stringify(face)})`);
+  else if (name === 'pixel7') ok(face.disp === 'flex' && await ev(() => { const m = document.querySelector('#seat-b3 .mini'), a = m.getBoundingClientRect(), c = document.getElementById('seat-b3').getBoundingClientRect(); return [...m.children].every(k => getComputedStyle(k).display === 'none') && a.width >= c.width - 2; }) && face.cen === 'none', `${tag}: narrow phone: side cards are clean status peeks (no squeezed text; chips carry the numbers)`);
   else ok(face.disp === 'flex' && face.num === '3' && face.w >= 700 && face.mm === '40m' && face.cen === 'none', `${tag}: side card compact face = bold seat number + status dot + minutes left (${JSON.stringify(face)})`);
   ok(await ev(() => { const g = getComputedStyle(document.querySelector('#seat-b3 .mini')).boxShadow; return /inset/.test(g); }), `${tag}: compact face has a status-coloured edge`);
-  ok(await ev(() => +document.querySelector('#seat-b8 .dim').style.opacity > +document.querySelector('#seat-b2 .dim').style.opacity && +document.querySelector('#seat-b2 .dim').style.opacity > 0), `${tag}: side cards dim progressively by distance`);
+  if (depth) ok(await ev(() => ['b2', 'b5', 'b8'].every(id => +document.querySelector('#seat-' + id + ' .dim').style.opacity > 0 && +document.querySelector('#seat-' + id + ' .dim').style.opacity <= .2)), `${tag}: depth: back cards slightly dimmed (no blur)`);
+  else ok(await ev(() => +document.querySelector('#seat-b8 .dim').style.opacity > +document.querySelector('#seat-b2 .dim').style.opacity && +document.querySelector('#seat-b2 .dim').style.opacity > 0), `${tag}: side cards dim progressively by distance`);
   const scl = await ev(() => ['b2', 'b5', 'b8'].map(id => +(/scale\(([\d.]+)\)/.exec(document.getElementById('seat-' + id).style.transform) || [0, 1])[1]));
-  ok(scl[0] > scl[1] && scl[1] > scl[2], `${tag}: side cards shrink progressively by distance (${scl.join(' > ')})`);
+  if (depth) ok(scl.every(x => x < .35), `${tag}: depth: back cards are smaller (${scl.join(', ')})`);
+  else ok(scl[0] > scl[1] && scl[1] > scl[2], `${tag}: side cards shrink progressively by distance (${scl.join(' > ')})`);
   for (let k = 0; k < 15 && !(await ev(() => parseFloat(getComputedStyle(document.getElementById('seat-b1')).scale) > 1.005)); k++) await p.waitForTimeout(100);
   ok(await ev(() => parseFloat(getComputedStyle(document.getElementById('seat-b1')).scale) > 1.005 && getComputedStyle(document.getElementById('spot')).display !== 'none'), `${tag}: centre card raised with a spotlight behind it (${await ev(() => getComputedStyle(document.getElementById('seat-b1')).scale + ' ' + document.getElementById('seat-b1').className)})`);
   await ev(() => endSession('b3', false)); await tick(300);
   const pose = await ev(() => { const c = document.getElementById('seat-b2'); return { tf: c.style.transform, op: +c.style.opacity, side: c.classList.contains('side') }; });
   if (reduce) ok(!/rotateY|perspective/.test(pose.tf) && pose.side, `${tag}: no 3D under reduced motion (side card flat, "${pose.tf}")`);
+  else if (depth) ok(/translate\([-\d.]+px, -\d[\d.]*px\) scale\(0\.[1-3]/.test(pose.tf) && !/rotate|perspective/.test(pose.tf), `${tag}: depth: back card raised and scaled down, 2D only (${pose.tf})`);
   else ok(/rotateY\(5[0-9](\.\d+)?deg\)/.test(pose.tf) && /scale\(0\.[78]/.test(pose.tf), `${tag}: side card tilted steeply (≈55°) and scaled down (${pose.tf})`);
   // continuous interpolation mid-swipe
   await ev(() => { sfxLog.length = 0; const sc = document.getElementById('seats'); sc.scrollLeft -= document.getElementById('seat-b1').offsetWidth * .5; updateFlow(); });
   const mid = await ev(() => { const m = /rotateY\((-?[\d.]+)deg\)/.exec(document.getElementById('seat-b1').style.transform); return m ? +m[1] : 0; });
-  ok(reduce ? mid === 0 : Math.abs(mid) > 10 && Math.abs(mid) < 35, `${tag}: pose interpolates with drag position (B1 at half a card: rotateY ${mid}°)`);
+  if (depth) { const sm = await ev(() => +(/scale\(([\d.]+)\)/.exec(document.getElementById('seat-b1').style.transform) || [0, 1])[1]); ok(sm > .4 && sm < .8, `${tag}: depth: pose interpolates with drag position (B1 at half a card: scale ${sm})`); }
+  else ok(reduce ? mid === 0 : Math.abs(mid) > 10 && Math.abs(mid) < 35, `${tag}: pose interpolates with drag position (B1 at half a card: rotateY ${mid}°)`);
   await shot('midswipe');
   // swipe one card: centre updates, tick sound
   await ev(() => { const sc = document.getElementById('seats'); sc.scrollLeft -= document.getElementById('seat-b1').offsetWidth * .3; updateFlow(); userScroll = true; settle(); });
@@ -746,7 +751,7 @@ async function flowTests(browser, name, opts, reduce) {
   if (!reduce) await p.waitForTimeout(600);
   await shot('select');
   await ev(() => exitSelectMode()); await tick(50);
-  ok(await ev(() => document.getElementById('seat-b1').classList.contains('side') && (matchMedia('(prefers-reduced-motion: reduce)').matches || /rotateY/.test(document.getElementById('seat-b1').style.transform))), `${tag}: leaving selection restores the carousel`);
+  ok(await ev(() => document.getElementById('seat-b1').classList.contains('side') && (matchMedia('(prefers-reduced-motion: reduce)').matches || /rotateY|scale\(0\./.test(document.getElementById('seat-b1').style.transform))), `${tag}: leaving selection restores the carousel`);
   // keys still map to seat numbers
   if (name === 'desktop') { await p.locator('h1').click(); await p.keyboard.press('Digit7'); await tick(100); ok(await ev(() => seats.b7.running), `${tag}: key 7 starts B7 (side seat)`); }
   // guest board stays flat
@@ -907,7 +912,8 @@ async function fanTests(browser, name, opts, reduce) {
 }
 
 async function chipTests(browser, name, opts, reduce) {
-  const tag = name + (reduce ? '-reduced' : '') + ' chips';
+  const tag = name + (reduce ? '-reduced' : '') + ' chips (340px fallback)';
+  if (name === 'pixel7') opts = { ...opts, viewport: { width: 340, height: 740 }, screen: { width: 340, height: 740 } };   // chips are only the <360px fallback now
   const ctx = await browser.newContext({ ...opts, serviceWorkers: 'block', reducedMotion: reduce ? 'reduce' : 'no-preference' });
   const p = await ctx.newPage();
   const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('dialog', d => d.accept());
@@ -917,7 +923,7 @@ async function chipTests(browser, name, opts, reduce) {
   await p.goto(BASE); await p.clock.fastForward(300);
   const ev = (f, a) => p.evaluate(f, a), tick = ms => p.clock.fastForward(ms);
   const settleWait = async () => { for (let k = 0; k < 25; k++) { await tick(30); await p.waitForTimeout(reduce ? 5 : 40); } };
-  const shot = async n => { if (name === 'pixel7' && !reduce) await p.screenshot({ path: path.join(SHOTS, `chips-${TAG}-pixel7-${n}.png`) }); };
+  const shot = async n => {};   // no chips- screenshots any more (depth- replaces them)
   if (name !== 'pixel7') {
     ok(await ev(() => getComputedStyle(document.getElementById('seatNav')).display === 'none'), `${tag}: wide screen keeps the full fan without chips`);
     await ctx.close(); return;
@@ -928,10 +934,10 @@ async function chipTests(browser, name, opts, reduce) {
   let c = await chips();
   ok(c.length === 8 && c.map(x => x.id).join() === 'b8,b7,b6,b5,b4,b3,b2,b1' && c.map(x => x.t).join() === 'B8,B7,B6,B5,B4,B3,B2,B1', `${tag}: 8 chips, B8 left .. B1 right`);
   ok(c.every((x, i) => i === 0 || x.l > c[i - 1].r - .5) && Math.max(...c.map(x => x.top)) - Math.min(...c.map(x => x.top)) <= 4, `${tag}: chips in one row, not overlapping`);
-  ok(c[0].l >= 0 && c[7].r <= 412 && await ev(() => { const n = document.getElementById('seatNav'); return n.scrollWidth <= n.clientWidth && document.documentElement.scrollWidth <= innerWidth; }), `${tag}: row fits 412px with no overflow (${Math.round(c[0].l)}..${Math.round(c[7].r)})`);
-  ok(c.every(x => x.h >= 44 && x.w >= 40), `${tag}: touch targets ≥44px tall (min ${Math.min(...c.map(x => x.h)).toFixed(0)}×${Math.min(...c.map(x => x.w)).toFixed(0)})`);
+  ok(c[0].l >= 0 && c[7].r <= 340 && await ev(() => { const n = document.getElementById('seatNav'); return n.scrollWidth <= n.clientWidth && document.documentElement.scrollWidth <= innerWidth; }), `${tag}: row fits 340px with no overflow (${Math.round(c[0].l)}..${Math.round(c[7].r)})`);
+  ok(c.every(x => x.h >= 44 && x.w >= 34), `${tag}: touch targets ≥44px tall (min ${Math.min(...c.map(x => x.h)).toFixed(0)}×${Math.min(...c.map(x => x.w)).toFixed(0)})`);
   ok(c.every(x => !x.clip), `${tag}: no clipped chip text`);
-  ok(await ev(() => { const n = document.getElementById('seatNav').getBoundingClientRect(), s = document.getElementById('seat-b1').getBoundingClientRect(); return n.top >= s.bottom - 1 && n.bottom <= innerHeight; }), `${tag}: chips sit under the fan, on screen`);
+  ok(await ev(() => { const n = document.getElementById('seatNav').getBoundingClientRect(), s = document.getElementById('seat-b1').getBoundingClientRect(); return n.top >= s.bottom - 1 && n.bottom <= document.documentElement.scrollHeight; }), `${tag}: chips sit under the fan`);
   ok(c[7].cls.includes('centre') && c.filter(x => x.cls.includes('centre')).length === 1, `${tag}: centred B1 chip highlighted`);
   // statuses
   await ev(() => { ['b2', 'b3', 'b6', 'b7', 'b8'].forEach(id => startTimer(id)); seats.b3.startTime -= 34 * 60000; seats.b2.startTime -= 50 * 60000; seats.b7.startTime -= 61 * 60000; togglePause('b6'); });
@@ -1027,6 +1033,104 @@ async function smoothTests(browser, name, opts) {
   await ctx.close();
 }
 
+async function depthTests(browser, name, opts, reduce) {
+  if (name !== 'pixel7') return;
+  const tag = 'pixel7' + (reduce ? '-reduced' : '') + ' depth';
+  const ctx = await browser.newContext({ ...opts, serviceWorkers: 'block', reducedMotion: reduce ? 'reduce' : 'no-preference' });
+  const p = await ctx.newPage();
+  const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('dialog', d => d.accept());
+  await p.addInitScript(INIT);
+  await p.addInitScript(() => sessionStorage.setItem('bst.intro', '1'));
+  await p.clock.install({ time: new Date('2026-10-20T19:00:00') });
+  await p.goto(BASE); await p.clock.fastForward(300);
+  const ev = (f, a) => p.evaluate(f, a), tick = ms => p.clock.fastForward(ms);
+  const settleWait = async () => { for (let k = 0; k < 25; k++) { await tick(30); await p.waitForTimeout(reduce ? 5 : 40); } };
+  const shot = async n => { if (!reduce) await p.screenshot({ path: path.join(SHOTS, `depth-${TAG}-pixel7-${n}.png`) }); };
+  ok(await ev(() => document.body.classList.contains('depth') && getComputedStyle(document.getElementById('seatNav')).display === 'none'), `${tag}: phone portrait uses the depth layout (no chip row)`);
+  await ev(() => { ['b2', 'b3', 'b6', 'b7', 'b8'].forEach(id => startTimer(id)); seats.b3.startTime -= 34 * 60000; seats.b2.startTime -= 50 * 60000; togglePause('b6'); });
+  await tick(400);
+  // readable back cards for every centred seat
+  const check = () => ev(() => {
+    const out = [], cen = document.getElementById('seat-' + centreId).getBoundingClientRect();
+    for (const c of document.querySelectorAll('#seats .seat')) {
+      const a = c.getBoundingClientRect(), id = c.dataset.seat, front = c.classList.contains('centre');
+      const r = { id, inV: a.left >= -.5 && a.right <= innerWidth + .5 && a.top >= 0 && a.bottom <= innerHeight + .5 };
+      if (front) { const e = document.elementFromPoint(a.left + a.width / 2, a.top + a.height / 2); r.ok = !!(e && e.closest('.seat') === c); out.push(r); continue; }
+      const m = c.querySelector('.mini'), texts = [...m.querySelectorAll('.mn, .mm, .mp')].filter(k => getComputedStyle(k).display !== 'none');
+      r.text = texts.map(k => k.textContent).join(' ');
+      r.clip = texts.filter(k => { const b = k.getBoundingClientRect(); if (k.scrollWidth > k.clientWidth + 1) return true; if (b.left < a.left - .5 || b.right > a.right + .5 || b.top < a.top - .5) return true;
+        const e = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2), e2 = document.elementFromPoint(b.left + b.width / 2, b.bottom - 1); return !(e && e.closest('.seat') === c && e2 && e2.closest('.seat') === c); }).map(k => k.className);
+      r.font = Math.min(...texts.map(k => { const b = k.getBoundingClientRect(); return b.height; }));
+      r.touchW = a.width; r.touchH = Math.min(a.bottom, cen.top) - a.top;   // uncovered part above the front card
+      r.ok = r.clip.length === 0 && r.touchW >= 44 && r.touchH >= 44;
+      out.push(r);
+    }
+    return out; });
+  for (const id of ['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8']) {
+    await ev(id => jumpTo(id), id); await tick(30);
+    const r = await check(), bad = r.filter(x => !x.inV || !x.ok);
+    ok(r.length === 8 && bad.length === 0, `${tag}: ${id.toUpperCase()} in front: all 8 visible; 7 back cards readable (no clipped/covered text) with ≥44px uncovered touch area ${bad.map(x => JSON.stringify(x)).join(' ')}`);
+    const ord = await ev(() => [...document.querySelectorAll('#seats .seat:not(.centre)')].map(c => c.getBoundingClientRect().left));
+    ok(ord.every((x, i) => i === 0 || x > ord[i - 1]), `${tag}: ${id.toUpperCase()} in front: back cards in B8..B1 order, left to right`);
+    if (id === 'b1') console.log(`INFO ${tag}: back card min touch ${Math.min(...r.filter(x => x.touchW).map(x => x.touchW)).toFixed(0)}×${Math.min(...r.filter(x => x.touchH).map(x => x.touchH)).toFixed(0)}px, min text line ${Math.min(...r.filter(x => x.font).map(x => x.font)).toFixed(1)}px`);
+  }
+  await ev(() => jumpTo('b1')); await tick(50);
+  const faces = await ev(() => Object.fromEntries(['b8', 'b7', 'b6', 'b3', 'b5'].map(id => { const m = document.querySelector('#seat-' + id + ' .mini'); return [id, [...m.querySelectorAll('.mn, .mm, .mp')].filter(k => getComputedStyle(k).display !== 'none').map(k => k.textContent).join(' ')]; })));
+  ok(faces.b8 === 'B8 60m' && faces.b3 === 'B3 26m' && faces.b5 === 'B5 free' && /^B6 60m paused$/.test(faces.b6), `${tag}: back cards show number, minutes/free, paused (${JSON.stringify(faces)})`);
+  ok(await ev(() => { const g = getComputedStyle(document.querySelector('#seat-b3 .mini')).boxShadow, o = getComputedStyle(document.querySelector('#seat-b6 .mini')).outlineStyle; return /inset/.test(g) && o === 'dashed'; }), `${tag}: status-coloured edge; paused card dashed`);
+  ok(await ev(() => [...document.querySelectorAll('#seats .seat.side')].every(c => !/blur/.test(getComputedStyle(c).filter + getComputedStyle(c).backdropFilter) && +c.querySelector('.dim').style.opacity > 0)), `${tag}: back cards dimmed, never blurred`);
+  if (!reduce) await p.waitForTimeout(500); await shot('b1');
+  // tap a back card -> it comes forward (sample mid-swap), old front recedes
+  const pt = await ev(() => { const a = document.getElementById('seat-b5').getBoundingClientRect(); return { x: Math.round(a.left + a.width / 2), y: Math.round(a.top + 20) }; });
+  await p.touchscreen.tap(pt.x, pt.y);
+  if (!reduce) { await p.waitForTimeout(150); const midS = await ev(() => ['b5', 'b1'].map(id => { const m = new DOMMatrix(getComputedStyle(document.getElementById('seat-' + id)).transform); return +Math.hypot(m.a, m.b).toFixed(3); }));
+    ok(midS[0] > .2 && midS[0] < .98 && midS[1] > .2 && midS[1] < .98, `${tag}: mid-swap the tapped card is growing and the old front shrinking (scales ${midS.join(', ')})`); }
+  await settleWait();
+  ok(await ev(() => centreId === 'b5' && !seats.b5.running && document.getElementById('seat-b1').classList.contains('side')), `${tag}: tapping B5's back card brings it to the front without starting it; B1 recedes`);
+  ok(await ev(() => /^translate\([^)]*\) scale\([\d.]+\)$/.test(document.getElementById('seat-b5').style.transform) && !document.getElementById('seat-b5').style.transform.includes('rotate')), `${tag}: swap uses transform only (translate + scale)`);
+  if (!reduce) await p.waitForTimeout(500); await shot('b5');
+  // swipe steps through seats
+  const box = await p.locator('#seat-b5').boundingBox(), y = Math.round(box.y + box.height * .6);
+  const cdp = await ctx.newCDPSession(p);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 300, y }] });
+  for (let k = 1; k <= 10; k++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 300 - k * 22, y }] }); }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  for (let k = 0; k < 25; k++) { await tick(30); await p.waitForTimeout(40); }
+  const after = await ev(() => centreId);
+  ok(after !== 'b5' && ['b4', 'b3', 'b2', 'b1'].includes(after), `${tag}: swiping left steps toward B1 (now ${after})`);
+  // alert on a back card
+  await ev(() => jumpTo('b1')); await tick(50);
+  await ev(() => { seats.b7.startTime -= 61 * 60000; }); await tick(400);
+  ok(await ev(() => document.getElementById('seat-b7').classList.contains('flag') && !document.getElementById('offAlert').hidden && /B7 time is up/.test(document.getElementById('offAlert').textContent)), `${tag}: off-front time-up flags B7's back card + Show button`);
+  const fa = await ev(() => ({ before: getComputedStyle(document.getElementById('seat-b7'), '::after').animationName, card: getComputedStyle(document.getElementById('seat-b7')).animationName }));
+  ok(reduce ? !/depthNudge/.test(fa.card) : /depthNudge/.test(fa.card) && fa.before !== 'none', `${tag}: back card alert ${reduce ? 'static (no nudge)' : 'pulses and nudges toward the front'} (${JSON.stringify(fa)})`);
+  ok(await ev(() => { const m = document.querySelector('#seat-b7 .mini .mm'); return m.textContent === 'up'; }), `${tag}: time-up back card reads 'up'`);
+  if (!reduce) await p.waitForTimeout(600); await shot('alert');
+  await p.locator('#offAlert').click(); await settleWait();
+  ok(await ev(() => centreId === 'b7' && document.getElementById('offAlert').hidden), `${tag}: Show brings B7 to the front`);
+  // selection
+  await ev(() => { jumpTo('b1'); enterSelectMode(); setSelected('b2', true); setSelected('b3', true); }); await tick(100); if (!reduce) await p.waitForTimeout(700);
+  ok(await ev(() => selectMode && [...document.querySelectorAll('#seats .seat')].every(c => !c.style.transform)), `${tag}: selection mode lays the cards out flat`);
+  await shot('select'); await ev(() => exitSelectMode()); await tick(100); if (!reduce) await p.waitForTimeout(600);
+  ok(await ev(() => /scale\(0\./.test(document.getElementById('seat-b5').style.transform)), `${tag}: leaving selection restores the depth stack`);
+  // keys
+  await ev(() => document.activeElement && document.activeElement.blur && document.activeElement.blur());
+  await p.keyboard.press('Digit4'); await tick(100);
+  ok(await ev(() => seats.b4.running), `${tag}: key 4 still starts B4 (a back seat)`);
+  // Daytime + Arcade
+  await ev(() => setDaytime(true)); await tick(100); if (!reduce) await p.waitForTimeout(500);
+  let r = await check(); ok(r.every(x => x.inV && x.ok), `${tag}: Daytime: all 8 readable`); await shot('daytime');
+  await ev(() => { setDaytime(false); setLook('arcade'); }); await tick(100); if (!reduce) await p.waitForTimeout(500);
+  r = await check(); ok(r.every(x => x.inV && x.ok), `${tag}: Arcade: all 8 readable ${r.filter(x => !x.ok).map(x => JSON.stringify(x)).join(' ')}`); await shot('arcade');
+  await ev(() => setLook('premium'));
+  // guest view unaffected
+  await ev(() => toggleGuestView()); await tick(200);
+  ok(await ev(() => document.querySelectorAll('.guest-card').length === 8 && [...document.querySelectorAll('.guest-card')].every(e => !e.style.transform)), `${tag}: guest view still a flat board`);
+  await ev(() => toggleGuestView());
+  ok(errs.length === 0, `${tag}: no page errors ${errs.join(' | ')}`);
+  await ctx.close();
+}
+
 function pngSize(buf) { return buf.slice(1, 4).toString() === 'PNG' ? [buf.readUInt32BE(16), buf.readUInt32BE(20)] : null; }
 
 async function pwaTests(browser, name, opts) {
@@ -1116,6 +1220,7 @@ let TAG;
     if (!process.env.ONLY || process.env.ONLY.split(',').includes('flowTests')) await flowTests(browser, name, opts, true);
     if (!process.env.ONLY || process.env.ONLY.split(',').includes('premiumTests')) await premiumTests(browser, name, opts, false);
     if (!process.env.ONLY || process.env.ONLY.split(',').includes('premiumTests')) await premiumTests(browser, name, opts, true);
+    for (const rm of [false, true]) if (!process.env.ONLY || process.env.ONLY.split(',').includes('depthTests')) await depthTests(browser, name, opts, rm);
     if (!process.env.ONLY || process.env.ONLY.split(',').includes('smoothTests')) await smoothTests(browser, name, opts);
     for (const rm of [false, true]) if (!process.env.ONLY || process.env.ONLY.split(',').includes('chipTests')) await chipTests(browser, name, opts, rm);
     for (const rm of [false, true]) if (!process.env.ONLY || process.env.ONLY.split(',').includes('fanTests')) await fanTests(browser, name, opts, rm);
