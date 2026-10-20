@@ -494,6 +494,89 @@
   .off-alert[hidden] { display: none; }
   body.guest-on .seat-nav, body.guest-on .off-alert { display: none; }
   body.select-mode .seats.painting { scroll-snap-type: none; }   /* let edge auto-scroll move freely; snap returns on release */
+
+  /* ============ Premium look (v3.7, default; Arcade = previous game look) ============ */
+  @font-face { font-family: 'InterLocal'; src: url('fonts/Inter-latin-var.woff2') format('woff2'); font-weight: 200 700; font-style: normal; font-display: swap; }
+  body.theme-premium { font-family: 'InterLocal', -apple-system, "Segoe UI", Roboto, sans-serif; letter-spacing: .005em;
+    --spring: cubic-bezier(.22,.61,.36,1); --ease: cubic-bezier(.25,.1,.25,1); --radius-sm: 12px; --radius: 18px; --radius-lg: 22px; }
+  body.theme-premium:not(.light):not(.high-contrast) {
+    --c-bg: #0c0d10; --c-surface: rgba(30,31,37,.74); --c-surface-strong: rgba(21,22,27,.94); --c-surface-raised: rgba(255,255,255,.05);
+    --c-border: rgba(255,255,255,.09); --c-highlight: rgba(255,255,255,.16); --c-text: #f3efe6; --c-text-muted: #bdb6a8;
+    --c-accent: #c3a063; --c-accent-hover: #d2b277; --c-text-on-accent: #17130b; --c-focus: #e8cf98; --c-select: #dcc28c;
+    --c-ok: #86d6ab; --c-ok-bg: rgba(31,154,99,.07); --c-warn: #ecc27a; --c-warn-bg: rgba(201,138,43,.08); --c-danger: #f2a6b0; --c-danger-bg: rgba(168,50,70,.12);
+    --c-paused: #c4b6e0; --c-paused-bg: rgba(140,120,190,.08); --c-track: rgba(255,255,255,.08);
+    --bar-ok: #1f9a63; --bar-warn: #c98a2b; --bar-danger: #a83246;
+    --shadow: 0 1px 1px rgba(0,0,0,.45), 0 10px 24px -8px rgba(0,0,0,.55), 0 32px 64px -24px rgba(0,0,0,.65);
+    --shadow-lg: 0 2px 4px rgba(0,0,0,.4), 0 24px 60px -12px rgba(0,0,0,.7); }
+  body.theme-premium:not(.light):not(.high-contrast)::before {
+    background: radial-gradient(80vmax 50vmax at 50% -12%, rgba(195,160,99,.13), transparent 62%),
+      repeating-linear-gradient(118deg, rgba(255,255,255,.014) 0 1px, transparent 1px 4px),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='3'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+      #0c0d10; }
+  body.theme-premium .mood { opacity: .45; } body.theme-premium .tint { opacity: .6; }
+  body.theme-premium .seat, body.theme-premium .glass, body.theme-premium .menu-panel, body.theme-premium .history, body.theme-premium .settings-panel, body.theme-premium .guest-view {
+    background-image: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.012) 40%, transparent); }
+  body.theme-premium:not(.high-contrast) .seat { box-shadow: inset 0 1px 0 var(--c-highlight), var(--shadow); border-left-width: 1px; }
+  body.theme-premium:not(.select-mode):not(.high-contrast) .seats .seat.centre { box-shadow: inset 0 1px 0 var(--c-highlight), 0 0 0 1px color-mix(in srgb, var(--glow) 70%, transparent), 0 0 38px -10px color-mix(in srgb, var(--glow) 60%, transparent), var(--shadow); }
+  body.theme-premium button { font-weight: 550; letter-spacing: .01em; }
+  body.theme-premium button.secondary { background: rgba(255,255,255,.035); }
+  body.theme-premium .li { width: 1.15em; height: 1.15em; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  body.theme-premium .badge .ic .li { width: 1em; height: 1em; }
+  body.theme-premium .topbar h1 { font-weight: 500; letter-spacing: .14em; text-transform: uppercase; font-size: var(--fs-sm); display: flex; align-items: center; gap: 10px; }
+  body.theme-premium .topbar h1 .li { width: 22px; height: 22px; color: var(--c-accent); }
+  body.theme-premium .seat-label { font-size: var(--fs-xs); font-weight: 600; letter-spacing: .22em; text-transform: uppercase; color: var(--c-text-muted); }
+  body.theme-premium .seat-label::before { content: "Seat · "; }
+  body.theme-premium .seat-label { color: var(--c-text); }
+  body.theme-premium .timer { font-weight: 250; letter-spacing: .01em; font-variant-numeric: tabular-nums lining-nums; }
+  body.theme-premium .badge { font-size: var(--fs-xs); font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
+  body.theme-premium .meta, body.theme-premium .hint { letter-spacing: .02em; }
+  body.theme-premium .summary .chip { font-size: var(--fs-xs); letter-spacing: .12em; text-transform: uppercase; }
+  body.theme-premium:not(.high-contrast) .summary .chip b { font-family: inherit; font-weight: 500; font-size: .95rem; letter-spacing: 0; color: #e8cf98; text-shadow: none; background: transparent; padding: 0 2px; font-variant-numeric: tabular-nums; }
+  body.theme-premium .seat-nav button { letter-spacing: .08em; font-weight: 600; }
+  body.theme-premium .seat-nav button.centre { box-shadow: 0 0 0 1px var(--c-accent); }
+  /* gradient ring + bright leading dot (rotation only) */
+  .ring .lead { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; display: none; }
+  body.theme-premium:not(.high-contrast) .ring .lead { display: block; }
+  .ring .lead::before { content: ""; position: absolute; inset: 0; border-radius: 50%;
+    background: conic-gradient(from 270deg, transparent 0deg, color-mix(in srgb, #fff3d6 55%, transparent) 90deg);
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 9px), #000 calc(100% - 9px)); mask: radial-gradient(farthest-side, transparent calc(100% - 9px), #000 calc(100% - 9px)); opacity: .55; }
+  .ring .lead::after { content: ""; position: absolute; left: 50%; top: 0; width: 11px; height: 11px; margin: -1px 0 0 -5.5px; border-radius: 50%;
+    background: #fff6de; box-shadow: 0 0 10px 2px color-mix(in srgb, var(--ring) 70%, #fff); }
+  .seat.free .ring .lead { opacity: 0; }
+  /* sheen on the centre card */
+  body.theme-premium:not(.select-mode) .seats .seat.centre .fx::after { content: ""; position: absolute; inset: -10% -60%; pointer-events: none;
+    background: linear-gradient(105deg, transparent 42%, rgba(255,246,222,.09) 50%, transparent 58%); transform: translateX(-100%); animation: sheen 11s cubic-bezier(.45,0,.2,1) infinite; }
+  @keyframes sheen { 0%, 72% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+  /* elegant banners, badge, shimmer */
+  body.theme-premium .banner { font: 300 clamp(1.1rem, 5vw, 1.6rem)/1.2 'InterLocal', sans-serif; letter-spacing: .28em; text-transform: uppercase; color: #f3e6c8;
+    background: rgba(16,16,20,.86); border: 1px solid rgba(195,160,99,.55); text-shadow: none; box-shadow: var(--shadow-lg); border-radius: 999px; padding: .7em 1.4em; }
+  body.theme-premium .seat .stamp { font: 500 .8rem/1 'InterLocal', sans-serif; letter-spacing: .3em; text-transform: uppercase; color: #f6d6db; rotate: none;
+    border: 1px solid rgba(242,166,176,.6); background: rgba(40,14,20,.85); border-radius: 999px; padding: .7em 1.2em; margin: -1em 0 0 -3.4em; }
+  .spark.gold { width: 4px; height: 4px; margin: -2px; background: #f6e3b4; box-shadow: 0 0 6px 1px rgba(232,207,152,.8); }
+  .confetti.shimmer { width: 4px; height: 4px; border-radius: 50%; background: #f1dcaa !important; box-shadow: 0 0 6px rgba(232,207,152,.9); }
+  /* intro: logo reveal */
+  #intro.lux { background: #0b0b0e; }
+  #intro.lux .logo { display: grid; justify-items: center; gap: 14px; opacity: 0; }
+  #intro.lux .logo .li { width: 56px; height: 56px; color: #d2b277; stroke-width: 1.2; }
+  #intro.lux .logo span { font: 300 1.1rem/1 'InterLocal', sans-serif; letter-spacing: .5em; text-transform: uppercase; color: #f3e6c8; padding-left: .5em; }
+  #intro.lux .logo i { display: block; width: 120px; height: 1px; background: linear-gradient(90deg, transparent, #c3a063, transparent); transform: scaleX(0); }
+  /* glass sheets + scrim */
+  #scrim { position: fixed; inset: 0; z-index: 49; background: rgba(4,4,6,.55); opacity: 0; pointer-events: none; transition: opacity .35s var(--ease);
+    -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
+  body.theme-premium.menu-open #scrim { opacity: 1; pointer-events: auto; }
+  body.theme-premium.sheet-open #scrim { opacity: 1; pointer-events: auto; z-index: 64; }
+  body.theme-premium .settings-panel, body.theme-premium .history { position: fixed; z-index: 65; left: 0; right: 0; bottom: 0; margin: 0 auto; max-width: 720px;
+    max-height: 86vh; overflow-y: auto; border-radius: 22px 22px 0 0; padding-bottom: max(var(--s-5), env(safe-area-inset-bottom));
+    background-color: rgba(22,23,28,.9); -webkit-backdrop-filter: blur(28px) saturate(150%); backdrop-filter: blur(28px) saturate(150%); animation: sheetUp .45s var(--ease); }
+  body.theme-premium.light .settings-panel, body.theme-premium.light .history { background-color: rgba(255,255,255,.94); }
+  @keyframes sheetUp { from { transform: translateY(100%); } }
+  body.theme-premium .menu-panel { animation: none; }
+  /* guest view */
+  body.theme-premium .guest-card .gt { font-weight: 300; }
+  body.theme-premium:not(.light) .gt .d:not(.sep) { background: linear-gradient(#1b1c21 0 49%, #08080a 49% 51%, #16171b 51%); color: #f3e6c8; }
+  body.theme-premium .guest-card strong { font-size: var(--fs-xs); letter-spacing: .25em; font-weight: 600; }
+  body.theme-premium #guestTitle { font-weight: 300; letter-spacing: .3em; text-transform: uppercase; font-size: var(--fs-md); }
+  .settings-panel select { color: var(--c-text); }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
     .seat.timeup::after, .seat.yellow:not(.paused)::before, .seat.red:not(.timeup):not(.paused)::before { opacity: .7; }
@@ -507,6 +590,7 @@
 <div class="tint" aria-hidden="true"><i class="t-green"></i><i class="t-yellow"></i><i class="t-red"></i><i class="t-paused"></i></div>
 <div class="mood" aria-hidden="true"><i class="m-amber"></i><i class="m-blue"></i></div>
 <div id="fxLayer" aria-hidden="true"></div>
+<div id="scrim" aria-hidden="true"></div>
 <header class="topbar">
   <div class="topbar-row">
     <h1><span aria-hidden="true">🍸</span> Seat Timers</h1>
@@ -587,6 +671,7 @@
   <p class="hint">Thresholds scale with the limit (60 min: amber at 30, red at 45). Changes apply to new sessions only; running seats keep the limit they started with.</p>
   <label>Manager PIN for resets (blank = none) <input type="password" id="setPin" inputmode="numeric" autocomplete="off"></label>
   <label><input type="checkbox" id="setMute"> Mute sounds</label>
+  <label>Look <select id="setLook" onchange="setLook(this.value)"><option value="premium">Premium</option><option value="arcade">Arcade (game look)</option></select></label>
   <label><input type="checkbox" id="setHighContrast"> High contrast</label>
   <label><input type="checkbox" id="setAutoEnd"> Auto-end a session when time is up</label>
   <label><input type="checkbox" id="setWakeLock"> Keep screen awake while seats are running <span id="wakeState"></span></label>
@@ -624,7 +709,7 @@ const DISPLAY_IDS = SEAT_IDS.slice().reverse();
 const byDisplay = ids => DISPLAY_IDS.filter(id => ids.includes(id));
 const STORE_KEY = 'barSeatTimers.v2';
 const DEFAULT_SETTINGS = { walkinMin: 60, greenPct: 50, amberPct: 75,
-  pin: '', mute: false, highContrast: false, theme: 'dark', autoEnd: false, wakeLock: true };
+  pin: '', mute: false, highContrast: false, theme: 'dark', look: 'premium', autoEnd: false, wakeLock: true };
 const UNDO_MS = 8000;
 const EXTEND_MS = 15 * 60 * 1000;
 
@@ -742,15 +827,25 @@ const SFX = {
   timeup: [[1046, 0, .14, 'sawtooth'], [784, .16, .14, 'sawtooth'], [523, .32, .34, 'sawtooth']]
 };
 const VIB = { start: 20, extend: [15, 40, 15], tick: 6 };
+// Premium: warmer glass chimes (pure sines, long soft decay) and crisp short haptics.
+const SFX_P = {
+  start:  [[1046.5, 0, .55, 'sine', .11], [1568, 0, .6, 'sine', .05], [2093, .01, .4, 'sine', .025]],
+  tick:   [[1500, 0, .045, 'sine', .03]],
+  extend: [[880, 0, .35, 'sine', .09], [1318.5, .07, .4, 'sine', .06]],
+  warn:   [[740, 0, .55, 'sine', .11], [1108.7, .02, .5, 'sine', .045]],
+  timeup: [[1318.5, 0, .8, 'sine', .12], [1046.5, .2, .9, 'sine', .1], [784, .4, 1.2, 'sine', .09]]
+};
+const VIB_P = { start: 10, extend: [8, 30, 8], tick: 4 };
 const sfxLog = [];
 function sfx(kind) {
-  if (VIB[kind]) haptic(VIB[kind]);
+  const V = isPremium() ? VIB_P : VIB, S = isPremium() ? SFX_P : SFX;
+  if (V[kind]) haptic(V[kind]);
   if (settings.mute) return;
   sfxLog.push(kind); if (sfxLog.length > 30) sfxLog.shift();
   try {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const t0 = audioCtx.currentTime;
-    SFX[kind].forEach(([f, at, d, type, vol]) => {
+    S[kind].forEach(([f, at, d, type, vol]) => {
       const o = audioCtx.createOscillator(), g = audioCtx.createGain();
       o.type = type; o.frequency.setValueAtTime(f, t0 + at); o.connect(g); g.connect(audioCtx.destination);
       const v = vol || (type === 'sine' || type === 'triangle' ? .22 : .08);
@@ -1011,6 +1106,8 @@ window.addEventListener('popstate', () => {
 });
 
 function applyTheme() {
+  document.body.classList.toggle('theme-premium', isPremium());
+  document.body.classList.toggle('theme-arcade', !isPremium());
   document.body.classList.toggle('light', settings.theme === 'light');
   document.body.classList.toggle('high-contrast', !!settings.highContrast);
   const f = (id) => document.getElementById(id);
@@ -1021,10 +1118,55 @@ function applyTheme() {
     f('setWakeLock').checked = !!settings.wakeLock;
     f('setPin').value = settings.pin;
     f('setMute').checked = !!settings.mute;
-    const sm = f('soundMi'); if (sm) sm.textContent = settings.mute ? '🔇 Sound: off' : '🔊 Sound: on';
+    const sm = f('soundMi'); if (sm) btnLabel(sm, settings.mute ? 'mute' : 'vol', settings.mute ? 'Sound: off' : 'Sound: on');
+    fxSafe(refreshIcons);
     f('setHighContrast').checked = !!settings.highContrast;
     f('setAutoEnd').checked = !!settings.autoEnd;
+    f('setLook').value = isPremium() ? 'premium' : 'arcade';
   }
+}
+
+
+// ============ Look: Premium (default) / Arcade ============
+function isPremium() { return settings.look !== 'arcade'; }
+function setLook(v) { settings.look = v === 'arcade' ? 'arcade' : 'premium'; saveAll(); applyTheme(); SEAT_IDS.forEach(updateSeat); updateSummary(); }
+const ICON = {
+  play: '<path d="M8 5.5l11 6.5-11 6.5z"/>', pause: '<path d="M9 5.5v13M15 5.5v13"/>', stop: '<rect x="6.5" y="6.5" width="11" height="11" rx="2"/>',
+  select: '<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8.5 12.2l2.5 2.5 4.5-5"/>', check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', x: '<path d="M7 7l10 10M17 7L7 17"/>',
+  history: '<path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3M4.5 4.5v3.7h3.7"/><path d="M12 8.5V12l2.5 1.8"/>', eye: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/>',
+  download: '<path d="M12 4.5v10M7.5 10.5l4.5 4.5 4.5-4.5M5 19.5h14"/>', moon: '<path d="M19.5 14.5A7.5 7.5 0 1 1 9.5 4.5a6 6 0 0 0 10 10z"/>',
+  bell: '<path d="M6.5 16v-5a5.5 5.5 0 0 1 11 0v5l1.5 1.5H5z"/><path d="M10 20.5h4"/>', phone: '<rect x="7.5" y="3" width="9" height="18" rx="2"/><path d="M11 17.5h2"/>',
+  alert: '<path d="M12 4l9 16H3z"/><path d="M12 10v4.5M12 17.3v.2"/>', vol: '<path d="M4.5 9.5h3.5l4.5-4v13l-4.5-4H4.5z"/><path d="M15.5 9.5a3.5 3.5 0 0 1 0 5M18 7a7 7 0 0 1 0 10"/>',
+  mute: '<path d="M4.5 9.5h3.5l4.5-4v13l-4.5-4H4.5z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/>', undo: '<path d="M9 7.5L4.5 12 9 16.5"/><path d="M4.5 12h10a4.5 4.5 0 0 1 0 9H12"/>',
+  menu: '<path d="M4.5 7.5h15M4.5 12h15M4.5 16.5h15"/>', glass: '<path d="M5 4.5h14L12 12z"/><path d="M12 12v7.5M8.5 19.5h7"/>',
+  dot: '<circle cx="12" cy="12" r="3.5" fill="currentColor"/>', ring: '<circle cx="12" cy="12" r="4.5"/>',
+  half: '<circle cx="12" cy="12" r="5.5"/><path d="M12 6.5a5.5 5.5 0 0 1 0 11z" fill="currentColor"/>', clock: '<circle cx="12" cy="13" r="6.5"/><path d="M12 9.5V13l2.3 1.6M5.5 4.5L3.5 6.5M18.5 4.5l2 2"/>'
+};
+const EMOJI = { '▶': 'play', '⏸': 'pause', '⏹': 'stop', '☑': 'select', '✕': 'x', '✓': 'check', '📜': 'history', '👁': 'eye', '⚙': 'gear', '⬇': 'download', '🌓': 'moon',
+  '🔔': 'bell', '📲': 'phone', '⚠': 'alert', '🔊': 'vol', '🔇': 'mute', '↶': 'undo', '☰': 'menu', '🍸': 'glass', '○': 'ring', '●': 'dot', '◐': 'half', '⏰': 'clock' };
+const EMOJI_OF = Object.fromEntries(Object.entries(EMOJI).map(([k, v]) => [v, k]));
+function svgIcon(k) { return `<svg class="li" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${ICON[k]}</svg>`; }
+// Writes "icon + text" once per change; Premium uses line icons, Arcade the original emoji.
+function btnLabel(el, ic, text) {
+  if (!el) return;
+  const key = (isPremium() ? 'p|' : 'a|') + ic + '|' + text;
+  if (el._k === key) return; el._k = key;
+  if (isPremium()) el.innerHTML = svgIcon(ic) + (text ? '<span>' + escapeHTML(text) + '</span>' : '');
+  else el.textContent = (EMOJI_OF[ic] || '') + (text ? (EMOJI_OF[ic] ? ' ' : '') + text : '');
+}
+const ICON_TARGETS = '.mi, .ab-act, .ab-x, #snackUndo, .sb-x, .install-banner button, .panel-actions button, #guestView button.secondary, .topbar h1, #menuBtn, #offAlert';
+function refreshIcons() {
+  document.querySelectorAll(ICON_TARGETS).forEach(el => {
+    if (el.id === 'soundMi') return;
+    if (el._orig === undefined) el._orig = el.innerHTML;
+    if (el.id === 'offAlert') return;
+    const txt = el.textContent.trim(), m = /^([^\w\s+\-:'"(.]+)\s*(.*)$/su.exec(el._origText || (el._origText = (() => { const t = document.createElement('div'); t.innerHTML = el._orig; return t.textContent.trim(); })()));
+    const ic = m && EMOJI[[...m[1]][0]];
+    if (!ic) return;
+    if (isPremium()) { const k = 'p|' + ic + '|' + m[2]; if (el._k !== k) { el._k = k; el.innerHTML = svgIcon(ic) + (m[2] ? '<span' + (el.id === 'menuBtn' ? ' class="menu-txt"' : '') + '>' + escapeHTML(m[2]) + '</span>' : ''); } }
+    else if (el._k && el._k[0] === 'p') { el._k = 'a'; el.innerHTML = el._orig; }
+  });
 }
 
 const STATUS = {
@@ -1067,7 +1209,7 @@ function glideTo(sc, to) {
   glideStop();
   const from = sc.scrollLeft, dist = to - from; if (Math.abs(dist) < 1) { sc.scrollLeft = to; updateFlow(); return; }
   const dur = Math.min(700, 360 + Math.abs(dist) * .25), t0 = performance.now();
-  const ease = t => { const c = 1.15; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };   // gentle overshoot then rest
+  const ease = t => { const c = isPremium() ? 0 : 1.15; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };   // gentle overshoot then rest
   const step = () => {
     const t = Math.min(1, Math.max(0, (performance.now() - t0) / dur));
     sc.scrollLeft = from + dist * (t < 1 ? ease(t) : 1); updateFlow(); updateNav();
@@ -1210,6 +1352,7 @@ function flowSpring() {   // selection flatten / restore glide
 // prefers-reduced-motion. Keyframes use transform/opacity only so the compositor can run them.
 const RM = window.matchMedia ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
 const FX = {
+  spring() { return isPremium() ? 'cubic-bezier(.22,.61,.36,1)' : 'cubic-bezier(.34,1.56,.64,1)'; },
   on() { return !RM.matches && typeof Element.prototype.animate === 'function'; },
   anim(el, kf, o) { if (!el || !FX.on()) return null; try { return el.animate(kf, o); } catch (e) { return null; } },
   card(id) { return document.getElementById('seat-' + id); },
@@ -1229,7 +1372,7 @@ const FX = {
   },
   sweep(id) {
     const c = FX.card(id); if (!c) return;
-    FX.anim(c._refs.ring, [{ transform: 'rotate(-360deg) scale(.6)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 650, easing: 'cubic-bezier(.34,1.56,.64,1)' });
+    FX.anim(c._refs.ring, [{ transform: 'rotate(-360deg) scale(.6)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: isPremium() ? 900 : 650, easing: FX.spring() });
   },
   press: null,
   pressStart(id, cx, cy, ms) {
@@ -1287,7 +1430,7 @@ const FX = {
     if (!el || el.textContent === v) return;
     const up = (+v || 0) >= (+el.textContent || 0);
     el.textContent = v;
-    FX.anim(el, [{ transform: `translateY(${up ? 70 : -70}%)`, opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 260, easing: 'cubic-bezier(.34,1.56,.64,1)' });
+    FX.anim(el, [{ transform: `translateY(${up ? 70 : -70}%)`, opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: isPremium() ? 380 : 260, easing: FX.spring() });
   },
   entrance() { SEAT_IDS.forEach((id, i) => FX.anim(FX.card(id), [{ transform: 'translateY(14px) scale(.98)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 360, delay: i * 45, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'backwards' })); },
   snack(sb, away) {
@@ -1336,6 +1479,11 @@ Object.assign(FX, {
   sparks(id) {
     const c = FX.card(id); if (!c || c.offsetParent === null || !FX.on()) return;
     const b = c._refs.ring.getBoundingClientRect(), x = b.left + b.width / 2, y = b.top + b.height / 2;
+    if (isPremium()) return FX.burst('spark gold', 16, null, (d, i) => {
+      d.style.left = (x + (Math.random() - .5) * b.width) + 'px'; d.style.top = (y + (Math.random() - .3) * b.height * .6) + 'px';
+      d._kf = [{ transform: 'translateY(0) scale(.4)', opacity: 0 }, { transform: 'translateY(-12px) scale(1)', opacity: 1, offset: .35 }, { transform: `translateY(${-30 - Math.random() * 30}px) scale(.6)`, opacity: 0 }];
+      d._o = { duration: 1300 + Math.random() * 600, delay: Math.random() * 250, easing: 'cubic-bezier(.25,.1,.25,1)', fill: 'backwards' };
+    });
     FX.burst('spark', 14, null, (d, i) => {
       const ang = (i / 14) * Math.PI * 2 + Math.random() * .4, r = 40 + Math.random() * 50;
       d.style.left = x + 'px'; d.style.top = y + 'px';
@@ -1345,6 +1493,11 @@ Object.assign(FX, {
   },
   confetti() {
     const W = innerWidth, H = innerHeight, cols = ['#f59e0b', '#22c55e', '#ef4444', '#a5b4fc', '#f472b6', '#fde047'];
+    if (isPremium()) return FX.burst('confetti shimmer', 36, null, (d) => {
+      d.style.left = (Math.random() * W) + 'px'; d.style.top = (Math.random() * H * .5) + 'px';
+      d._kf = [{ transform: 'translateY(0) scale(.3)', opacity: 0 }, { transform: 'translateY(20px) scale(1)', opacity: 1, offset: .3 }, { transform: 'translateY(40px) scale(.5)', opacity: .5, offset: .6 }, { transform: 'translateY(70px) scale(.2)', opacity: 0 }];
+      d._o = { duration: 2400 + Math.random() * 1400, delay: Math.random() * 900, easing: 'cubic-bezier(.25,.1,.25,1)', fill: 'backwards' };
+    });
     FX.burst('confetti', 48, null, (d, i) => {
       d.style.left = (Math.random() * W) + 'px'; d.style.background = cols[i % cols.length];
       const drift = (Math.random() - .5) * 160;
@@ -1355,14 +1508,22 @@ Object.assign(FX, {
   banner(text) {
     if (!FX.on()) return;
     document.querySelectorAll('.banner').forEach(n => n.remove());
-    const n = document.createElement('div'); n.className = 'banner'; n.setAttribute('aria-hidden', 'true'); n.textContent = text;
+    const n = document.createElement('div'); n.className = 'banner'; n.setAttribute('aria-hidden', 'true');
+    if (isPremium()) text = text.replace(/^SEAT (\w+) · GO$/, 'Seat · $1').replace(/^(\d+) SEATS · GO$/, '$1 seats').replace('BAR FULL!', 'Full house');
+    n.textContent = text;
     document.body.appendChild(n);
+    if (isPremium()) { const a = FX.anim(n, [{ transform: 'translateY(10px)', opacity: 0 }, { transform: 'none', opacity: 1, offset: .25 }, { transform: 'none', opacity: 1, offset: .75 }, { transform: 'translateY(-6px)', opacity: 0 }], { duration: 1700, easing: 'cubic-bezier(.25,.1,.25,1)' });
+      if (a) a.onfinish = () => n.remove(); else n.remove(); return; }
     const a = FX.anim(n, [{ transform: 'scale(.4)', opacity: 0 }, { transform: 'scale(1.08)', opacity: 1, offset: .18 }, { transform: 'scale(1)', opacity: 1, offset: .3 },
       { transform: 'scale(1)', opacity: 1, offset: .8 }, { transform: 'translateY(-20px) scale(.96)', opacity: 0 }], { duration: 1200, easing: 'ease-out' });
     if (a) a.onfinish = () => n.remove(); else n.remove();
   },
   timeUp(id) {
     const c = FX.card(id); if (!c || !FX.on() || document.hidden) return;
+    if (isPremium()) { const n = FX.spawn(c, 'stamp lux', null, null, 'Time');
+      if (n) { const a = FX.anim(n, [{ transform: 'translateY(8px)', opacity: 0 }, { transform: 'none', opacity: 1, offset: .2 }, { transform: 'none', opacity: 1, offset: .8 }, { transform: 'translateY(-4px)', opacity: 0 }], { duration: 2400, easing: 'cubic-bezier(.25,.1,.25,1)' });
+        if (a) a.onfinish = () => n.remove(); else n.remove(); }
+      return; }
     const n = FX.spawn(c, 'stamp', null, null, 'TIME!');
     if (n) { const a = FX.anim(n, [{ transform: 'scale(2.6)', opacity: 0 }, { transform: 'scale(1)', opacity: 1, offset: .15 }, { transform: 'scale(1)', opacity: 1, offset: .85 }, { transform: 'scale(1)', opacity: 0 }], { duration: 1800, easing: 'ease-out' });
       if (a) a.onfinish = () => n.remove(); else n.remove(); }
@@ -1386,10 +1547,14 @@ Object.assign(FX, {
     if (!FX.on()) return;
     try { if (sessionStorage.getItem('bst.intro')) return; sessionStorage.setItem('bst.intro', '1'); } catch (e) {}
     const n = document.createElement('div'); n.id = 'intro'; n.setAttribute('aria-hidden', 'true');
-    n.innerHTML = '<b>BAR OPEN</b><small>tap to skip</small>';
+    const lux = isPremium();
+    if (lux) { n.className = 'lux'; n.innerHTML = '<div class="logo">' + svgIcon('glass') + '<span>Seat Timers</span><i></i></div><small>tap to skip</small>'; }
+    else n.innerHTML = '<b>BAR OPEN</b><small>tap to skip</small>';
     document.body.appendChild(n);
-    const bg = FX.anim(n, [{ opacity: 1 }, { opacity: 1, offset: .25 }, { opacity: 0 }], { duration: 1500, easing: 'ease-in', fill: 'forwards' });
-    const t = FX.anim(n.firstChild, [{ transform: 'scale(.6)', opacity: 0 }, { transform: 'scale(1)', opacity: 1, offset: .3 }, { transform: 'scale(1.05)', opacity: 1, offset: .7 }, { transform: 'scale(1.3)', opacity: 0 }], { duration: 1500, easing: 'ease-out', fill: 'forwards' });
+    const D = lux ? 1700 : 1500;
+    const bg = FX.anim(n, [{ opacity: 1 }, { opacity: 1, offset: lux ? .55 : .25 }, { opacity: 0 }], { duration: D, easing: 'ease-in', fill: 'forwards' });
+    if (lux) FX.anim(n.querySelector('.logo i'), [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)', offset: .5 }, { transform: 'scaleX(1)' }], { duration: D, easing: 'cubic-bezier(.25,.1,.25,1)', fill: 'forwards' });
+    const t = lux ? FX.anim(n.firstChild, [{ transform: 'translateY(8px) scale(.97)', opacity: 0 }, { transform: 'none', opacity: 1, offset: .35 }, { transform: 'none', opacity: 1, offset: .7 }, { transform: 'scale(1.02)', opacity: 0 }], { duration: D, easing: 'cubic-bezier(.25,.1,.25,1)', fill: 'forwards' }) : FX.anim(n.firstChild, [{ transform: 'scale(.6)', opacity: 0 }, { transform: 'scale(1)', opacity: 1, offset: .3 }, { transform: 'scale(1.05)', opacity: 1, offset: .7 }, { transform: 'scale(1.3)', opacity: 0 }], { duration: 1500, easing: 'ease-out', fill: 'forwards' });
     const done = () => { n.remove(); document.removeEventListener('pointerdown', skip, true); document.removeEventListener('keydown', skip, true); };
     const skip = () => { [bg, t].forEach(a => a && a.finish()); done(); };
     document.addEventListener('pointerdown', skip, true); document.addEventListener('keydown', skip, true);
@@ -1426,7 +1591,7 @@ function updateSeat(id) {
   r.label.setAttribute('aria-pressed', String(!!s.selected));
   if (s.selected && !wasSel) FX.pop(r.check);
   const st = STATUS[state];
-  setText(r.icon, st.icon); setText(r.stext, st.text);
+  btnLabel(r.icon, EMOJI[st.icon], ''); setText(r.stext, st.text);
   setText(r.timer, s.running ? formatTime(remaining) : formatTime(getDurationMs(s)));
   const pct = s.running ? Math.min(100, (getElapsed(s) / getDurationMs(s)) * 100) : 0;
   const p = pct / 100;
@@ -1440,17 +1605,19 @@ function updateSeat(id) {
   const go = s.running ? (s.paused ? .15 : (.3 + .65 * p).toFixed(2)) : '0', gs = 'scale(' + (1 + .18 * p).toFixed(3) + ')';
   if (r.glow.style.opacity !== String(go)) r.glow.style.opacity = go;
   if (r.glow.style.transform !== gs) r.glow.style.transform = gs;
+  const lt = 'rotate(' + (360 * p).toFixed(2) + 'deg)';
+  if (r.lead.style.transform !== lt) r.lead.style.transform = lt;
   const pr = String(Math.round(pct));
   if (r.prog.getAttribute('aria-valuenow') !== pr) r.prog.setAttribute('aria-valuenow', pr);
   setText(r.left, s.running ? (remaining <= 0 ? 'over by ' + formatTime(-remaining) : 'remaining') : Math.round(getDurationMs(s) / 60000) + ' min session');
   setText(r.ext, s.extensions ? '+' + s.extensions * 15 + ' min' : '');
   // one clear primary action
   const primary = !s.running ? '▶ Start' : (s.paused ? '▶ Resume' : '⏸ Pause');
-  setText(r.primary, primary);
+  btnLabel(r.primary, primary[0] === '▶' ? 'play' : 'pause', primary.slice(2));
   r.primary.className = s.running && !s.paused ? 'btn-primary secondary' : 'btn-primary';
   r.extend.disabled = !s.running;
   r.reset.disabled = !s.running;
-  setText(r.reset, '⏹ End');
+  btnLabel(r.reset, 'stop', 'End');
   if (document.activeElement !== r.notes && r.notes.value !== s.notes) r.notes.value = s.notes;
 }
 
@@ -1520,7 +1687,8 @@ function updateSummary() {
   } else setText(ac, 'Tap or drag across seats to select');
   bar.querySelectorAll('.ab-act').forEach(b => { if (b.disabled !== (sel === 0)) b.disabled = sel === 0; });
   const sb = document.getElementById('selectBtn');
-  if (sb.getAttribute('aria-pressed') !== String(selectMode)) { sb.setAttribute('aria-pressed', String(selectMode)); sb.textContent = selectMode ? '✓ Done' : '☑ Select'; }
+  if (sb.getAttribute('aria-pressed') !== String(selectMode)) { sb.setAttribute('aria-pressed', String(selectMode)); sb._k = ''; }
+  btnLabel(sb, selectMode ? 'check' : 'select', selectMode ? 'Done' : 'Select');
   if (prevOcc !== null && occ === SEAT_IDS.length && prevOcc < occ) fxSafe(() => { FX.confetti(); FX.banner('BAR FULL!'); });
   prevOcc = occ;
   const sm = document.getElementById('summary');
@@ -1574,6 +1742,7 @@ function saveSettings() {
   settings.mute = document.getElementById('setMute').checked;
   settings.highContrast = document.getElementById('setHighContrast').checked;
   settings.autoEnd = document.getElementById('setAutoEnd').checked;
+  settings.look = document.getElementById('setLook').value === 'arcade' ? 'arcade' : 'premium';
   if (settings.amberPct <= settings.greenPct) settings.amberPct = Math.min(99, settings.greenPct + 25);
   saveAll();
   updateWakeLock();
@@ -1589,15 +1758,22 @@ function toggleTheme() {
   applyTheme();
 }
 
+function syncSheets() {
+  const open = ['settingsPanel', 'historyPanel'].some(id => document.getElementById(id).style.display === 'block');
+  document.body.classList.toggle('sheet-open', open);
+}
 function toggleSettings() {
   const p = document.getElementById('settingsPanel');
   p.style.display = p.style.display === 'block' ? 'none' : 'block';
+  syncSheets();
 }
 function toggleHistory() {
   const p = document.getElementById('historyPanel');
   p.style.display = p.style.display === 'block' ? 'none' : 'block';
   if (p.style.display === 'block') renderHistory();
+  syncSheets();
 }
+function closeSheets() { ['settingsPanel', 'historyPanel'].forEach(id => { document.getElementById(id).style.display = 'none'; }); syncSheets(); }
 function toggleGuestView() {
   document.getElementById('guestView').classList.add('cine');
   document.body.classList.toggle('guest-on', document.getElementById('guestView').style.display !== 'block');
@@ -1668,7 +1844,7 @@ function renderSeats() {
       <div class="fx" aria-hidden="true"><div class="stripes"></div></div>
       <div class="timer-row">
         <div class="timer" aria-label="Time remaining for ${U}">--:--</div>
-        <div class="ring" role="progressbar" aria-label="${U} session progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="glow"></span><span class="h r"><i></i></span><span class="h l"><i></i></span></div>
+        <div class="ring" role="progressbar" aria-label="${U} session progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="glow"></span><span class="lead" aria-hidden="true"></span><span class="h r"><i></i></span><span class="h l"><i></i></span></div>
       </div>
       <div class="meta"><span class="left"></span><span class="ext"></span></div>
       <label class="sr-only" for="notes-${id}">Notes for ${U}</label>
@@ -1680,7 +1856,7 @@ function renderSeats() {
       </div>`;
     const q = c => d.querySelector(c);
     d._refs = { label: q('.seat-label'), icon: q('.badge .ic'), stext: q('.stext'), timer: q('.timer'),
-      ring: q('.ring'), glow: q('.ring .glow'), rr: q('.ring .h.r i'), rl: q('.ring .h.l i'), fx: q('.fx'), check: q('.sel-check'), prog: q('.ring'), left: q('.left'), ext: q('.ext'),
+      ring: q('.ring'), glow: q('.ring .glow'), lead: q('.ring .lead'), rr: q('.ring .h.r i'), rl: q('.ring .h.l i'), fx: q('.fx'), check: q('.sel-check'), prog: q('.ring'), left: q('.left'), ext: q('.ext'),
       primary: q('.btn-primary'), extend: q('.btn-extend'), reset: q('.btn-reset'), notes: q('.notes-input'), };
     d._refs.label.addEventListener('click', e => { e.stopPropagation(); if (suppressClick) return; if (!selectMode) enterSelectMode(); toggleSelect(id); });
     d.dataset.seat = id;
@@ -1699,6 +1875,7 @@ function toggleMenu(force) {
   const p = document.getElementById('menuPanel'), b = document.getElementById('menuBtn');
   const open = force === undefined ? p.hidden : force;
   p.hidden = !open; b.setAttribute('aria-expanded', String(open));
+  document.body.classList.toggle('menu-open', open);
   if (open) { const f = p.querySelector('.mi'); if (f) setTimeout(() => f.focus(), 0); }
 }
 function menuDo(fn) { toggleMenu(false); fn(); }
@@ -1788,6 +1965,7 @@ async function promptInstall() {
 function dismissInstall() { try { localStorage.setItem('bst.installDismissed', '1'); } catch (e) {} document.getElementById('installBanner').hidden = true; }
 
 document.getElementById('snackUndo').addEventListener('click', undoLast);
+document.getElementById('scrim').addEventListener('click', () => { toggleMenu(false); closeSheets(); });
 loadAll();
 renderSeats();
 SEAT_IDS.forEach(updateSeat);

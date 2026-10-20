@@ -8,7 +8,7 @@ const SHOTS = process.env.SHOTS_DIR || path.join(ROOT, 'tests', 'screenshots');
 let BASE = process.argv[2];
 let fails = 0, passes = 0;
 const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); c ? passes++ : fails++; };
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.md': 'text/plain' };
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.woff2': 'font/woff2', '.md': 'text/plain' };
 
 function serve() {
   return new Promise(res => {
@@ -328,6 +328,7 @@ async function motionTests(browser, name, opts, reduce) {
   const p = await ctx.newPage();
   const errs = []; p.on('pageerror', e => errs.push(e.message));
   p.on('dialog', d => d.accept());
+  await p.addInitScript(() => { if (!localStorage.getItem('barSeatTimers.v2')) localStorage.setItem('barSeatTimers.v2', JSON.stringify({ settings: { look: 'arcade' } })); });   // suite written for the Arcade look
   await p.addInitScript(INIT);
   await p.clock.install({ time: new Date('2026-10-20T19:00:00') });
   await p.goto(BASE);
@@ -452,6 +453,7 @@ async function cineTests(browser, name, opts, reduce) {
   const p = await ctx.newPage();
   const errs = []; p.on('pageerror', e => errs.push(e.message));
   p.on('dialog', d => d.accept());
+  await p.addInitScript(() => { if (!localStorage.getItem('barSeatTimers.v2')) localStorage.setItem('barSeatTimers.v2', JSON.stringify({ settings: { look: 'arcade' } })); });   // suite written for the Arcade look
   await p.addInitScript(INIT);
   await p.clock.install({ time: new Date('2026-10-20T18:00:00') });
   await p.goto(BASE);

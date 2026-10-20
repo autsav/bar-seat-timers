@@ -1,7 +1,7 @@
 // Bar Seat Timers service worker. Bump VERSION on every release so old caches are dropped.
-const VERSION = 'bst-v3.6.0';
+const VERSION = 'bst-v3.7.0';
 const ASSETS = ['./', './index.html', './manifest.webmanifest',
-  './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png'];
+  './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './fonts/Inter-latin-var.woff2'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
