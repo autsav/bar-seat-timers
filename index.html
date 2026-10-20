@@ -397,7 +397,7 @@
   body:not(.light):not(.high-contrast)::before {
     background: radial-gradient(70vmax 46vmax at 50% -8%, rgba(255,196,120,.20), rgba(255,170,90,.06) 45%, transparent 70%), #121214; }
   .mood { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
-  .mood i { position: absolute; inset: 0; transition: opacity 4s linear; will-change: opacity; }
+  .mood i { position: absolute; inset: 0; transition: opacity 4s linear; }
   .mood .m-amber { background: radial-gradient(60vmax 50vmax at 20% 100%, rgba(217,119,6,.18), transparent 70%); }
   .mood .m-blue { background: radial-gradient(60vmax 50vmax at 80% 100%, rgba(37,99,235,.20), transparent 70%); opacity: 0; }
   .mood::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 40%, transparent 55%, rgba(0,0,0,.6) 100%); }
@@ -752,28 +752,6 @@
   @media (max-height: 500px) { body.depth .seats .seat { min-height: 0; } }
   body.depth:not(.select-mode) .seats .seat .mini { top: 0; bottom: 0; height: auto; }   /* the tile face covers the whole back card */
   body.depth:not(.select-mode) .seats .seat.side .seat-head { visibility: hidden; }   /* Chrome painted a back card's head unscaled over the row */
-  /* ============ Parties & grouped selection (v4.3) ============ */
-  .seats .seat .lnk { display: none; }
-  .seat-actions .btn-ungroup { display: none; }
-  body:not(.select-mode) .seats .seat.party.centre .btn-ungroup { display: inline-flex; }
-  .seats .seat .mini .mpt:empty { display: none; }
-  body.depth .seats .seat .mini .mpt { font-size: calc(9px * var(--tinv, 6)); font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--c-accent); }
-  /* a party's back cards join into one pill: the left tile's face reaches across the gap; shared gold outline */
-  body.depth:not(.select-mode) .seats .seat.side.party .mini { outline: calc(2px * var(--tinv, 6)) solid var(--c-accent); outline-offset: calc(-2px * var(--tinv, 6)); }
-  body.depth:not(.select-mode) .seats .seat.side.join-r { border-top-right-radius: 0 !important; border-bottom-right-radius: 0 !important; overflow: visible; }
-  body.depth:not(.select-mode) .seats .seat.side.join-l { border-top-left-radius: 0 !important; border-bottom-left-radius: 0 !important; }
-  body.depth:not(.select-mode) .seats .seat.side.join-r .mini { width: calc(100% + var(--jg, 6px) * var(--tinv, 6)) !important; border-top-right-radius: 0; border-bottom-right-radius: 0; clip-path: inset(0 0 0 0); }
-  body.depth:not(.select-mode) .seats .seat.side.join-l .mini { border-top-left-radius: 0; border-bottom-left-radius: 0; }
-  body.depth:not(.select-mode) .seats .seat.side.join-r .dim, body.depth:not(.select-mode) .seats .seat.side.join-l .dim { border-radius: 0; }
-  /* selection: adjacent selected seats merge (no gap, one outline); separate selected runs share a colour + link icon */
-  body.select-mode .seats .seat.selected { outline: 3px solid var(--c-select); outline-offset: 0; }
-  body.select-mode .seats .seat.sj-l, body.select-mode .seats .seat.sj-r { scale: 1 !important; }
-  body.select-mode .seats .seat.sj-l { margin-left: calc(-1 * var(--sgap, 0px)); border-top-left-radius: 0; border-bottom-left-radius: 0; border-left-color: transparent; }
-  body.select-mode .seats .seat.sj-r { border-top-right-radius: 0; border-bottom-right-radius: 0; border-right-color: transparent; z-index: 2; }
-  body.select-mode .seats .seat.slink .lnk { display: block; position: absolute; top: 8px; left: 50%; translate: -50% 0; font-size: 16px; z-index: 5; }
-  .guest-card.party { outline: 2px solid var(--c-accent); outline-offset: -2px; }
-  .guest-card.join-r { border-top-right-radius: 0; border-bottom-right-radius: 0; margin-right: -6px; }
-  .guest-card.join-l { border-top-left-radius: 0; border-bottom-left-radius: 0; }
 </style>
 </head>
 <body>
@@ -1092,21 +1070,7 @@ function startTimer(id, silent) {
   fxSafe(() => FX.sweep(id));
 }
 
-// ---- Parties: seats started together in one batch share one timer (+15, Pause, End act on the whole party)
-let partyInner = false;
-function partyMembers(id) { const p = seats[id] && seats[id].party; return p ? DISPLAY_IDS.filter(k => seats[k].party === p && seats[k].running) : [id]; }
-function inParty(id) { return partyMembers(id).length > 1; }
-function partyLabel(id) { return partyMembers(id).map(k => k.toUpperCase()).join(' + '); }
-function forParty(id, fn) { if (partyInner || !inParty(id)) return false; partyInner = true; try { partyMembers(id).forEach(fn); } finally { partyInner = false; } return true; }
-function ungroup(id) {
-  if (!inParty(id)) return;
-  const ms = partyMembers(id);
-  withUndo('Ungrouped ' + ms.map(k => k.toUpperCase()).join('+'), () => { ms.forEach(k => { delete seats[k].party; }); saveAll(); SEAT_IDS.forEach(updateSeat); });
-  announce('Party ungrouped; seats now time separately');
-}
-function partyOnce(ids) { const seen = new Set(); return ids.filter(id => { const p = seats[id].party; if (!p || !inParty(id)) return true; if (seen.has(p)) return false; seen.add(p); return true; }); }
 function togglePause(id, silent) {
-  if (forParty(id, k => togglePause(k, true))) { if (!silent) { saveAll(); SEAT_IDS.forEach(updateSeat); updateSummary(); } return; }
   const s = seats[id];
   if (!s.running) return;
   if (s.paused) {
@@ -1119,7 +1083,6 @@ function togglePause(id, silent) {
 }
 
 function extendTimer(id, silent) {
-  if (forParty(id, k => extendTimer(k, true))) { if (!silent) { sfx('extend'); saveAll(); SEAT_IDS.forEach(updateSeat); updateSummary(); } return; }
   const s = seats[id];
   if (!s.running) return;
   s.extraMs += EXTEND_MS;      // extend the session length, keep the real start time
@@ -1133,13 +1096,12 @@ function extendTimer(id, silent) {
 }
 
 function endSession(id, auto) {
-  if (forParty(id, k => endSession(k, auto))) { SEAT_IDS.forEach(updateSeat); return; }
   setTimeout(() => fxSafe(() => FX.freeFlip(id)), 0);
   const s = seats[id];
   if (s.running) fxSafe(() => { FX.sparks(id); FX.fold(id); FX.boardWave(SEAT_IDS.indexOf(id)); });   // ghost copies the card as it was; state below changes regardless
   if (s.running && s.startTime) {
     history.push({ seat: id, limitMin: Math.round((s.limitMs || 0) / 60000), notes: s.notes, durationMin: Math.round(getElapsed(s) / 60000),
-                   extensions: s.extensions, party: inParty(id) || (s.party && partyInner) ? s.party : undefined, start: s.sessionStart || new Date(s.startTime).toISOString(), end: new Date().toISOString(), autoEnd: !!auto });
+                   extensions: s.extensions, start: s.sessionStart || new Date(s.startTime).toISOString(), end: new Date().toISOString(), autoEnd: !!auto });
   }
   const keepSel = s.selected;
   seats[id] = { ...blankSeat(), selected: keepSel };
@@ -1181,7 +1143,7 @@ function announce(msg) { const lr = document.getElementById('liveRegion'); if (l
 function resetSeat(id) {
   if (!seats[id].running) return;
   if (!checkPin()) return;
-  withUndo('Ended ' + (inParty(id) ? partyLabel(id) + ' (party)' : id.toUpperCase()), () => endSession(id, false));
+  withUndo('Ended ' + id.toUpperCase(), () => endSession(id, false));
   updateWakeLock();
 }
 
@@ -1190,12 +1152,7 @@ function selectedIds() { return SEAT_IDS.filter(id => seats[id].selected); }
 function startSelected() {
   const ids = selectedIds();
   if (!ids.length) { alert('Select one or more seats first'); return; }
-  const fresh = ids.filter(id => !seats[id].running);
   ids.forEach(id => startTimer(id, true));
-  if (fresh.length > 1) {   // a group of guests: one party, one shared timer
-    const key = byDisplay(fresh).join('+'), t0 = seats[fresh[0]].startTime, iso = seats[fresh[0]].sessionStart;
-    fresh.forEach(id => Object.assign(seats[id], { party: key, startTime: t0, sessionStart: iso }));
-  }
   updateWakeLock();
   sfx('start');
   fxSafe(() => FX.banner(ids.length === 1 ? 'SEAT ' + ids[0].toUpperCase() + ' · GO' : ids.length + ' SEATS · GO'));
@@ -1204,15 +1161,15 @@ function startSelected() {
   updateSummary();
 }
 function pauseSelected() {
-  const ids = partyOnce(selectedIds().filter(id => seats[id].running));
+  const ids = selectedIds().filter(id => seats[id].running);
   ids.forEach(id => togglePause(id, true));
-  saveAll(); SEAT_IDS.forEach(updateSeat); updateSummary();
+  saveAll(); ids.forEach(updateSeat); updateSummary();
 }
 function extendSelected() {
-  const ids = partyOnce(selectedIds().filter(id => seats[id].running));
+  const ids = selectedIds().filter(id => seats[id].running);
   ids.forEach(id => extendTimer(id, true));
   if (ids.length) sfx('extend');
-  saveAll(); SEAT_IDS.forEach(updateSeat); updateSummary();
+  saveAll(); ids.forEach(updateSeat); updateSummary();
 }
 function resetSelected() {
   const ids = selectedIds();
@@ -1230,7 +1187,7 @@ function resetAll() {
 function toggleSelect(id) {
   if (!selectMode) enterSelectMode();
   seats[id].selected = !seats[id].selected; haptic(12);
-  saveAll(); SEAT_IDS.forEach(updateSeat); updateSummary();
+  saveAll(); updateSeat(id); updateSummary();
 }
 function selectAll() { if (!selectMode) enterSelectMode(); SEAT_IDS.forEach(id => seats[id].selected = true); saveAll(); SEAT_IDS.forEach(updateSeat); updateSummary(); }
 function clearSelection() { SEAT_IDS.forEach(id => seats[id].selected = false); saveAll(); SEAT_IDS.forEach(updateSeat); updateSummary(); }
@@ -1245,8 +1202,6 @@ function enterSelectMode() {
   selectMode = true;
   fxSafe(flowSpring); document.body.classList.add('select-mode'); fxSafe(updateFlow);
   pushSelectEntry();
-  { const sc = document.getElementById('seats'), g = FG && FG.lefts.length > 1 ? FG.lefts[1] - FG.lefts[0] - FG.cw : 0; sc.style.setProperty('--sgap', Math.max(0, g) + 'px'); }
-  SEAT_IDS.forEach(updateSeat);
   haptic(30);
   updateSummary(); announce('Selection mode. Tap seats to select.');
   requestAnimationFrame(() => { const ab = document.getElementById('actionBar'); if (ab && ab.offsetHeight) document.body.style.setProperty('--abh', ab.offsetHeight + 'px'); });
@@ -1269,7 +1224,7 @@ function toggleSelectMode() { selectMode ? exitSelectMode() : enterSelectMode();
 function setSelected(id, v) {
   if (!!seats[id].selected === v) return;
   seats[id].selected = v; haptic(12);
-  saveAll(); SEAT_IDS.forEach(updateSeat); updateSummary();
+  saveAll(); updateSeat(id); updateSummary();
   if (press && press.painting) fxSafe(() => FX.flash(id));   // sequential highlight while drag-selecting
 }
 function batch(fn) { fn(); exitSelectMode(); }
@@ -1924,18 +1879,6 @@ function fxSafe(fn) { try { fn(); } catch (e) {} }
 
 // Updates a card in place: only writes to the DOM when a value actually changed (no re-render, no forced reflow).
 function setText(node, v) { if (node.textContent !== v) node.textContent = v; }
-// visual grouping: a party's back cards join; in selection mode adjacent selected seats merge, separate runs link
-function groupClasses(id) {
-  const i = DISPLAY_IDS.indexOf(id), L = DISPLAY_IDS[i - 1], R = DISPLAY_IDS[i + 1], s = seats[id];
-  let c = '';
-  if (inParty(id)) { c += ' party'; if (L && seats[L].party === s.party && seats[L].running) c += ' join-l'; if (R && seats[R].party === s.party && seats[R].running) c += ' join-r'; }
-  if (selectMode && s.selected) {
-    if (L && seats[L].selected) c += ' sj-l'; if (R && seats[R].selected) c += ' sj-r';
-    const runs = DISPLAY_IDS.filter((k, j) => seats[k].selected && !(j && seats[DISPLAY_IDS[j - 1]].selected)).length;
-    if (runs > 1) c += ' slink';
-  }
-  return c;
-}
 function updateSeat(id) {
   const s = seats[id];
   const el = document.getElementById('seat-' + id);
@@ -1947,9 +1890,8 @@ function updateSeat(id) {
   const wasSel = el.classList.contains('selected');
   const cls = 'seat ' + (colour || 'free') + (s.paused ? ' paused' : '') + (s.running && remaining <= 0 ? ' timeup' : '') + (s.selected ? ' selected' : '')
     + ['side', 'centre', 'pressing', 'sl', 'sr', 'flag'].filter(k => el.classList.contains(k)).map(k => ' ' + k).join('')
-    + (el.classList.contains('side') && !selectMode && FX.on() && s.running && remaining <= 0 ? ' nudge' : '') + groupClasses(id);
+    + (el.classList.contains('side') && !selectMode && FX.on() && s.running && remaining <= 0 ? ' nudge' : '');
   if (el.className !== cls) el.className = cls;
-  { const pl = inParty(id) ? partyLabel(id) : id.toUpperCase(); setText(r.label, pl); const pt = el.querySelector('.mpt'); if (pt) setText(pt, inParty(id) && partyMembers(id)[0] === id ? 'party' : ''); }
   r.label.setAttribute('aria-pressed', String(!!s.selected));
   if (s.selected && !wasSel) FX.pop(r.check);
   const st = STATUS[state];
@@ -2066,9 +2008,9 @@ function updateSummary() {
 function renderHistory() {
   const div = document.getElementById('historyTable');
   if (!history.length) { div.innerHTML = '<p>No sessions yet.</p>'; document.getElementById('analytics').textContent = ''; return; }
-  let html = '<table><tr><th>Seat</th><th>Party</th><th>Limit</th><th>Duration</th><th>Ext</th><th>Start</th><th>End</th></tr>';
+  let html = '<table><tr><th>Seat</th><th>Limit</th><th>Duration</th><th>Ext</th><th>Start</th><th>End</th></tr>';
   history.slice().reverse().slice(0, 50).forEach(h => {
-    html += `<tr><td>${escapeHTML(String(h.seat).toUpperCase())}</td><td>${h.party ? escapeHTML(String(h.party).toUpperCase().replace(/\+/g, ' + ')) : '-'}</td><td>${escapeHTML(h.limitMin ? h.limitMin + ' min' : '-')}</td><td>${escapeHTML(h.durationMin)} min</td><td>${escapeHTML(h.extensions)}</td><td>${escapeHTML(new Date(h.start).toLocaleString())}</td><td>${escapeHTML(h.end ? new Date(h.end).toLocaleString() : '-')}</td></tr>`;
+    html += `<tr><td>${escapeHTML(String(h.seat).toUpperCase())}</td><td>${escapeHTML(h.limitMin ? h.limitMin + ' min' : '-')}</td><td>${escapeHTML(h.durationMin)} min</td><td>${escapeHTML(h.extensions)}</td><td>${escapeHTML(new Date(h.start).toLocaleString())}</td><td>${escapeHTML(h.end ? new Date(h.end).toLocaleString() : '-')}</td></tr>`;
   });
   html += '</table>';
   div.innerHTML = html;
@@ -2079,9 +2021,9 @@ function renderHistory() {
 
 function exportCSV() {
   if (!history.length) { alert('No history'); return; }
-  let csv = 'Seat,Party,LimitMin,Notes,DurationMin,Extensions,Start,End,AutoEnd\n';
+  let csv = 'Seat,LimitMin,Notes,DurationMin,Extensions,Start,End,AutoEnd\n';
   history.forEach(h => {
-    csv += `${h.seat},${h.party || ''},${h.limitMin || ''},"${(h.notes||'').replace(/"/g,'""')}",${h.durationMin},${h.extensions},${h.start},${h.end || ''},${h.autoEnd}\n`;
+    csv += `${h.seat},${h.limitMin || ''},"${(h.notes||'').replace(/"/g,'""')}",${h.durationMin},${h.extensions},${h.start},${h.end || ''},${h.autoEnd}\n`;
   });
   const blob = new Blob([csv], {type: 'text/csv'});
   const a = document.createElement('a');
@@ -2169,9 +2111,7 @@ function renderGuestView() {
   SEAT_IDS.forEach((id, i) => {
     const s = seats[id], d = document.getElementById('guest-' + id);
     const c = colourFor(s), state = seatState(s);
-    const gi = DISPLAY_IDS.indexOf(id), gl = DISPLAY_IDS[gi - 1], gr = DISPLAY_IDS[gi + 1], pj = inParty(id);
-    const cls = 'guest-card' + (c ? ' ' + c : '') + (pj ? ' party' : '') + (pj && gl && seats[gl].party === s.party && seats[gl].running ? ' join-l' : '') + (pj && gr && seats[gr].party === s.party && seats[gr].running ? ' join-r' : '');
-    setText(d.querySelector('strong'), pj ? partyLabel(id) : id.toUpperCase());
+    const cls = 'guest-card' + (c ? ' ' + c : '');
     if (d.className !== cls) d.className = cls;
     if (d._was === true && !s.running) fxSafe(() => FX.wave(i));   // a seat just freed: ripple across the board
     d._was = !!s.running;
@@ -2210,7 +2150,7 @@ function renderSeats() {
         <span class="sel-check" aria-hidden="true">✓</span>
       </div>
       <div class="fx" aria-hidden="true"><div class="stripes"></div></div>
-      <div class="mini" aria-hidden="true"><span class="mn"><small>B</small><b>${i + 1}</b></span><i class="md"></i><span class="mm"></span><span class="mp">paused</span><span class="mpt"></span></div><span class="lnk" aria-hidden="true">🔗</span><span class="dim" aria-hidden="true"></span>
+      <div class="mini" aria-hidden="true"><span class="mn"><small>B</small><b>${i + 1}</b></span><i class="md"></i><span class="mm"></span><span class="mp">paused</span></div><span class="dim" aria-hidden="true"></span>
       <div class="timer-row">
         <div class="timer" aria-label="Time remaining for ${U}">--:--</div>
         <div class="ring" role="progressbar" aria-label="${U} session progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="glow"></span><span class="lead" aria-hidden="true"></span><span class="h r"><i></i></span><span class="h l"><i></i></span></div>
@@ -2222,7 +2162,6 @@ function renderSeats() {
         <button class="btn-primary">▶ Start</button>
         <button class="btn-extend secondary" aria-label="Add 15 minutes to ${U}">+15</button>
         <button class="btn-reset danger-btn" aria-label="End session on ${U}">⏹ End</button>
-        <button class="btn-ungroup secondary" aria-label="Ungroup this party">Ungroup</button>
       </div>`;
     const q = c => d.querySelector(c);
     d._refs = { label: q('.seat-label'), icon: q('.badge .ic'), stext: q('.stext'), timer: q('.timer'),
@@ -2237,7 +2176,6 @@ function renderSeats() {
     d._refs.primary.addEventListener('click', () => { seatPrimary(id); updateWakeLock(); });
     d._refs.extend.addEventListener('click', () => extendTimer(id));
     d._refs.reset.addEventListener('click', () => resetSeat(id));
-    d.querySelector('.btn-ungroup').addEventListener('click', () => ungroup(id));
     cont.appendChild(d);
   });
 }
@@ -2363,7 +2301,7 @@ function settle() { if (selectMode || press || !userScroll || glide) return; use
 // Outside selection the stack has no native scrolling at all. A single float position (in px, exposed through the
 // row's scrollLeft so every caller keeps one model) is driven by our own pointer gesture and spring, and each frame
 // writes only transform/opacity. The real scrollLeft stays 0, so the compositor never moves anything behind our back.
-let drag = null, dragEndAt = -1e9, gStart = 0, gC0 = null;
+let drag = null, dragEndAt = -1e9;
 function inMotion() { return !!(glide || (drag && drag.on)); }
 { const sc = document.getElementById('seats'), D = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollLeft');
   let vpos = 0;
@@ -2379,17 +2317,11 @@ function inMotion() { return !!(glide || (drag && drag.on)); }
   const target = (p, v) => {   // nearest seat to where the flick would coast to
     const proj = p + v * .28, half = (FG.W - FG.cw) / 2; let bi = 0, bd = 1e9;
     FG.lefts.forEach((l, i) => { const d = Math.abs(Math.max(0, Math.min(FG.max, l - half)) - proj); if (d < bd) { bd = d; bi = i; } });
-    // a party is one stop: never come to rest on its second member; from inside a party, step past it
-    const cur = DISPLAY_IDS.indexOf(gC0 || centreId), pm = partyMembers(DISPLAY_IDS[bi]).map(k => DISPLAY_IDS.indexOf(k));
-    if (pm.length > 1) { const lo = Math.min(...pm), hi = Math.max(...pm), dir = proj > gStart ? 1 : -1;
-      if (pm.includes(cur) && bi !== cur) bi = dir > 0 ? Math.min(DISPLAY_IDS.length - 1, hi + 1) : Math.max(0, lo - 1);
-      else bi = cur < lo ? lo : (cur > hi ? hi : lo); }
     return Math.max(0, Math.min(FG.max, FG.lefts[bi] - half));
   };
   const frame = () => { drag.raf = 0; updateFlow(); };
   sc.addEventListener('pointerdown', e => {
     if (selectMode || e.button > 0 || !FG) return;
-    gStart = vpos; gC0 = centreId;
     drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, p0: vpos, on: false, s: [[e.timeStamp, e.clientX]], raf: 0 };
   });
   sc.addEventListener('pointermove', e => {
@@ -2418,8 +2350,8 @@ function inMotion() { return !!(glide || (drag && drag.on)); }
   let wheelT = 0;
   sc.addEventListener('wheel', e => {
     if (selectMode || !FG) return; const dx = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : (e.shiftKey ? e.deltaY : 0); if (!dx) return;
-    e.preventDefault(); glideStop(); if (!wheelT) { gStart = vpos; gC0 = centreId; } vpos = Math.max(0, Math.min(FG.max, vpos + dx)); moving(); updateFlow();
-    clearTimeout(wheelT); wheelT = setTimeout(() => { wheelT = 0; glideTo(sc, target(vpos, 0), 0); }, 120);
+    e.preventDefault(); glideStop(); vpos = Math.max(0, Math.min(FG.max, vpos + dx)); moving(); updateFlow();
+    clearTimeout(wheelT); wheelT = setTimeout(() => glideTo(sc, target(vpos, 0), 0), 120);
   }, { passive: false });
 }
 // ---- Optional on-screen performance meter (Settings): frame rate + worst frame of the last second
