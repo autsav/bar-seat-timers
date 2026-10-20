@@ -590,7 +590,7 @@
   /* ============ Chips (v3.9): narrow phones get a seat chip row under the fan; side strips become plain peeks ============ */
   @media (max-width: 599px) {
     body:not(.select-mode) .seats .seat.side .mini > * { display: none; }   /* decorative peek: status edge only, no squeezed text */
-    body:not(.select-mode) .seats .seat.side .mini { width: 100%; z-index: 30; }
+    body:not(.select-mode) .seats .seat.side .mini { width: 100% !important; z-index: 30; }
     body:not(.select-mode) .seats .seat.side .dim { z-index: 31; }   /* the whole side card is a clean cover, so nothing reads as clipped */
     .seats { padding-bottom: var(--s-4); }
     body:not(.select-mode):not(.high-contrast) .seats .seat { -webkit-box-reflect: unset; }
@@ -678,7 +678,27 @@
       repeating-linear-gradient(118deg, rgba(0,0,0,.012) 0 1px, transparent 1px 4px), linear-gradient(180deg, #f3f1eb, #e4e0d6); }
   body.theme-premium.daytime:not(.high-contrast) button.secondary { background: rgba(0,0,0,.035); }
   body.theme-premium.daytime:not(.high-contrast) .summary .chip b { color: #7a5a1f; }
-  html:has(body.theme-premium.daytime:not(.high-contrast)) { background: #ece9e1; }
+  html.daytime { background: #ece9e1; }   /* class set from JS: no :has() invalidation cost */
+
+  /* ============ Smoothness (v3.9) ============ */
+  /* cards are solid now: no backdrop blur on cards (it re-blurs the backdrop under every card every frame) */
+  .seat, .guest-card { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+  body.theme-premium:not(.high-contrast) .guest-card { background-color: #171b26; }
+  body.theme-premium.daytime:not(.high-contrast) .guest-card { background-color: #fbfaf6; }
+  .seats .seat { will-change: transform; contain: layout style; }
+  body.select-mode .seats .seat { will-change: auto; }
+  /* while moving: pause ambient loops (sheen, glows, nudges, grain) and drop reflections */
+  body.moving .seats .seat, body.moving .seats .seat::before, body.moving .seats .seat::after, body.moving .seats .seat .fx::after,
+  body.moving .seats .seat .ring .glow, body.moving .seat-nav button::after { animation-play-state: paused !important; }
+  body.moving .seats .seat { -webkit-box-reflect: unset !important; }
+  /* Smooth mode (auto on slow devices): heavy decoration off */
+  body.lite .seats .seat, body.lite .guest-card { -webkit-box-reflect: unset !important; }
+  body.lite .seats .seat:not(.centre) { box-shadow: none !important; }
+  body.lite .seats .seat::before, body.lite .seats .seat .fx::after, body.lite .grain, body.lite #spot, body.lite .mood { animation: none !important; }
+  body.lite .seats .seat.nudge { animation: none !important; }
+  body.lite #spot, body.lite .mood, body.lite .grain { display: none !important; }
+  body.lite::before { background: var(--c-bg) !important; }
+  body.lite .menu-panel, body.lite .settings-panel, body.lite .history, body.lite .action-bar, body.lite .glass { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background-color: var(--c-surface-strong); }
 </style>
 </head>
 <body>
@@ -1212,6 +1232,7 @@ function applyTheme() {
   document.body.classList.toggle('light', settings.theme === 'light');
   document.body.classList.toggle('high-contrast', !!settings.highContrast);
   document.body.classList.toggle('daytime', isPremium() && !!settings.daytime);
+  document.documentElement.classList.toggle('daytime', isPremium() && !!settings.daytime && !settings.highContrast);
   const f = (id) => document.getElementById(id);
   if (f('setWalkin')) {
     f('setWalkin').value = settings.walkinMin;
@@ -1299,8 +1320,9 @@ const seatAlerts = {};   // id -> 'yellow' | 'red' | 'timeup' while that seat is
 // In Cover Flow only the centred seat counts as "in view"; in the flat selection strip it is geometric.
 function seatVisible(id) {
   const c = document.getElementById('seat-' + id), sc = document.getElementById('seats');
-  if (!c || !sc || sc.offsetParent === null) return true;
-  if (!selectMode) return id === centreId;
+  if (!c || !sc) return true;
+  if (!selectMode) return document.body.classList.contains('guest-on') || id === centreId;   // no layout read in the common path
+  if (sc.offsetParent === null) return true;
   const a = c.getBoundingClientRect(), b = sc.getBoundingClientRect();
   const vis = Math.min(a.right, b.right) - Math.max(a.left, b.left);
   return vis >= a.width * .6;
@@ -1311,14 +1333,16 @@ function glideStop() { if (glide) { cancelAnimationFrame(glide.raf); glide = nul
 function glideTo(sc, to) {
   glideStop();
   const from = sc.scrollLeft, dist = to - from; if (Math.abs(dist) < 1) { sc.scrollLeft = to; updateFlow(); return; }
-  const dur = Math.min(700, 360 + Math.abs(dist) * .25), t0 = performance.now();
-  const ease = t => { const c = isPremium() ? 0 : 1.15; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };   // gentle overshoot then rest
+  // critically damped spring (Premium) settles in ~380ms with no overshoot; Arcade keeps a small overshoot
+  const dur = Math.min(520, 340 + Math.abs(dist) * .06), t0 = performance.now(), W = 7.4;
+  const ease = isPremium() ? (t => 1 - (1 + W * t) * Math.exp(-W * t)) : (t => { const c = 1.15; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); });
   const step = () => {
     const t = Math.min(1, Math.max(0, (performance.now() - t0) / dur));
-    sc.scrollLeft = from + dist * (t < 1 ? ease(t) : 1); updateFlow(); updateNav();
+    const x = from + dist * (t < 1 ? ease(t) : 1); sc.scrollLeft = x; updateFlow(Math.max(0, Math.min(x, glide.max))); if (t >= 1 || !(glide.n = (glide.n || 0) + 1) || glide.n % 4 === 0) updateNav();   // nav classes need not change every frame
     if (t < 1) glide.raf = requestAnimationFrame(step); else { glide = null; sfx('settle'); }
+    moving();
   };
-  glide = { raf: requestAnimationFrame(step) };
+  glide = { raf: requestAnimationFrame(step), max: sc.scrollWidth - sc.clientWidth };
 }
 function jumpTo(id, smooth) {
   flowTarget = id; userScroll = false;
@@ -1343,7 +1367,7 @@ function buildNav() {
   });
   document.getElementById('offAlert').addEventListener('click', () => { const id = document.getElementById('offAlert').dataset.seat; if (id) jumpTo(id, true); });
   let raf = 0;
-  document.getElementById('seats').addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; updateFlow(); updateNav(); }); }, { passive: true });
+  document.getElementById('seats').addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; const c0 = centreId; updateFlow(); if (centreId !== c0) updateNav(); }); }, { passive: true });   // nav only when the centre changes
 }
 function navState(s) {
   if (!s.running) return 'free';
@@ -1404,9 +1428,18 @@ let centreId = 'b1', flowReady = false;
 const FAN = { ry: 55, maxVis: .3, margin: 8 };
 // Fan geometry: the centre card sits in the middle; each side's cards share the space beside it as overlapping strips
 // (about 30% of a card when there is room; narrower so that all eight always fit on screen).
-function fanGeom(sc) {
-  const W = sc.clientWidth, first = sc.firstElementChild, cw = first ? first.offsetWidth : 300, n = sc.children.length;
-  const f = first ? (sc.scrollLeft + W / 2 - (first.offsetLeft + cw / 2)) / cw : 0;
+// Layout is measured once (on load/resize/layout change) and cached, so the per-frame pose never reads layout.
+let FG = null;
+function measureFan() {
+  const sc = document.getElementById('seats'); if (!sc) return null;
+  const cards = [...sc.children];
+  FG = { W: sc.clientWidth, cw: cards[0] ? cards[0].offsetWidth || 1 : 300, lefts: cards.map(c => c.offsetLeft), n: cards.length };
+  return FG;
+}
+function fanGeom(sc, sl) {
+  if (!FG || FG.n !== sc.children.length || !FG.W) measureFan();   // re-measured on resize/layout change, never per frame
+  const W = FG.W, cw = FG.cw, n = FG.n;
+  const f = n ? (sl + W / 2 - (FG.lefts[0] + cw / 2)) / cw : 0;
   const Lc = (W - cw) / 2, room = Math.max(0, Lc - FAN.margin), maxStep = cw * FAN.maxVis;
   return { W, cw, f, Lc, Rc: Lc + cw, stepL: Math.min(maxStep, room / Math.max(1, f)), stepR: Math.min(maxStep, room / Math.max(1, n - 1 - f)) };
 }
@@ -1418,29 +1451,29 @@ function applyCard(c) {
   const t = [c._flow, c._gyro, c._tilt].filter(Boolean).join(' ');
   if (c.style.transform !== t) c.style.transform = t;
 }
-function updateFlow() {
+function updateFlow(slKnown) {
   const sc = document.getElementById('seats'); if (!sc) return;
-  const three = FX.on() && !selectMode, G = fanGeom(sc);
-  let best = null, bestD = 1e9;
+  const sl = slKnown != null ? slKnown : sc.scrollLeft, three = FX.on() && !selectMode, G = fanGeom(sc, sl);
+  let best = null, bestD = 1e9, ci = -1;
   for (const c of sc.children) {
-    const w = c.offsetWidth || 1, d = (c.offsetLeft + w / 2 - (sc.scrollLeft + G.W / 2)) / w;
+    ci++; const w = G.cw, ol = FG.lefts[ci], d = (ol + w / 2 - (sl + G.W / 2)) / w;
     if (Math.abs(d) < Math.abs(bestD)) { bestD = d; best = c.dataset.seat; }
     let flow = '', z = '', dim = '0', strip = '';
     if (!selectMode) {
-      const P = cardPose(d, w), left = d < 0, nl = c.offsetLeft - sc.scrollLeft;
+      const P = cardPose(d, w), left = d < 0, nl = ol - sl;
       // outer edge position on screen; origin is the outer edge so tilt and scale never move it
       const tx = left ? (G.Lc - G.stepL * -d) - nl : (G.Rc + G.stepR * d) - (nl + w);
       flow = `translateX(${tx.toFixed(1)}px)` + (three ? ` perspective(900px) rotateY(${P.ry.toFixed(2)}deg)` : '') + ` scale(${P.sc.toFixed(3)})`;
-      z = String(P.z); dim = P.dim.toFixed(3);
+      z = String(P.z); dim = P.dim.toFixed(2);
       const step = left ? G.stepL : G.stepR, cos = three ? Math.cos(P.ry * Math.PI / 180) : 1;
-      strip = Math.max(24, Math.min(w * .45, (step + 2) / (P.sc * cos))).toFixed(1) + 'px';
+      strip = Math.round(Math.max(24, Math.min(w * .45, (step + 2) / (P.sc * cos)))) + 'px';
       if (c.classList.contains('sl') !== left || c.classList.contains('sr') === left) { c.classList.toggle('sl', left); c.classList.toggle('sr', !left); }
     } else if (c.classList.contains('sl') || c.classList.contains('sr')) c.classList.remove('sl', 'sr');
     c._flow = flow; applyCard(c);
     if (c.style.opacity !== '') c.style.opacity = '';
     if (c.style.zIndex !== z) c.style.zIndex = z;
     if (c._refs && c._refs.dim.style.opacity !== dim) c._refs.dim.style.opacity = dim;
-    if (c.style.getPropertyValue('--strip') !== strip) c.style.setProperty('--strip', strip);
+    const mi = c._refs && c._refs.mini; if (mi && mi.style.width !== strip) mi.style.width = strip;   // plain property on one element: no inherited custom-property recalc
   }
   if (best && best !== centreId) {
     const passed = Math.abs(DISPLAY_IDS.indexOf(best) - DISPLAY_IDS.indexOf(centreId));
@@ -2028,7 +2061,7 @@ function renderSeats() {
     const q = c => d.querySelector(c);
     d._refs = { label: q('.seat-label'), icon: q('.badge .ic'), stext: q('.stext'), timer: q('.timer'),
       ring: q('.ring'), glow: q('.ring .glow'), lead: q('.ring .lead'), rr: q('.ring .h.r i'), rl: q('.ring .h.l i'), fx: q('.fx'), check: q('.sel-check'), prog: q('.ring'), left: q('.left'), ext: q('.ext'),
-      mm: q('.mini .mm'), dim: q('.dim'), primary: q('.btn-primary'), extend: q('.btn-extend'), reset: q('.btn-reset'), notes: q('.notes-input'), };
+      mm: q('.mini .mm'), mini: q('.mini'), dim: q('.dim'), primary: q('.btn-primary'), extend: q('.btn-extend'), reset: q('.btn-reset'), notes: q('.notes-input'), };
     d._refs.label.addEventListener('click', e => { e.stopPropagation(); if (suppressClick) return; if (!selectMode) enterSelectMode(); toggleSelect(id); });
     d.dataset.seat = id;
     d.addEventListener('pointerdown', onSeatPointerDown);
@@ -2154,12 +2187,30 @@ function settle() { if (selectMode || press || !userScroll || glide) return; use
   sc.addEventListener('scroll', () => { clearTimeout(settleT); if (!('onscrollend' in window)) settleT = setTimeout(settle, 140); }, { passive: true });
   sc.addEventListener('scrollend', () => settle());
   // only a person's swipe/wheel needs settling; programmatic glides already land on a seat
-  ['pointerdown', 'touchstart', 'wheel'].forEach(t => sc.addEventListener(t, () => { userScroll = true; glideStop(); }, { passive: true })); }
+  ['pointerdown', 'touchstart', 'wheel'].forEach(t => sc.addEventListener(t, () => { userScroll = true; glideStop(); moving(); }, { passive: true }));
+  sc.addEventListener('scroll', moving, { passive: true }); }
+// While the fan moves, ambient effects pause (one class flip at start and one at rest, not per frame).
+let movingT = 0;
+function moving() {
+  if (!document.body.classList.contains('moving')) { document.body.classList.add('moving'); perfWatch.start(); }
+  clearTimeout(movingT); movingT = setTimeout(() => { if (glide) return moving(); document.body.classList.remove('moving'); perfWatch.stop(); }, 220);
+}
+// Smooth mode (automatic): if motion frames run well over budget on this device, drop the heavy decoration for good.
+const perfWatch = { f: [], raf: 0, last: 0,
+  start() { if (this.raf || document.body.classList.contains('lite') || !FX.on()) return; this.last = performance.now();
+    const loop = t => { this.f.push(t - this.last); this.last = t; this.raf = requestAnimationFrame(loop); }; this.raf = requestAnimationFrame(loop); },
+  stop() { cancelAnimationFrame(this.raf); this.raf = 0; const f = this.f.slice(1); this.f = [];
+    if (f.length < 12) return; const s = f.sort((a, b) => a - b), p75 = s[Math.floor(s.length * .75)];
+    this.samples = (this.samples || 0) + 1; this.slow = (this.slow || 0) + (p75 > 26 ? 1 : 0);
+    if (this.slow >= 2 && !window.__noLite) setLite(true, 'auto'); } };
+function setLite(on, why) { document.body.classList.toggle('lite', !!on); try { if (on) localStorage.setItem('bst.lite', why || '1'); else localStorage.removeItem('bst.lite'); } catch (e) {} }
+try { if (localStorage.getItem('bst.lite')) document.body.classList.add('lite'); } catch (e) {}
 document.getElementById('seats').addEventListener('pointerdown', e => { const c = e.target.closest && e.target.closest('.seat'); if (c && c.classList.contains('side') && !selectMode && isControl(e.target)) e.preventDefault(); }, true);
 function layoutFlow() {   // side gutters so the first and last seat can sit exactly in the centre
   const sc = document.getElementById('seats'), c = sc.firstElementChild; if (!c) return;
   const pad = Math.max(0, (sc.clientWidth - c.offsetWidth) / 2) + 'px';
   if (sc.style.paddingLeft !== pad) { sc.style.paddingLeft = pad; sc.style.paddingRight = pad; }
+  measureFan();
 }
 layoutFlow(); jumpTo('b1');
 if (window.ResizeObserver) new ResizeObserver(() => fxSafe(() => { const id = centreId, sc = document.getElementById('seats'), w = sc.clientWidth; if (w !== layoutFlow.w) { layoutFlow.w = w; layoutFlow(); if (!selectMode) jumpTo(flowTarget || id, !!glide); } })).observe(document.getElementById('seats'));
