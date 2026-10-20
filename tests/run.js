@@ -1149,6 +1149,25 @@ async function tabletTests(browser) {
     await ctx.close();
   }
 }
+
+// ---- v4.3 parties were reverted: saved party data must load safely
+async function partyMigrationTests(browser) {
+  const ctx = await browser.newContext({ ...devices['Pixel 7'], serviceWorkers: 'block' });
+  const p = await ctx.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message));
+  await p.addInitScript(INIT); await p.addInitScript(() => sessionStorage.setItem('bst.intro', '1'));
+  await p.goto(BASE); await p.waitForTimeout(500);
+  await p.evaluate(() => { const key = STORE_KEY, d = JSON.parse(localStorage.getItem(key) || '{}'); const t = Date.now() - 10 * 60000;
+    d.seats = d.seats || {}; ['b4', 'b3'].forEach(id => { d.seats[id] = { running: true, paused: false, startTime: t, pausedAt: null, pausedTotal: 0, extraMs: 0, extensions: 0, limitMs: 3600000, greenMs: 1800000, amberMs: 2700000, party: 'b4+b3', sessionStart: new Date(t).toISOString() }; });
+    d.history = [{ seat: 'b5', party: 'b6+b5', limitMin: 60, durationMin: 12, extensions: 0, start: new Date(t).toISOString(), end: new Date().toISOString(), autoEnd: false }];
+    localStorage.setItem(key, JSON.stringify(d)); });
+  await p.reload(); await p.waitForTimeout(800);
+  const st = await p.evaluate(() => ({ party: ['b4', 'b3'].some(id => 'party' in seats[id]), run: seats.b4.running && seats.b3.running, left: Math.round((getDurationMs(seats.b4) - getElapsed(seats.b4)) / 60000), hp: history.some(h => 'party' in h), ui: !!document.querySelector('.btn-ungroup, .mpt, .lnk') || /party/i.test(document.body.innerText) }));
+  ok(!st.party && st.run && st.left === 50 && !st.hp && !st.ui, `party migration: saved v4.3 party data loads as two ordinary running seats, no party UI (${JSON.stringify(st)})`);
+  await p.evaluate(() => { jumpTo('b4'); document.querySelector('#seat-b4 .btn-reset').click(); }); await p.waitForTimeout(200);
+  ok(await p.evaluate(() => !seats.b4.running && seats.b3.running), `party migration: former members end independently (nothing stuck)`);
+  ok(errs.length === 0, `party migration: no page errors ${errs.join(' | ')}`);
+  await ctx.close();
+}
 async function depthTests(browser, name, opts, reduce) {
   if (name !== 'pixel7') return;
   const tag = 'pixel7' + (reduce ? '-reduced' : '') + ' depth';
@@ -1338,6 +1357,7 @@ let TAG;
   console.log(`Testing ${BASE}`);
   const browser = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
   if (!process.env.ONLY || process.env.ONLY.split(',').includes('tabletTests')) await tabletTests(browser);
+  if (!process.env.ONLY || process.env.ONLY.split(',').includes('partyMigrationTests')) await partyMigrationTests(browser);
   for (const [name, opts] of [['desktop', { viewport: { width: 1366, height: 900 } }], ['pixel7', devices['Pixel 7']]]) {
     if (!process.env.ONLY || process.env.ONLY.split(',').includes('featureTests')) await featureTests(browser, name, opts);
     if (!process.env.ONLY || process.env.ONLY.split(',').includes('migrationAndShot')) await migrationAndShot(browser, name, opts);

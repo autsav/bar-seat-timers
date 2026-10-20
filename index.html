@@ -916,7 +916,7 @@ function loadAll() {
     ['durationMin','greenMin','yellowMin','bookingMin','defaultType'].forEach(k => delete settings[k]);   // bar is walk-in only
     history = Array.isArray(data.history) ? data.history : [];
     SEAT_IDS.forEach(id => { const saved = { ...((data.seats || {})[id] || {}) }; delete saved.name; seats[id] = { ...blankSeat(), ...saved }; });
-    history = history.map(h => { const { name: _legacy, type: _type, ...rest } = h || {}; return rest; });
+    history = history.map(h => { const { name: _legacy, type: _type, party: _party, ...rest } = h || {}; return rest; });
     SEAT_IDS.forEach(id => { seats[id].selected = false; });   // selection mode never survives a reload
     SEAT_IDS.forEach(id => {   // migrate running seats saved before per-seat limits existed
       const st = seats[id];
@@ -930,6 +930,7 @@ function loadAll() {
       delete st.warnedYellow;
       // Walk-in only: drop session types. A seat still running from a booking keeps its locked limitMs until it ends.
       delete st.type; delete st.nextType;
+      delete st.party;   // v4.3 parties were reverted: members simply carry on as separate seats
     });
   } catch (e) {
     SEAT_IDS.forEach(id => { seats[id] = blankSeat(); });
