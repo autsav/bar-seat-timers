@@ -613,7 +613,10 @@
   body.select-mode .seats .seat .dim { opacity: 0 !important; }
   /* each seat's status softly lights its neighbours */
   body:not(.select-mode):not(.high-contrast) .seats .seat:not(.free) { box-shadow: inset 0 1px 0 var(--c-highlight), 0 0 56px 8px color-mix(in srgb, var(--glow) 32%, transparent), var(--shadow); }
-  .seats .seat { transition: scale .32s var(--spring), opacity var(--dur-lg) ease, border-color .6s ease, box-shadow .6s ease; }
+  .seats .seat { transition: scale .32s var(--spring), opacity var(--dur-lg) ease; }
+  @keyframes flagPulse { from { opacity: .35; } to { opacity: 1; } }
+  body:not(.select-mode) .seats .seat.side.flag::before { box-shadow: 0 0 0 2px var(--glow), 0 0 24px 2px var(--glow); animation: flagPulse 1s ease-in-out infinite alternate; opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { body:not(.select-mode) .seats .seat.side.flag::before { animation: none; } }
   body:not(.select-mode) .seats .seat.centre { scale: 1.02; }
   body:not(.select-mode) .seats .seat.centre.pressing { scale: .985; transition: scale .5s cubic-bezier(.3,1.4,.5,1); }
   /* spotlight behind the centre card */
@@ -995,7 +998,7 @@ function extendTimer(id, silent) {
 }
 
 function endSession(id, auto) {
-  setTimeout(() => fxSafe(() => FX.flip(id)), 0);
+  setTimeout(() => fxSafe(() => FX.freeFlip(id)), 0);
   const s = seats[id];
   if (s.running) fxSafe(() => { FX.sparks(id); FX.fold(id); FX.boardWave(SEAT_IDS.indexOf(id)); });   // ghost copies the card as it was; state below changes regardless
   if (s.running && s.startTime) {
@@ -1332,6 +1335,7 @@ function updateNav() {
     const st = navState(seats[id]), vis = seatVisible(id);
     if (vis) delete seatAlerts[id];
     const al = seatAlerts[id];
+    const card = document.getElementById('seat-' + id); if (card && card.classList.contains('flag') !== !!al) card.classList.toggle('flag', !!al);   // side card pulses
     const cls = 'secondary s-' + st + (vis ? ' on' : ' off') + (al ? ' alert' : '') + (id === centreId && !selectMode ? ' centre' : '');
     if (b.className !== cls) b.className = cls;
     const lbl = `${id.toUpperCase()}: ${words[st]}${vis ? '' : ', off-screen'}${al ? ', needs attention' : ''}. Tap to show.`;
@@ -1561,7 +1565,7 @@ const FX = {
     el.textContent = v;
     FX.anim(el, [{ transform: `translateY(${up ? 70 : -70}%)`, opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: isPremium() ? 380 : 260, easing: FX.spring() });
   },
-  entrance() { SEAT_IDS.forEach((id, i) => FX.anim(FX.card(id), [{ transform: 'translateY(14px) scale(.98)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 360, delay: i * 45, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'backwards' })); },
+  entrance() { SEAT_IDS.forEach((id, i) => FX.anim(FX.card(id), [{ translate: '0 14px', opacity: 0 }, { translate: '0 0', opacity: 1 }], { duration: 360, delay: i * 45, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'backwards' })); },
   snack(sb, away) {
     const bar = sb.querySelector('.sb-count');
     if (sb._cd) { sb._cd.cancel(); sb._cd = null; }
@@ -1588,7 +1592,7 @@ const FX = {
   }
 };
 Object.assign(FX, {
-  flip(id) {   // soft flip of the face when a seat frees
+  freeFlip(id) {   // soft flip of the face when a seat frees
     const c = FX.card(id); if (!c) return;
     FX.anim(c.querySelector('.timer-row'), [{ transform: 'perspective(600px) rotateX(0)', opacity: 1 }, { transform: 'perspective(600px) rotateX(80deg)', opacity: .2, offset: .45 }, { transform: 'perspective(600px) rotateX(0)', opacity: 1 }], { duration: 640, easing: 'ease-in-out' });
   },
@@ -1719,7 +1723,8 @@ function updateSeat(id) {
   const remaining = getDurationMs(s) - getElapsed(s);
   const wasSel = el.classList.contains('selected');
   const cls = 'seat ' + (colour || 'free') + (s.paused ? ' paused' : '') + (s.running && remaining <= 0 ? ' timeup' : '') + (s.selected ? ' selected' : '')
-    + ['side', 'centre', 'pressing', 'sl', 'sr', 'nudge'].filter(k => el.classList.contains(k)).map(k => ' ' + k).join('');
+    + ['side', 'centre', 'pressing', 'sl', 'sr', 'flag'].filter(k => el.classList.contains(k)).map(k => ' ' + k).join('')
+    + (el.classList.contains('side') && !selectMode && FX.on() && s.running && remaining <= 0 ? ' nudge' : '');
   if (el.className !== cls) el.className = cls;
   r.label.setAttribute('aria-pressed', String(!!s.selected));
   if (s.selected && !wasSel) FX.pop(r.check);
