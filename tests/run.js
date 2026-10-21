@@ -418,7 +418,8 @@ async function motionTests(browser, name, opts, reduce) {
   ok(reduce ? pop === 0 : pop > 0, `${tag}: tick ${reduce ? 'appears without' : 'pops with'} animation on select (${pop})`);
   if (!reduce) await p.waitForTimeout(450);
   ok(/3 seats selected/.test(await p.locator('#actionCount').textContent()), `${tag}: rolling count reads "3 seats selected"`);
-  ok(reduce ? Math.abs(+(await ev(() => getComputedStyle(document.getElementById('seat-b7')).scale)) - .98) < .002 : (v => v > .93 && v < .975)(+(await ev(() => getComputedStyle(document.getElementById('seat-b7')).scale))), `${tag}: selected seats shrink (${await ev(() => getComputedStyle(document.getElementById('seat-b7')).scale)})`);
+  { const st = await ev(() => { const c = document.getElementById('seat-b7'); return { stuck: c.classList.contains('stuck'), s: +getComputedStyle(c).scale || 1 }; });
+    ok(st.stuck && st.s > .29 && st.s <= 1.001, `${tag}: selected seats stick together (v4.6 cluster replaces the old shrink; scale ${st.s})`); }
   if (!reduce) await p.waitForTimeout(500);
   await shot('select');
   await ev(() => exitSelectMode());

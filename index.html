@@ -1292,9 +1292,9 @@ function onSeatPointerDown(e) {
     if (onLabel) return;                      // label click handles its own toggle
     e.preventDefault();
     const value = !seats[id].selected;
+    press = { id, painting: true, value, pointerId: e.pointerId };   // set first: no regroup under the finger until release
     setSelected(id, value);
     fxSafe(() => { FX.ripple(id, e.clientX, e.clientY); FX.tilt(id, e.clientX, e.clientY); });
-    press = { id, painting: true, value, pointerId: e.pointerId };
     suppressClick = true;
     return;
   }
