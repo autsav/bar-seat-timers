@@ -1220,7 +1220,7 @@ async function coverflowTests(browser) {
     await ev(() => window.scrollTo(0, 0)); await p.waitForTimeout(100);
     const q = await ev(() => { const c = document.getElementById('seat-b3'), a = c.getBoundingClientRect(); return [c.classList.contains('sr') ? a.right - 8 : a.left + 8, Math.min(a.top + a.height / 2, innerHeight - 30)]; });
     await p.touchscreen.tap(q[0], q[1]); await p.waitForTimeout(900);
-    ok(await ev(() => centreId === 'b3' && !glide && seats.b3.running && seats.b3.startTime < Date.now() - 30 * 60000), `${tag}: tapping B3's side card glides it to the centre (and doesn't trigger its controls)`);
+    ok(await ev(() => centreId === 'b3' && !glide && seats.b3.running && seats.b3.startTime < Date.now() - 30 * 60000), `${tag}: tapping B3's side card glides it to the centre (and doesn't trigger its controls) ${await ev(q => { const e = document.elementFromPoint(q[0], q[1]); return centreId + ' ' + (e && (e.className + '|' + (e.closest('.seat') || {}).id)) + ' ' + q; }, q)}`);
     // drag 1:1 + settle on a seat + swing pose mid-drag
     const cdp = await ctx.newCDPSession(p), vw = await ev(() => innerWidth);
     const fb = await p.locator('#seat-b3').boundingBox(), y = Math.round(fb.y + Math.min(fb.height * .45, 160)), x = Math.round(vw / 2);

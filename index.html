@@ -637,6 +637,8 @@
   .seats .seat.sl .mini { left: 0; box-shadow: inset 4px 0 0 var(--glow); }
   .seats .seat.sr .mini { right: 0; box-shadow: inset -4px 0 0 var(--glow); }
   body:not(.select-mode) .seats .seat.side .mini { display: flex; }
+  /* the visible sliver is the side card's tap target: touch adjustment must not snap a tap onto the neighbour's controls */
+  body:not(.select-mode) .seats .seat.side .mini { pointer-events: auto; cursor: pointer; }
   .mini small { font-size: 11px; font-weight: 700; letter-spacing: .1em; color: var(--c-text-muted); line-height: 1; }
   .mini b { font-size: 26px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; color: var(--c-text); }
   .mini .md { width: 10px; height: 10px; border-radius: 50%; background: var(--glow); box-shadow: 0 0 0 2px color-mix(in srgb, var(--glow) 35%, transparent); }
@@ -2451,6 +2453,7 @@ updateSummary();
 buildNav();
 { const sc = document.getElementById('seats'); sc.scrollLeft = sc.scrollWidth; }   // B1 (rightmost) centred on load
 document.getElementById('seats').addEventListener('click', sideTap, true);
+document.querySelectorAll('#seats .seat .mini').forEach(m => m.addEventListener('click', () => {}));   // marks the sliver as tappable for touch adjustment; sideTap does the work
 // Settle: native scrolling supplies drag + momentum; when it comes to rest we glide to the nearest seat.
 // (CSS scroll-snap is off because transformed cards would make the snap targets move.)
 let settleT = 0;
