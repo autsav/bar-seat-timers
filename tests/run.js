@@ -1344,6 +1344,120 @@ async function tabletPerfTests(browser) {
     await ctx.close();
   }
 }
+
+// ---- v4.6: selected cards stick together (visual only) + bigger seat names + side-card progress bars
+async function stickTests(browser) {
+  const sizes = [['pixel7', devices['Pixel 7']], ['915x412', { viewport: { width: 915, height: 412 }, hasTouch: true, isMobile: true }], ['768x1024', { viewport: { width: 768, height: 1024 }, hasTouch: true, isMobile: true }], ['1024x768', { viewport: { width: 1024, height: 768 }, hasTouch: true, isMobile: true }]];
+  for (const [name, o] of sizes) {
+    for (const reduce of name === 'pixel7' ? [false, true] : [false]) {
+      const tag = 'stick ' + name + (reduce ? '-reduced' : '');
+      const ctx = await browser.newContext({ ...o, serviceWorkers: 'block', reducedMotion: reduce ? 'reduce' : 'no-preference' });
+      const p = await ctx.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message));
+      await p.addInitScript(INIT); await p.addInitScript(() => sessionStorage.setItem('bst.intro', '1'));
+      await p.goto(BASE); await p.waitForTimeout(700);
+      const ev = (f, a) => p.evaluate(f, a), settle = () => p.waitForTimeout(reduce ? 80 : 900);
+      await ev(() => { startTimer('b3', true); seats.b3.startTime -= 20 * 60000; saveAll(); SEAT_IDS.forEach(updateSeat); });
+      const shape = () => ev(() => { const s = JSON.parse(localStorage.getItem(STORE_KEY)); return JSON.stringify({ top: Object.keys(s).sort(), seat: Object.keys(s.seats.b1).sort(), set: Object.keys(s.settings).sort(), keys: Object.keys(localStorage).sort() }); });
+      const shape0 = await shape();
+      await ev(() => enterSelectMode()); await p.waitForTimeout(reduce ? 100 : 700);
+      const rects = () => ev(() => { const o = {}; DISPLAY_IDS.forEach(id => { const a = document.getElementById('seat-' + id).getBoundingClientRect(); o[id] = { l: a.left, r: a.right, t: a.top, b: a.bottom }; }); o.vw = document.documentElement.clientWidth; o.vh = innerHeight; return o; });
+      const r0 = await rects();
+      // two non-adjacent seats: B7 and B3
+      await ev(() => { toggleSelect('b7'); toggleSelect('b3'); });
+      if (reduce) ok(await ev(() => !STICK.raf && document.getElementById('seat-b3').style.translate !== ''), `${tag}: reduced motion regroups instantly (no animation)`);
+      await settle();
+      const r1 = await rects(), gap = r1.b3.l - r1.b7.r;
+      ok(r1.b7.l < r1.b3.l && gap <= 1 && gap >= -14, `${tag}: B7 and B3 (not neighbours) slide together, touching/overlapping slightly (gap ${gap.toFixed(1)}px), B7 left of B3`);
+      const ring = await ev(() => { const rs = document.querySelectorAll('#seats .stick-ring'); if (rs.length !== 1) return { n: rs.length }; const a = rs[0].getBoundingClientRect(), cs = getComputedStyle(rs[0]); return { n: 1, l: a.left, r: a.right, t: a.top, b: a.bottom, host: rs[0].parentElement.id, bw: cs.borderTopWidth, op: cs.opacity, vis: cs.visibility }; });
+      ok(ring.n === 1 && ring.host === 'seat-b7' && ring.l <= r1.b7.l + 1 && ring.r >= r1.b3.r - 1 && ring.t <= Math.min(r1.b7.t, r1.b3.t) + 1 && ring.b >= Math.max(r1.b7.b, r1.b3.b) - 1 && parseFloat(ring.bw) >= 2 && +ring.op > .9, `${tag}: one shared outline wraps the whole cluster ${JSON.stringify(ring)}`);
+      ok(r1.b7.l >= -0.5 && r1.b3.r <= r1.vw + .5, `${tag}: the cluster is fully on screen (${r1.b7.l.toFixed(0)}–${r1.b3.r.toFixed(0)} of ${r1.vw})`);
+      ok(await ev(() => { const cx = id => { const a = document.getElementById('seat-' + id).getBoundingClientRect(); return a.left + a.width / 2; }; const o = ['b8', 'b6', 'b5', 'b4', 'b2', 'b1'].map(cx); return o.every((x, i) => !i || x > o[i - 1]); }), `${tag}: the other cards keep B8..B1 order around the cluster`);
+      ok(await ev(() => ['b7', 'b3'].every(id => { const l = document.querySelector('#seat-' + id + ' .seat-label').getBoundingClientRect(), k = document.querySelector('#seat-' + id + ' .sel-check').getBoundingClientRect(); return l.right <= k.left + 1 || l.left >= k.right - 1 || l.bottom <= k.top + 1 || l.top >= k.bottom - 1; })), `${tag}: seat names don't collide with the selection tick`);
+      if (name !== '915x412') await p.screenshot({ path: path.join(SHOTS, `stick-${TAG}-${name}${reduce ? '-reduced' : ''}-two.png`) });
+      // a third seat snaps on, in B8..B1 order inside the cluster
+      await ev(() => toggleSelect('b5')); await settle();
+      const r2 = await rects(), g1 = r2.b5.l - r2.b7.r, g2 = r2.b3.l - r2.b5.r;
+      ok(r2.b7.l < r2.b5.l && r2.b5.l < r2.b3.l && g1 <= 1 && g1 >= -14 && g2 <= 1 && g2 >= -14, `${tag}: a third seat (B5) snaps on between them in B8..B1 order (gaps ${g1.toFixed(1)}, ${g2.toFixed(1)})`);
+      ok(r2.b7.l >= -0.5 && r2.b3.r <= r2.vw + .5 && await ev(() => { const r = document.querySelector('#seats .stick-ring').getBoundingClientRect(), b = document.getElementById('seat-b3').getBoundingClientRect(); return r.right >= b.right - 1; }), `${tag}: 3-card cluster fully on screen with the outline spanning it`);
+      if (!reduce) await p.screenshot({ path: path.join(SHOTS, `stick-${TAG}-${name}-three.png`) });
+      // deselect peels it off back to its own slot
+      await ev(() => toggleSelect('b5')); await settle();
+      const r3 = await rects(), sl = await ev(() => document.getElementById('seats').scrollLeft), b5home = await ev(() => STICK.lefts[DISPLAY_IDS.indexOf('b5')]);
+      ok(await ev(() => { const cx = id => { const a = document.getElementById('seat-' + id).getBoundingClientRect(); return [a.left, a.right]; }; const [b6, b5, b4, b7, b3] = ['b6', 'b5', 'b4', 'b7', 'b3'].map(cx);
+        return !document.getElementById('seat-b5').classList.contains('stuck') && b6[0] < b5[0] && b5[0] < b4[0] && (b5[0] >= b3[1] - 1 || b5[1] <= b7[0] + 1); }), `${tag}: deselecting B5 peels it off: back in the B8..B1 row (between B6 and B4), clear of the cluster`);
+      ok(Math.abs((r3.b3.l - r3.b7.r)) <= 14, `${tag}: B7 + B3 stay stuck after the peel`);
+      // batch actions work on the selected seats exactly as before; no shared/party state
+      await ev(() => { toggleSelect('b3'); toggleSelect('b5'); }); await settle();
+      const before = await ev(() => ({ b7: seats.b7.startTime, b5: seats.b5.startTime }));
+      await p.locator('#actionBar .ab-act', { hasText: 'Start' }).click(); await p.waitForTimeout(reduce ? 200 : 900);
+      const after = await ev(() => ({ r: [seats.b7.running, seats.b5.running, seats.b3.running], sm: selectMode, tr: [...document.querySelectorAll('#seats .seat')].map(c => c.style.translate + c.style.scale).join(''), ring: document.querySelectorAll('.stick-ring').length, st: [seats.b7.startTime, seats.b5.startTime] }));
+      ok(after.r[0] && after.r[1] && after.r[2] && !after.sm, `${tag}: action bar Start starts exactly the selected seats and leaves selection (${JSON.stringify(after.r)})`);
+      ok(after.tr === '' && after.ring === 0, `${tag}: leaving selection springs everything back (no stick offsets or outline left)`);
+      ok(await ev(() => { const cx = DISPLAY_IDS.map(id => { const a = document.getElementById('seat-' + id).getBoundingClientRect(); return a.left + a.width / 2; }); return cx.every((x, i) => !i || x > cx[i - 1]) && !document.body.classList.contains('select-mode') && (matchMedia('(prefers-reduced-motion: reduce)').matches || /rotateY/.test(document.querySelector('#seats .seat.side').style.transform)); }), `${tag}: the board is back to Cover Flow in B8..B1 order`);
+      ok(await shape() === shape0 && await ev(() => !/party|group/i.test(localStorage.getItem(STORE_KEY)) && seats.b7 !== seats.b5 && typeof seats.b7.startTime === 'number'), `${tag}: saved state is unchanged in shape (no party/group/shared timer)`);
+      // Cancel restores too
+      await ev(() => { enterSelectMode(); toggleSelect('b8'); toggleSelect('b1'); }); await settle();
+      ok(await ev(() => document.querySelectorAll('.seat.stuck').length === 2), `${tag}: B8 + B1 (opposite ends) stick`);
+      const r4 = await rects(); ok(r4.b8.l >= -0.5 && r4.b1.r <= r4.vw + .5 && Math.abs(r4.b1.l - r4.b8.r) <= 14, `${tag}: B8 + B1 cluster touching and on screen`);
+      await p.locator('#actionBar .ab-x').click(); await p.waitForTimeout(reduce ? 200 : 900);
+      ok(await ev(() => !selectMode && [...document.querySelectorAll('#seats .seat')].every(c => !c.style.translate && !c.style.scale && !c.classList.contains('stuck'))), `${tag}: Cancel restores the normal B8..B1 Cover Flow`);
+      ok(errs.length === 0, `${tag}: no page errors ${errs.join(' | ')}`);
+      await ctx.close();
+    }
+  }
+  // perf: regrouping under 4x CPU throttle on Pixel 7 stays within the 60 Hz budget
+  { const ctx = await browser.newContext({ ...devices['Pixel 7'], serviceWorkers: 'block', reducedMotion: 'no-preference' });
+    const p = await ctx.newPage(); await p.addInitScript(() => { sessionStorage.setItem('bst.intro', '1'); window.__noLite = 1; });
+    await p.goto(BASE); await p.waitForTimeout(900); await p.evaluate(() => { setQuality('high'); enterSelectMode(); }); await p.waitForTimeout(800);
+    const cdp = await ctx.newCDPSession(p); await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
+    await p.evaluate(() => { const f = []; let last = 0, on = true; const loop = t => { if (last && STICK.raf) f.push(t - last); last = t; if (on) requestAnimationFrame(loop); }; requestAnimationFrame(loop); window.__stopF = () => { on = false; return f; }; });
+    for (const id of ['b8', 'b2', 'b5', 'b2', 'b8', 'b5']) { await p.evaluate(id => toggleSelect(id), id); await p.waitForFunction(() => !STICK.raf, null, { timeout: 4000 }).catch(() => {}); await p.waitForTimeout(200); }
+    const f = (await p.evaluate(() => window.__stopF())).sort((a, b) => a - b), q = k => f[Math.min(f.length - 1, Math.floor(k * f.length))];
+    console.log(`INFO stick perf pixel7: 4x CPU throttle, ${f.length} regroup frames: p50 ${q(.5).toFixed(1)}ms, p95 ${q(.95).toFixed(1)}ms, max ${f[f.length - 1].toFixed(1)}ms`);
+    ok(f.length > 20 && q(.95) <= 17 && f[f.length - 1] <= 34, `stick perf pixel7: regroup springs hold 60 fps under 4x throttle (p95 ${q(.95).toFixed(1)}ms ≤ 17, max ${f[f.length - 1].toFixed(1)}ms ≤ 34)`);
+    await ctx.close(); }
+}
+async function labelBarTests(browser) {
+  const sizes = [['pixel7', devices['Pixel 7']], ['915x412', { viewport: { width: 915, height: 412 }, hasTouch: true, isMobile: true }], ['768x1024', { viewport: { width: 768, height: 1024 }, hasTouch: true, isMobile: true }], ['1024x768', { viewport: { width: 1024, height: 768 }, hasTouch: true, isMobile: true }]];
+  for (const [name, o] of sizes) {
+    const tag = 'labels ' + name, wide = !/pixel7/.test(name);
+    const ctx = await browser.newContext({ ...o, serviceWorkers: 'block' });
+    const p = await ctx.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message));
+    await p.addInitScript(INIT); await p.addInitScript(() => sessionStorage.setItem('bst.intro', '1'));
+    await p.goto(BASE); await p.waitForTimeout(700);
+    const ev = (f, a) => p.evaluate(f, a);
+    await ev(() => { ['b2', 'b3', 'b6', 'b7'].forEach(id => startTimer(id, true)); seats.b3.startTime -= 34 * 60000; seats.b2.startTime -= 15 * 60000; seats.b7.startTime -= 61 * 60000; togglePause('b6', true); saveAll(); SEAT_IDS.forEach(updateSeat); jumpTo('b5'); });
+    await p.waitForTimeout(700);
+    // centre seat name: ≥ 1.6x the old 12px, letter-spaced caps, not clipped
+    const L = await ev(() => { const l = document.querySelector('#seat-b5 .seat-label'), cs = getComputedStyle(l), a = l.getBoundingClientRect(), c = document.getElementById('seat-b5').getBoundingClientRect();
+      return { fs: parseFloat(cs.fontSize), ls: parseFloat(cs.letterSpacing), tt: cs.textTransform, clip: l.scrollWidth > l.clientWidth + 1, inCard: a.left >= c.left - .5 && a.right <= c.right + .5, txt: getComputedStyle(l, '::before').content }; });
+    ok(L.fs >= 19.2 && L.ls >= 2 && L.tt === 'uppercase' && !L.clip && L.inCard, `${tag}: centre 'SEAT · B5' label is bigger (${L.fs}px ≥ 19.2 = 1.6× 12px), letter-spaced caps, not clipped ${JSON.stringify(L)}`);
+    const sideIds = ['b8', 'b7', 'b6', 'b4', 'b3', 'b2'];
+    const S = await ev(ids => ids.map(id => { const c = document.getElementById('seat-' + id); if (+getComputedStyle(c).opacity < .05) return null;
+      const m = c.querySelector('.mini'), b = m.querySelector('.mn b'), bar = m.querySelector('.mbar'), fill = bar.firstElementChild, mb = m.getBoundingClientRect(), nb = m.querySelector('.mn').getBoundingClientRect(), bb = bar.getBoundingClientRect();
+      const tf = fill.style.transform, sy = +(/scaleY\(([\d.]+)\)/.exec(tf) || [0, -1])[1], s = seats[id], rem = getDurationMs(s) - getElapsed(s);
+      let e; const cs = getComputedStyle(bar);
+      return { id, fs: parseFloat(getComputedStyle(b).fontSize), fw: +getComputedStyle(b).fontWeight, numIn: nb.left >= mb.left - .5 && nb.right <= mb.right + .5 && m.querySelector('.mn').scrollWidth <= m.clientWidth,
+        barShown: cs.display !== 'none', barIn: bb.left >= 0 && bb.right <= innerWidth && bb.top >= 0 && Math.min(bb.bottom, innerHeight) - bb.top > 40 && (bb.bottom <= innerHeight || innerHeight < 500) && (e = document.elementFromPoint(bb.left + bb.width / 2, Math.min(bb.top + bb.height / 2, innerHeight - 10))) && e.closest('.seat') === c,
+        edge: c.classList.contains('sl') ? bb.left - mb.left : mb.right - bb.right, sy, want: !s.running ? 0 : rem <= 0 ? 1 : rem / getDurationMs(s), bg: getComputedStyle(fill).backgroundImage + getComputedStyle(fill).backgroundColor, tok: (() => { const k = document.createElement('i'); document.body.appendChild(k); const r = {}; for (const v of ['--bar-ok', '--bar-warn', '--bar-danger']) { k.style.color = `var(${v})`; r[v] = getComputedStyle(k).color; } k.remove(); return r; })(), cls: c.className, op: +getComputedStyle(fill).opacity }; }).filter(Boolean), sideIds);
+    const minFs = wide ? 40 : 28;
+    ok(S.length >= 4 && S.every(x => x.fs >= minFs && x.fw >= 800 && x.numIn), `${tag}: side seat numbers bigger (≥${minFs}px), bold, fit their sliver ${JSON.stringify(S.map(x => [x.id, x.fs, x.numIn]))}`);
+    const running = S.filter(x => !/free/.test(x.cls));
+    ok(running.length >= 3 && running.every(x => x.barShown && x.barIn && x.edge >= 0 && x.edge <= 10), `${tag}: every running side card shows a vertical progress bar on the outward edge of its visible sliver, in view ${JSON.stringify(running.map(x => [x.id, x.barIn, x.edge.toFixed(1)]))}`);
+    ok(running.every(x => Math.abs(x.sy - x.want) <= .02), `${tag}: bar fill = remaining time (±2%) ${JSON.stringify(running.map(x => [x.id, x.sy, +x.want.toFixed(3)]))}`);
+    const g = id => S.find(x => x.id === id);
+    if (g('b3')) ok(g('b3').bg.includes(g('b3').tok['--bar-warn']), `${tag}: amber seat (B3) bar is amber (${g('b3').bg} = ${g('b3').tok['--bar-warn']})`);
+    if (g('b2')) ok(g('b2').bg.includes(g('b2').tok['--bar-ok']) && /green/.test(g('b2').cls), `${tag}: running seat (B2) bar is green (${g('b2').bg})`);
+    if (g('b7')) ok(g('b7').sy === 1 && /timeup/.test(g('b7').cls) && g('b7').bg.includes(g('b7').tok['--bar-danger']), `${tag}: time-up seat (B7) bar is full red (${g('b7').bg})`);
+    if (g('b6')) ok(/repeating-linear-gradient/.test(g('b6').bg) && g('b6').op < 1, `${tag}: paused seat (B6) bar is dashed and muted`);
+    const free = S.filter(x => /free/.test(x.cls));
+    ok(free.length >= 1 && free.every(x => !x.barShown), `${tag}: free seats show no bar`);
+    // ticks drive the bar; motion defers it (no DOM writes mid-motion)
+    ok(await ev(() => { const f = document.querySelector('#seat-b2 .mbar > i'), t0 = f.style.transform; seats.b2.startTime -= 6 * 60000; glide = { raf: 0 }; tick(); const mid = f.style.transform; glide = null; tick(); return mid === t0 && f.style.transform !== t0; }), `${tag}: bar updates on the timer tick, deferred during motion`);
+    ok(errs.length === 0, `${tag}: no page errors ${errs.join(' | ')}`);
+    await ctx.close();
+  }
+}
 async function depthTests(browser, name, opts, reduce) {
   if (name !== 'pixel7') return;
   const tag = 'pixel7' + (reduce ? '-reduced' : '') + ' depth';
@@ -1535,6 +1649,8 @@ let TAG;
   if (!process.env.ONLY || process.env.ONLY.split(',').includes('coverflowTests')) await coverflowTests(browser);
   if (!process.env.ONLY || process.env.ONLY.split(',').includes('qualityTests')) await qualityTests(browser);
   if (!process.env.ONLY || process.env.ONLY.split(',').includes('tabletPerfTests')) await tabletPerfTests(browser);
+  if (!process.env.ONLY || process.env.ONLY.split(',').includes('stickTests')) await stickTests(browser);
+  if (!process.env.ONLY || process.env.ONLY.split(',').includes('labelBarTests')) await labelBarTests(browser);
   if (!process.env.ONLY || process.env.ONLY.split(',').includes('partyMigrationTests')) await partyMigrationTests(browser);
   for (const [name, opts] of [['desktop', { viewport: { width: 1366, height: 900 } }], ['pixel7', devices['Pixel 7']]]) {
     if (!process.env.ONLY || process.env.ONLY.split(',').includes('featureTests')) await featureTests(browser, name, opts);

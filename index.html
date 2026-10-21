@@ -353,7 +353,7 @@
   @media (min-width: 400px) { #guestSeats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (min-width: 720px) {
     .action-bar { grid-template-columns: auto repeat(5, auto); }
-    .action-bar .ab-count, .action-bar .ab-x { grid-row: auto; grid-column: auto; }
+    .action-bar .ab-count, .action-bar .ab-x { grid-row: auto; grid-column: auto; justify-self: auto; }
     .action-bar button { padding: var(--s-2) var(--s-4); }
     #guestSeats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   }
@@ -706,6 +706,7 @@
 
   /* ============ v4.6: bigger seat names + side-card progress bars ============ */
   body.theme-premium .seat-label { font-size: 1.25rem; font-weight: 600; letter-spacing: .18em; white-space: nowrap; }
+  body.theme-premium.select-mode .seat-label { font-size: 1rem; letter-spacing: .12em; }   /* leaves room for the selection tick */
   .seat-label { font-size: 1.9rem; }
   .mini b { font-size: 29px; font-weight: 900; letter-spacing: -.02em; }
   .mini small { font-size: 10px; letter-spacing: 0; }
