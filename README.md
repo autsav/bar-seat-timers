@@ -182,4 +182,5 @@ Cover Flow is now the main board on phones, tablets and desktop. It replaces the
   - `qualityTests`: the spring at 30/60/90/120 Hz, the real glide driven at 60 vs 120 Hz, stall clamping, each tier and the setting.
   - `smoothTests` (Pixel 7) and `tabletPerfTests` (1024×768): drag + settle under 4× CPU throttle, p95 ≤ 17 ms and no frame over two vsyncs.
   - `tests/bench.js` reports drag/settle/rest frame times.
+- **v4.5.1:** the closed menu scrim, a full-screen `backdrop-filter` layer at opacity 0, is now `visibility: hidden`, so it leaves the compositor. This was the biggest tablet win. Mini and dim no longer force their own layers.
 - **Testing limits:** headless Chrome composites in software, so tablet-sized frames are limited by the compositor thread on the test box. Confirm on the real device with the performance meter.
