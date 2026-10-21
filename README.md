@@ -161,6 +161,13 @@ Cover Flow is now the main board on phones, tablets and desktop. It replaces the
 - Reflections are a static child gradient, with no `-webkit-box-reflect`. They are off in Smooth/lite, high-contrast and light modes. Reduced motion stays flat.
 - The `coverflowTests` suite covers poses, order, visibility and readability, alert placement, tap-to-centre, drag tracking and settling. It runs at Pixel 7, 915×412, 768×1024, 1024×768, 800×1280, 1280×800, 1366×1024, 1024×1366 and 1440×900.
 
+## Stick-together selection, bigger seat names, side progress bars (v4.6)
+
+- **Stick together (visual only):** in selection mode, two or more selected cards spring into one tight cluster with a single shared outline. The cluster sits where the first selected card was, keeps B8..B1 order, and the other cards close the gaps. Selecting another card snaps it on and deselecting peels it off. Leaving selection mode springs everything back to Cover Flow. There is no shared timer and no saved group, and the data model is unchanged. With reduced motion the cards regroup instantly. Animation uses transform only.
+- **Seat names:** the centre label is about 1.6x bigger, in letter-spaced caps. Side-sliver numbers are 29px on phones and 44px from 600px wide, in weight 900.
+- **Side progress bar:** a vertical bar on the outward edge of each side sliver. It fills to the remaining time (scaleY) in green, amber or red. Time-up is full red, paused is dashed and muted, and free seats show no bar. It updates on timer ticks only and waits until motion has stopped.
+- Fixes: the tablet action bar's End and Cancel buttons no longer overlap. A tap on a side sliver now always opens that seat.
+
 ## 60 fps motion + quality tiers (v4.5)
 - **Frame-rate independent spring.** The settle advances by the real rAF timestamp delta, clamped to 1/30 s, and draws the spring's exact closed form at that time. So 60, 90 and 120 Hz follow the same curve and land at the same moment. Pointer moves only record the latest position, with coalesced events feeding a ~100 ms velocity window; drawing happens once per frame. Positions are sub-pixel while moving and whole pixels at rest.
 - **Style recalculation.** Children of each card used `border-radius: inherit`, so every pose write recalculated the card's whole subtree. They now use `var(--radius)`, which cut the per-frame style cost about 5×. Pose writes go through a cached style object.
