@@ -427,6 +427,9 @@ async function motionTests(browser, name, opts, reduce) {
   ok(/Occupied 5\/8/.test((await p.locator('#summary').innerText()).replace(/\s+/g, ' ')), `${tag}: summary reads Occupied 5/8`);
   // guest view: flip digits + wave
   await ev(() => toggleGuestView()); await tick(300);
+  { const f = await ev(() => [[false, 5e5], [true, 2530000], [true, 61000], [true, 59000], [true, 0], [true, -70000], [true, -1000], [true, 3600000]].map(([r, ms]) => sideTime(r, ms)));
+    const want = [['free','free'], ['42:10','43m'], ['1:01','2m'], ['0:59','1m'], ['+0:00','+1m'], ['+1:10','+2m'], ['+0:01','+1m'], ['60:00','60m']];
+    want.forEach((w, i) => ok(f[i].full === w[0] && f[i].short === w[1], `${tag}: sideTime format #${i} -> ${JSON.stringify(f[i])}`)); }
   ok(await ev(() => { const g = document.querySelector('#guest-b5 .gt'); return g.children.length === g.textContent.length && g.textContent === formatTime(Math.max(0, getDurationMs(seats.b5) - getElapsed(seats.b5))); }), `${tag}: flip-clock digits show the exact remaining time`);
   await ev(() => { endSession('b1', false); }); await tick(300);
   const w = await ev(() => SEAT_IDS.filter(id => document.getElementById('guest-' + id).getAnimations().length).length);
@@ -685,7 +688,7 @@ async function flowTests(browser, name, opts, reduce) {
   await ev(() => jumpTo('b1')); await tick(30);
   // compact face on side cards
   await ev(() => { startTimer('b3'); seats.b3.startTime -= 20 * 60000; }); await tick(300);
-  const face = await ev(() => { const m = document.querySelector('#seat-b3 .mini'), cs = getComputedStyle(m); return { disp: cs.display, num: m.querySelector('b').textContent, w: +getComputedStyle(m.querySelector('b')).fontWeight, mm: m.querySelector('.mm').textContent, dot: getComputedStyle(m.querySelector('.md')).backgroundColor, cen: getComputedStyle(document.querySelector('#seat-b1 .mini')).display }; });
+  const face = await ev(() => { const m = document.querySelector('#seat-b3 .mini'), cs = getComputedStyle(m); return { disp: cs.display, num: m.querySelector('b').textContent, w: +getComputedStyle(m.querySelector('b')).fontWeight, mm: m.querySelector('.ms').textContent, dot: getComputedStyle(m.querySelector('.md')).backgroundColor, cen: getComputedStyle(document.querySelector('#seat-b1 .mini')).display }; });
   if (depth) ok(face.disp === 'flex' && face.num === '3' && face.w >= 700 && face.mm === '40m' && face.cen === 'none', `${tag}: depth: back card shows seat number + status dot + minutes left (${JSON.stringify(face)})`);
   else if (false) ok(face.disp === 'flex' && await ev(() => { const m = document.querySelector('#seat-b3 .mini'), a = m.getBoundingClientRect(), c = document.getElementById('seat-b3').getBoundingClientRect(); return [...m.children].every(k => getComputedStyle(k).display === 'none') && a.width >= c.width - 2; }) && face.cen === 'none', `${tag}: narrow phone: side cards are clean status peeks (no squeezed text; chips carry the numbers)`);
   else ok(face.disp === 'flex' && face.num === '3' && face.w >= 700 && face.mm === '40m' && face.cen === 'none', `${tag}: side card compact face = bold seat number + status dot + minutes left (${JSON.stringify(face)})`);
@@ -1205,7 +1208,7 @@ async function coverflowTests(browser) {
       const r = await ev(() => { const vw = document.documentElement.clientWidth, vh = innerHeight, out = [];
         for (const c of document.querySelectorAll('#seats .seat')) { if (+getComputedStyle(c).opacity < .05) continue;
           const a = c.getBoundingClientRect(), cen = c.classList.contains('centre'), x = { id: c.dataset.seat, inV: a.left >= 0 && a.right <= vw && a.top >= 0 && (a.bottom <= vh || vh < 500) };   // short landscape phones: the page scrolls vertically, the label sits high
-          if (!cen) { const m = c.querySelector('.mini'), parts = [...m.querySelectorAll('.mn, .mm')]; x.txt = parts.map(k => k.textContent).join(' ');
+          if (!cen) { const m = c.querySelector('.mini'), parts = [...m.querySelectorAll('.mn, .mf, .ms')].filter(k => getComputedStyle(k).display !== 'none'); x.txt = parts.map(k => k.textContent).join(' ');
             x.read = getComputedStyle(m).display === 'flex' && parts.every(k => { const b = k.getBoundingClientRect(), e = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2); return b.width >= 6 && b.height >= 9 && b.left >= 0 && b.right <= vw && e && e.closest('.seat') === c; }); }
           else x.read = true; out.push(x); }
         return out; });
@@ -1493,7 +1496,7 @@ async function depthTests(browser, name, opts, reduce) {
       const a = c.getBoundingClientRect(), id = c.dataset.seat, front = c.classList.contains('centre');
       const r = { id, inV: a.left >= -.5 && a.right <= innerWidth + .5 && a.top >= 0 && a.bottom <= innerHeight + .5 };
       if (front) { const e = document.elementFromPoint(a.left + a.width / 2, a.top + a.height / 2); r.ok = !!(e && e.closest('.seat') === c); out.push(r); continue; }
-      const m = c.querySelector('.mini'), texts = [...m.querySelectorAll('.mn, .mm, .mp')].filter(k => getComputedStyle(k).display !== 'none');
+      const m = c.querySelector('.mini'), texts = [...m.querySelectorAll('.mn, .mf, .ms, .mp')].filter(k => getComputedStyle(k).display !== 'none');
       r.text = texts.map(k => k.textContent).join(' ');
       r.clip = texts.filter(k => { const b = k.getBoundingClientRect(); if (k.scrollWidth > k.clientWidth + 1) return true; if (b.left < a.left - .5 || b.right > a.right + .5 || b.top < a.top - .5) return true;
         const e = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2), e2 = document.elementFromPoint(b.left + b.width / 2, b.bottom - 1); return !(e && e.closest('.seat') === c && e2 && e2.closest('.seat') === c); }).map(k => k.className);
@@ -1512,8 +1515,8 @@ async function depthTests(browser, name, opts, reduce) {
     if (id === 'b1') console.log(`INFO ${tag}: back card min touch ${Math.min(...r.filter(x => x.touchW).map(x => x.touchW)).toFixed(0)}×${Math.min(...r.filter(x => x.touchH).map(x => x.touchH)).toFixed(0)}px, min text line ${Math.min(...r.filter(x => x.font).map(x => x.font)).toFixed(1)}px`);
   }
   await ev(() => jumpTo('b1')); await tick(50);
-  const faces = await ev(() => Object.fromEntries(['b8', 'b7', 'b6', 'b3', 'b5'].map(id => { const m = document.querySelector('#seat-' + id + ' .mini'); return [id, [...m.querySelectorAll('.mn, .mm, .mp')].filter(k => getComputedStyle(k).display !== 'none').map(k => k.textContent).join(' ')]; })));
-  ok(faces.b8 === 'B8 60m' && faces.b3 === 'B3 26m' && faces.b5 === 'B5 free' && /^B6 60m paused$/.test(faces.b6), `${tag}: back cards show number, minutes/free, paused (${JSON.stringify(faces)})`);
+  const faces = await ev(() => Object.fromEntries(['b8', 'b7', 'b6', 'b3', 'b5'].map(id => { const m = document.querySelector('#seat-' + id + ' .mini'); return [id, [...m.querySelectorAll('.mn, .mf, .ms, .mp')].filter(k => getComputedStyle(k).display !== 'none').map(k => k.textContent).join(' ')]; })));
+  ok(/^B8 (60:00|59:5\d|60m)$/.test(faces.b8) && /^B3 (2[56]:\d\d|26m)$/.test(faces.b3) && /^B5 free$/.test(faces.b5) && /^B6 (60:00|59:5\d|60m) paused$/.test(faces.b6), `${tag}: back cards show number, minutes/free, paused (${JSON.stringify(faces)})`);
   ok(await ev(() => { const g = getComputedStyle(document.querySelector('#seat-b3 .mini')).boxShadow, o = getComputedStyle(document.querySelector('#seat-b6 .mini')).outlineStyle; return /inset/.test(g) && o === 'dashed'; }), `${tag}: status-coloured edge; paused card dashed`);
   ok(await ev(() => [...document.querySelectorAll('#seats .seat.side')].every(c => !/blur/.test(getComputedStyle(c).filter + getComputedStyle(c).backdropFilter) && +c.querySelector('.dim').style.opacity > 0)), `${tag}: back cards dimmed, never blurred`);
   if (!reduce) await p.waitForTimeout(500); await shot('b1');
@@ -1542,7 +1545,7 @@ async function depthTests(browser, name, opts, reduce) {
   ok(await ev(() => document.getElementById('seat-b7').classList.contains('flag') && !document.getElementById('offAlert').hidden && /B7 time is up/.test(document.getElementById('offAlert').textContent)), `${tag}: off-front time-up flags B7's back card + Show button`);
   const fa = await ev(() => ({ before: getComputedStyle(document.getElementById('seat-b7'), '::after').animationName, card: getComputedStyle(document.getElementById('seat-b7')).animationName }));
   ok(reduce ? !/depthNudge/.test(fa.card) : /depthNudge/.test(fa.card) && fa.before !== 'none', `${tag}: back card alert ${reduce ? 'static (no nudge)' : 'pulses and nudges toward the front'} (${JSON.stringify(fa)})`);
-  ok(await ev(() => { const m = document.querySelector('#seat-b7 .mini .mm'); return m.textContent === 'up'; }), `${tag}: time-up back card reads 'up'`);
+  ok(await ev(() => { const m = document.querySelector('#seat-b7 .mini .mf'); return /^\+\d+:\d\d$/.test(m.textContent); }), `${tag}: time-up back card reads +m:ss overdue`);
   ok(await ev(() => { const a = document.getElementById('offAlert'), r = a.getBoundingClientRect(); return !a.hidden && r.width > 0 && [...document.querySelectorAll('#seats .seat')].every(c => { const b = c.getBoundingClientRect(); return !(b.left < r.right && b.right > r.left && b.top < r.bottom && b.bottom > r.top); }); }), `${tag}: the Show alert never overlaps any card`);
   ok(await ev(() => { const s = document.getElementById('summary'); return s.scrollWidth <= s.clientWidth + 1 && [...s.children].filter(e => e.offsetWidth).every(e => { const r = e.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth; }); }), `${tag}: summary line fits the screen (nothing cut off at the right)`);
   if (!reduce) await p.waitForTimeout(600); await shot('alert');
