@@ -704,7 +704,7 @@ async function flowTests(browser, name, opts, reduce) {
   if (depth) ok(scl.every(x => x < .35), `${tag}: depth: back cards are smaller (${scl.join(', ')})`);
   else ok(scl[0] > scl[1] && scl[1] > scl[2], `${tag}: side cards shrink progressively by distance (${scl.join(' > ')})`);
   for (let k = 0; k < 15 && !(await ev(() => (m => Math.hypot(m.a, m.b))(new DOMMatrix(getComputedStyle(document.getElementById('seat-b1')).transform)) > 1.005)); k++) await p.waitForTimeout(100);
-  ok(await ev(() => (m => Math.hypot(m.a, m.b))(new DOMMatrix(getComputedStyle(document.getElementById('seat-b1')).transform)) > 1.005 && getComputedStyle(document.getElementById('spot')).display !== 'none'), `${tag}: centre card raised with a spotlight behind it (${await ev(() => getComputedStyle(document.getElementById('seat-b1')).scale + ' ' + document.getElementById('seat-b1').className)})`);
+  ok(await ev(() => (m => Math.hypot(m.a, m.b))(new DOMMatrix(getComputedStyle(document.getElementById('seat-b1')).transform)) > 1.005 && /radial-gradient/.test(getComputedStyle(document.body).backgroundImage)), `${tag}: centre card raised with a spotlight behind it (${await ev(() => getComputedStyle(document.getElementById('seat-b1')).scale + ' ' + document.getElementById('seat-b1').className)})`);
   await ev(() => endSession('b3', false)); await tick(300);
   const pose = await ev(() => { const c = document.getElementById('seat-b2'); return { tf: c.style.transform, op: +c.style.opacity, side: c.classList.contains('side') }; });
   if (reduce) ok(!/rotateY|perspective/.test(pose.tf) && pose.side, `${tag}: no 3D under reduced motion (side card flat, "${pose.tf}")`);
@@ -1317,8 +1317,8 @@ async function qualityTests(browser) {
     ok(await ev(() => Q.tier === 0 && !document.body.classList.contains('lite')), `${tag}: back to Auto restores full quality`);
     // reflections only at rest; faded cards hidden at rest
     await ev(() => jumpTo('b1')); await p.waitForTimeout(500);
-    const rr = await ev(() => { const r = document.querySelector('#seat-b3 .refl'), atRest = getComputedStyle(r).visibility; glide = { raf: 0 }; moving(); updateFlow(); const mv = getComputedStyle(r).visibility; glide = null; return { atRest, mv }; });
-    ok(rr.atRest === 'visible' && rr.mv === 'hidden', `${tag}: reflections show only at rest ${JSON.stringify(rr)}`);
+    const rr = await ev(() => { const r = document.querySelector('#seat-b1 .refl'), atRest = getComputedStyle(r).visibility; glide = { raf: 0 }; moving(); updateFlow(); const mv = getComputedStyle(r).visibility; glide = null; return { atRest, mv }; });
+    ok(rr.atRest === 'visible' && rr.mv === 'hidden', `${tag}: reflections show only at rest (centre card; back cards have none) ${JSON.stringify(rr)}`);
     await p.waitForTimeout(500);
     ok(await ev(() => [...document.querySelectorAll('#seats .seat')].every(c => c.style.opacity !== '0.00' || c.style.visibility === 'hidden')), `${tag}: cards faded out at rest are visibility:hidden`);
     ok(errs.length === 0, `${tag}: no page errors ${errs.join(' | ')}`);
