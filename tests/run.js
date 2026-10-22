@@ -57,7 +57,7 @@ async function featureTests(browser, name, opts) {
   const seat = i => p.locator('#seat-b' + i);
   const timer = async i => (await seat(i).locator('.timer').textContent()).trim();
   const ev = f => p.evaluate(f);
-  const tick = ms => p.clock.fastForward(ms);
+  const tick = ms => p.clock.fastForward(ms >= 200 ? Math.max(ms, 1050) : ms);   // v4.9: app ticks at 1 Hz
 
   // --- walk-in only: single limit, no booking UI
   ok(await timer(1) === '1:00:00', `${name}: free seat shows default 60-min limit 1:00:00`);
@@ -230,7 +230,7 @@ async function selectionTests(browser, name, opts) {
   await p.addInitScript(INIT);
   await p.clock.install({ time: new Date('2026-10-20T19:00:00') });
   await p.goto(BASE);
-  const ev = f => p.evaluate(f), tick = ms => p.clock.fastForward(ms);
+  const ev = f => p.evaluate(f), tick = ms => p.clock.fastForward(ms >= 200 ? Math.max(ms, 1050) : ms);
   const touch = !!opts.hasTouch;
   const cdp = touch ? await ctx.newCDPSession(p) : null;
   const centre = async i => { if (await p.evaluate(() => selectMode)) await p.waitForTimeout(560);   // let the fan finish flattening (real-time CSS transition)
@@ -334,7 +334,7 @@ async function motionTests(browser, name, opts, reduce) {
   await p.addInitScript(INIT);
   await p.clock.install({ time: new Date('2026-10-20T19:00:00') });
   await p.goto(BASE);
-  const ev = (f, a) => p.evaluate(f, a), tick = ms => p.clock.fastForward(ms);
+  const ev = (f, a) => p.evaluate(f, a), tick = ms => p.clock.fastForward(ms >= 200 ? Math.max(ms, 1050) : ms);
   const props = () => ev(() => { const bad = [];
     document.getAnimations().forEach(a => {
       if (a.transitionProperty) { if (!['transform','opacity','translate','scale','rotate'].includes(a.transitionProperty)) bad.push('transition:' + a.transitionProperty); return; }
@@ -371,7 +371,7 @@ async function motionTests(browser, name, opts, reduce) {
     shake: getComputedStyle(document.getElementById('seat-b3')).animationName, alarm: getComputedStyle(document.getElementById('seat-b3'), '::after').animationName,
     alarmOp: getComputedStyle(document.getElementById('seat-b3'), '::after').opacity }));
   if (reduce) ok(anim.glowA === 'none' && anim.glowR === 'none' && anim.shake === 'none' && anim.alarm === 'none' && anim.alarmOp === '1', `${tag}: no breathing/pulse/shake; static time-up glow (${JSON.stringify(anim)})`);
-  else ok(anim.glowA === 'breathe' && anim.glowR === 'breathe' && /^(shakeX|nudge[LR]|depthNudgeT)$/.test(anim.shake) && anim.alarm === 'alarm', `${tag}: amber breathe, red pulse, time-up shake + glow (${JSON.stringify(anim)})`);
+  else ok(anim.glowA === 'breathe' && anim.glowR === 'breathe' && (/^(shakeX|nudge[LR]|depthNudgeT)$/.test(anim.shake) || (anim.shake === 'none' && await ev(() => document.getElementById('seat-b3').classList.contains('side')))) && anim.alarm === 'alarm', `${tag}: amber breathe, red pulse, time-up shake + glow (${JSON.stringify(anim)})`);
   // pause: stripes + frozen ring
   await clickSeat(p, 4, '.btn-primary'); await tick(300);
   const r1 = await ev(() => document.querySelector('#seat-b4 .ring .h.r i').style.transform);
@@ -435,9 +435,10 @@ async function motionTests(browser, name, opts, reduce) {
       ok(m.lbl === 'has notes' && m.txt === '', `${tag}: notes icon labelled, no note text (${JSON.stringify(m)})`); }
     want.forEach((w, i) => ok(f[i].full === w[0] && f[i].short === w[1], `${tag}: sideTime format #${i} -> ${JSON.stringify(f[i])}`)); }
   ok(await ev(() => { const g = document.querySelector('#guest-b5 .gt'); return g.children.length === g.textContent.length && g.textContent === formatTime(Math.max(0, getDurationMs(seats.b5) - getElapsed(seats.b5))); }), `${tag}: flip-clock digits show the exact remaining time`);
-  await ev(() => { endSession('b1', false); }); await tick(300);
+  await ev(() => { endSession('b1', false); tick(); }); await p.clock.fastForward(300);
   const w = await ev(() => SEAT_IDS.filter(id => document.getElementById('guest-' + id).getAnimations().length).length);
   ok(reduce ? w === 0 : w === 8, `${tag}: wave across the board when a seat frees (${w} cards)`);
+  await tick(1050);
   ok(await ev(() => !seats.b1.running && document.querySelector('#guest-b1 .gt').textContent === '--:--'), `${tag}: guest card shows free immediately`);
   if (!reduce) await p.waitForTimeout(250);
   await shot('guest');
@@ -467,7 +468,7 @@ async function cineTests(browser, name, opts, reduce) {
   await p.addInitScript(INIT);
   await p.clock.install({ time: new Date('2026-10-20T18:00:00') });
   await p.goto(BASE);
-  const ev = (f, a) => p.evaluate(f, a), tick = ms => p.clock.fastForward(ms);
+  const ev = (f, a) => p.evaluate(f, a), tick = ms => p.clock.fastForward(ms >= 200 ? Math.max(ms, 1050) : ms);
   const shot = async n => { if (name === 'pixel7') await p.screenshot({ path: path.join(SHOTS, `cine-${TAG}-${tag}-${n}.png`) }); };
   const allowed = () => ev(() => { const bad = new Set(); document.getAnimations().forEach(a => {
     if (a.transitionProperty) { if (!['transform','opacity','translate','scale','rotate'].includes(a.transitionProperty)) bad.add('t:' + a.transitionProperty); return; }
@@ -581,7 +582,7 @@ async function rowTests(browser, name, opts) {
   await p.addInitScript(INIT);
   await p.clock.install({ time: new Date('2026-10-20T19:00:00') });
   await p.goto(BASE); await p.clock.fastForward(300);
-  const ev = (f, a) => p.evaluate(f, a), tick = ms => p.clock.fastForward(ms);
+  const ev = (f, a) => p.evaluate(f, a), tick = ms => p.clock.fastForward(ms >= 200 ? Math.max(ms, 1050) : ms);
   const shot = async n => { if (name === 'pixel7') await p.screenshot({ path: path.join(SHOTS, `row-${TAG}-${name}-${n}.png`) }); };
   const order = await ev(() => [...document.querySelectorAll('#seats .seat')].map(e => e.dataset.seat).join(','));
   ok(order === 'b8,b7,b6,b5,b4,b3,b2,b1', `${name}: staff row order B8..B1 (${order})`);
@@ -664,7 +665,7 @@ async function flowTests(browser, name, opts, reduce) {
   await p.addInitScript(() => sessionStorage.setItem('bst.intro', '1'));   // skip intro for geometry checks
   await p.clock.install({ time: new Date('2026-10-20T19:00:00') });
   await p.goto(BASE); await p.clock.fastForward(300);
-  const ev = (f, a) => p.evaluate(f, a), tick = ms => p.clock.fastForward(ms);
+  const ev = (f, a) => p.evaluate(f, a), tick = ms => p.clock.fastForward(ms >= 200 ? Math.max(ms, 1050) : ms);
   const shot = async n => { if (name === 'pixel7') await p.screenshot({ path: path.join(SHOTS, `flow-${TAG}-${tag}-${n}.png`) }); };
   const waitC = async id => { for (let k = 0; k < 40; k++) { await tick(20); if (await ev(id => centreId === id && Math.abs((document.getElementById('seat-' + id).offsetLeft + document.getElementById('seat-' + id).offsetWidth / 2) - (document.getElementById('seats').scrollLeft + document.getElementById('seats').clientWidth / 2)) <= 1.5, id)) return; await p.waitForTimeout(60); } };
   const off = id => ev(id => { const sc = document.getElementById('seats'), c = document.getElementById('seat-' + id); return Math.abs((c.offsetLeft + c.offsetWidth / 2) - (sc.scrollLeft + sc.clientWidth / 2)); }, id);
@@ -791,7 +792,7 @@ async function premiumTests(browser, name, opts, reduce) {
   await p.addInitScript(() => sessionStorage.setItem('bst.intro', '1'));
   await p.clock.install({ time: new Date('2026-10-20T19:00:00') });
   await p.goto(BASE); await p.clock.fastForward(300);
-  const ev = (f, a) => p.evaluate(f, a), tick = ms => p.clock.fastForward(ms);
+  const ev = (f, a) => p.evaluate(f, a), tick = ms => p.clock.fastForward(ms >= 200 ? Math.max(ms, 1050) : ms);
   const shot = async n => { if (name === 'pixel7' && !reduce) await p.screenshot({ path: path.join(SHOTS, `premium-${TAG}-pixel7-${n}.png`) }); };
   const lum = c => { const m = c.match(/[\d.]+/g).map(Number).slice(0, 3).map(v => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }); return .2126 * m[0] + .7152 * m[1] + .0722 * m[2]; };
   const cr = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
@@ -863,7 +864,7 @@ async function fanTests(browser, name, opts, reduce) {
   await p.addInitScript(() => sessionStorage.setItem('bst.intro', '1'));
   await p.clock.install({ time: new Date('2026-10-20T19:00:00') });
   await p.goto(BASE); await p.clock.fastForward(300);
-  const ev = (f, a) => p.evaluate(f, a), tick = ms => p.clock.fastForward(ms);
+  const ev = (f, a) => p.evaluate(f, a), tick = ms => p.clock.fastForward(ms >= 200 ? Math.max(ms, 1050) : ms);
   const settleWait = async () => { for (let k = 0; k < 20; k++) { await tick(30); await p.waitForTimeout(reduce ? 5 : 40); } };
   const shot = async n => { if (name === 'pixel7') await p.screenshot({ path: path.join(SHOTS, `fan-${TAG}-pixel7-${n}.png`) }); };
   const lum = c => { const m = c.match(/[\d.]+/g).map(Number).slice(0, 3).map(v => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }); return .2126 * m[0] + .7152 * m[1] + .0722 * m[2]; };
@@ -938,7 +939,7 @@ async function chipTests(browser, name, opts, reduce, narrow) {
   await p.addInitScript(() => sessionStorage.setItem('bst.intro', '1'));
   await p.clock.install({ time: new Date('2026-10-20T19:00:00') });
   await p.goto(BASE); await p.clock.fastForward(300);
-  const ev = (f, a) => p.evaluate(f, a), tick = ms => p.clock.fastForward(ms);
+  const ev = (f, a) => p.evaluate(f, a), tick = ms => p.clock.fastForward(ms >= 200 ? Math.max(ms, 1050) : ms);
   const settleWait = async () => { for (let k = 0; k < 25; k++) { await tick(30); await p.waitForTimeout(reduce ? 5 : 40); } };
   const shot = async n => { if (name === 'pixel7' && !narrow && !reduce) await p.screenshot({ path: path.join(SHOTS, `chips-${TAG}-pixel7-${n}.png`), fullPage: true }); };
   if (name !== 'pixel7') {
@@ -1476,7 +1477,7 @@ async function depthTests(browser, name, opts, reduce) {
   await p.addInitScript(() => sessionStorage.setItem('bst.intro', '1'));
   await p.clock.install({ time: new Date('2026-10-20T19:00:00') });
   await p.goto(BASE); await p.clock.fastForward(300);
-  const ev = (f, a) => p.evaluate(f, a), tick = ms => p.clock.fastForward(ms);
+  const ev = (f, a) => p.evaluate(f, a), tick = ms => p.clock.fastForward(ms >= 200 ? Math.max(ms, 1050) : ms);
   const settleWait = async () => { for (let k = 0; k < 25; k++) { await tick(30); await p.waitForTimeout(reduce ? 5 : 40); } };
   const shot = async n => { if (!reduce) await p.screenshot({ path: path.join(SHOTS, `depth-${TAG}-pixel7-${n}.png`) }); };
   ok(await ev(() => document.body.classList.contains('depth') && getComputedStyle(document.getElementById('seatNav')).display === 'none'), `${tag}: phone portrait uses the depth layout (back cards are the seat buttons; no chip row)`);

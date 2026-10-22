@@ -829,6 +829,24 @@
   .mini .mnote svg { width: 100%; height: 100%; display: block; }
   body.theme-arcade .mini .mnote { color: #ffd166; }
   .seat.has-notes .mini .mnote { display: block; }
+
+  /* v4.9 perf: no endless loops. Back cards never shake/nudge; centre overdue shake runs 3 times. */
+  body .seats .seat.side.nudge, body .seats .seat.side.timeup { animation: none !important; }
+  body:not(.select-mode) .seats .seat.timeup:not(.paused):not(.side) { animation-iteration-count: 3; }
+  .seat.timeup:not(.paused) { animation-iteration-count: 3; }
+  /* glows pulse a few times, then hold a static level that still signals status */
+  .seat.timeup::after { animation-iteration-count: 6; opacity: .8; will-change: auto; }
+  .seat.yellow:not(.paused)::before { animation-iteration-count: 4; opacity: .55; will-change: auto; }
+  .seat.red:not(.timeup):not(.paused)::before { animation-iteration-count: 8; opacity: .6; will-change: auto; }
+  .seat-nav button.alert::after { animation-iteration-count: 8; opacity: .7; }
+  body.theme-premium:not(.select-mode) .seats .seat.centre .fx::after { animation-iteration-count: 2; }
+  body.q1 .seats .seat::before, body.q1 .seats .seat::after, body.q1 .seats .seat .fx::after, body.q1 .seat-nav button::after,
+  body.lite .seats .seat::after, body.lite .seat-nav button::after { animation: none !important; }
+  body.q1 .seats .seat.timeup { animation: none !important; }
+  @media (prefers-reduced-motion: reduce) { .seat.timeup::after { opacity: 1; } }
+  /* side-card glows off while dragging/gliding; short fade back at rest */
+  .seats .seat.side::before, .seats .seat.side::after { transition: opacity .18s ease-out; }
+  body.moving .seats .seat.side::before, body.moving .seats .seat.side::after { animation: none !important; opacity: 0 !important; visibility: visible; transition: none; }
 </style>
 </head>
 <body>
@@ -2616,7 +2634,7 @@ updateNav();
 fxSafe(updateMood);
 fxSafe(FX.intro);
 fxSafe(FX.entrance);
-setInterval(tick, 250);
+(function loop() { setTimeout(() => { loop(); tick(); }, 1000 - (Date.now() % 1000) + 8); })();   // v4.9: 1 Hz, on the second boundary
 updateWakeLock();
 </script>
 </body>
