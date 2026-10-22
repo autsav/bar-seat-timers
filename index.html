@@ -823,6 +823,12 @@
   .mini .ms { display: none; }
   @container (max-width: 64px) { .mini .mf { display: none; } .mini .ms { display: inline; } body.depth .seats .seat .mini .mm { font-size: min(calc(13px * var(--tinv, 6)), 30cqi); } }
   @container (max-width: 30px) { body.depth .seats .seat .mini .mm { writing-mode: vertical-rl; font-size: min(calc(13px * var(--tinv, 6)), 70cqi); } }
+
+  /* v4.8: notes marker on back cards, sits in the number column (the visible strip) */
+  .mini .mnote { display: none; width: calc(15px * var(--tinv, 1)); max-width: 55cqi; aspect-ratio: 1; color: #e8c27a; filter: drop-shadow(0 1px 1px rgba(0,0,0,.7)); line-height: 0; }
+  .mini .mnote svg { width: 100%; height: 100%; display: block; }
+  body.theme-arcade .mini .mnote { color: #ffd166; }
+  .seat.has-notes .mini .mnote { display: block; }
 </style>
 </head>
 <body>
@@ -2079,6 +2085,7 @@ function updateMood() {
 function fxSafe(fn) { try { fn(); } catch (e) {} }
 
 // Updates a card in place: only writes to the DOM when a value actually changed (no re-render, no forced reflow).
+function hasNotes(s) { return !!(s && typeof s.notes === 'string' && s.notes.trim()); }
 function setText(node, v) { if (node.textContent !== v) node.textContent = v; }
 function updateSeat(id) {
   const s = seats[id];
@@ -2089,7 +2096,7 @@ function updateSeat(id) {
   const state = seatState(s);
   const remaining = getDurationMs(s) - getElapsed(s);
   const wasSel = el.classList.contains('selected');
-  const cls = 'seat ' + (colour || 'free') + (s.paused ? ' paused' : '') + (s.running && remaining <= 0 ? ' timeup' : '') + (s.selected ? ' selected' : '')
+  const cls = 'seat ' + (colour || 'free') + (s.paused ? ' paused' : '') + (s.running && remaining <= 0 ? ' timeup' : '') + (s.selected ? ' selected' : '') + (hasNotes(s) ? ' has-notes' : '')
     + ['side', 'centre', 'pressing', 'sl', 'sr', 'flag', 'stuck', 'stick-head', 'stick-tail'].filter(k => el.classList.contains(k)).map(k => ' ' + k).join('')
     + (el.classList.contains('side') && !selectMode && FX.on() && s.running && remaining <= 0 ? ' nudge' : '');
   if (el.className !== cls) el.className = cls;
@@ -2353,7 +2360,7 @@ function renderSeats() {
         <span class="sel-check" aria-hidden="true">✓</span>
       </div>
       <div class="fx" aria-hidden="true"><div class="stripes"></div></div>
-      <div class="mini" aria-hidden="true"><span class="mn"><small>B</small><b>${i + 1}</b></span><i class="md"></i><span class="mm"><span class="mf"></span><span class="ms"></span></span><span class="mp">paused</span><i class="mbar"><i></i></i></div><span class="dim" aria-hidden="true"></span><span class="refl" aria-hidden="true"></span>
+      <div class="mini" aria-hidden="true"><span class="mn"><small>B</small><b>${i + 1}</b></span><i class="mnote" role="img" aria-label="has notes"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 3h10l4 4v14H5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 11h8M8 15h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></i><i class="md"></i><span class="mm"><span class="mf"></span><span class="ms"></span></span><span class="mp">paused</span><i class="mbar"><i></i></i></div><span class="dim" aria-hidden="true"></span><span class="refl" aria-hidden="true"></span>
       <div class="timer-row">
         <div class="timer" aria-label="Time remaining for ${U}">--:--</div>
         <div class="ring" role="progressbar" aria-label="${U} session progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="glow"></span><span class="lead" aria-hidden="true"></span><span class="h r"><i></i></span><span class="h l"><i></i></span></div>
@@ -2375,7 +2382,7 @@ function renderSeats() {
     d.addEventListener('pointerdown', onSeatPointerDown);
     d.addEventListener('click', e => onSeatClick(e, id));
     d.addEventListener('contextmenu', e => e.preventDefault());
-    d._refs.notes.addEventListener('input', e => { seats[id].notes = e.target.value; saveAll(); });
+    d._refs.notes.addEventListener('input', e => { seats[id].notes = e.target.value; saveAll(); const el = document.getElementById('seat-' + id); if (el && el.classList.contains('has-notes') !== hasNotes(seats[id])) el.classList.toggle('has-notes', hasNotes(seats[id])); });
     d._refs.primary.addEventListener('click', () => { seatPrimary(id); updateWakeLock(); });
     d._refs.extend.addEventListener('click', () => extendTimer(id));
     d._refs.reset.addEventListener('click', () => resetSeat(id));

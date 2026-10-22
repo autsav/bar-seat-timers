@@ -429,6 +429,10 @@ async function motionTests(browser, name, opts, reduce) {
   await ev(() => toggleGuestView()); await tick(300);
   { const f = await ev(() => [[false, 5e5], [true, 2530000], [true, 61000], [true, 59000], [true, 0], [true, -70000], [true, -1000], [true, 3600000]].map(([r, ms]) => sideTime(r, ms)));
     const want = [['free','free'], ['42:10','43m'], ['1:01','2m'], ['0:59','1m'], ['+0:00','+1m'], ['+1:10','+2m'], ['+0:01','+1m'], ['60:00','60m']];
+    { const h = await ev(() => [hasNotes({ notes: '' }), hasNotes({ notes: '   ' }), hasNotes({ notes: 'VIP' }), hasNotes({}), hasNotes(null), hasNotes({ notes: '\n x ' })]);
+      ok(JSON.stringify(h) === '[false,false,true,false,false,true]', `${tag}: hasNotes trims (${h})`);
+      const m = await ev(() => { const el = document.getElementById('seat-b3'), i = el.querySelector('.mnote'); return { lbl: i && i.getAttribute('aria-label'), txt: i ? i.textContent.trim() : 'x' }; });
+      ok(m.lbl === 'has notes' && m.txt === '', `${tag}: notes icon labelled, no note text (${JSON.stringify(m)})`); }
     want.forEach((w, i) => ok(f[i].full === w[0] && f[i].short === w[1], `${tag}: sideTime format #${i} -> ${JSON.stringify(f[i])}`)); }
   ok(await ev(() => { const g = document.querySelector('#guest-b5 .gt'); return g.children.length === g.textContent.length && g.textContent === formatTime(Math.max(0, getDurationMs(seats.b5) - getElapsed(seats.b5))); }), `${tag}: flip-clock digits show the exact remaining time`);
   await ev(() => { endSession('b1', false); }); await tick(300);
